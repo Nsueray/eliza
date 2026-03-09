@@ -69,8 +69,12 @@ function formatDate(d) {
 
 export default function WarRoom() {
   const [clock, setClock] = useState("");
-  const [summary, setSummary] = useState({});
+  const [mode, setMode] = useState("edition");
+  const [expoView, setExpoView] = useState("upcoming");
+  const [editionSummary, setEditionSummary] = useState({});
+  const [fiscalSummary, setFiscalSummary] = useState({});
   const [expos, setExpos] = useState([]);
+  const [allExpos, setAllExpos] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
@@ -84,11 +88,20 @@ export default function WarRoom() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API}/revenue/summary`).then(r => r.json()).then(setSummary);
+    fetch(`${API}/revenue/summary`).then(r => r.json()).then(setFiscalSummary);
     fetch(`${API}/expos/metrics`).then(r => r.json()).then(setExpos);
+    fetch(`${API}/expos/metrics?year=2026`).then(r => r.json()).then(setAllExpos);
     fetch(`${API}/sales/leaderboard`).then(r => r.json()).then(setLeaderboard);
   }, []);
 
+  useEffect(() => {
+    const url = expoView === "all"
+      ? `${API}/revenue/edition-summary?year=2026`
+      : `${API}/revenue/edition-summary`;
+    fetch(url).then(r => r.json()).then(setEditionSummary);
+  }, [expoView]);
+
+  const summary = mode === "edition" ? editionSummary : fiscalSummary;
   const top10Agents = leaderboard.slice(0, 10);
 
   const agentChartData = {
@@ -147,7 +160,7 @@ export default function WarRoom() {
           align-items: center;
           padding: 16px 0 24px;
           border-bottom: 1px solid rgba(0,212,255,0.15);
-          margin-bottom: 28px;
+          margin-bottom: 24px;
         }
         .header h1 {
           font-family: "Space Mono", monospace;
@@ -167,6 +180,87 @@ export default function WarRoom() {
           font-size: 28px;
           color: #00D4FF;
           text-shadow: 0 0 20px rgba(0,212,255,0.3);
+        }
+
+        .toggle-bar {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 8px;
+        }
+        .toggle-btn {
+          font-family: "Space Mono", monospace;
+          font-size: 12px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 10px 24px;
+          border-radius: 8px;
+          border: 1px solid #00D4FF;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          background: transparent;
+          color: #00D4FF;
+        }
+        .toggle-btn.active {
+          background: #00D4FF;
+          color: #0a0e1a;
+          font-weight: 700;
+          box-shadow: 0 0 20px rgba(0,212,255,0.25);
+        }
+        .toggle-btn:not(.active):hover {
+          background: rgba(0,212,255,0.1);
+        }
+        .mode-desc {
+          font-size: 12px;
+          color: #555d75;
+          margin-bottom: 24px;
+          font-style: italic;
+        }
+
+        .radar-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid rgba(0,212,255,0.1);
+        }
+        .radar-toggle {
+          display: flex;
+          gap: 6px;
+        }
+        .radar-btn {
+          font-family: "Space Mono", monospace;
+          font-size: 10px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          padding: 6px 14px;
+          border-radius: 6px;
+          border: 1px solid #00D4FF;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          background: transparent;
+          color: #00D4FF;
+        }
+        .radar-btn.active {
+          background: #00D4FF;
+          color: #0a0e1a;
+          font-weight: 700;
+        }
+        .radar-btn:not(.active):hover {
+          background: rgba(0,212,255,0.1);
+        }
+        .completed-badge {
+          display: inline-block;
+          font-family: "Space Mono", monospace;
+          font-size: 9px;
+          letter-spacing: 1px;
+          background: rgba(136,146,176,0.2);
+          color: #8892b0;
+          padding: 2px 8px;
+          border-radius: 4px;
+          margin-left: 10px;
+          vertical-align: middle;
         }
 
         .section-title {
@@ -353,10 +447,13 @@ export default function WarRoom() {
           .header { flex-direction: column; align-items: flex-start; gap: 8px; }
           .header h1 { font-size: 18px; letter-spacing: 3px; }
           .clock { font-size: 20px; }
+          .toggle-bar { flex-direction: column; align-items: flex-start; }
+          .toggle-btn { padding: 8px 16px; font-size: 11px; }
+          .radar-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+          .radar-btn { padding: 5px 10px; font-size: 9px; }
           .kpi-grid { grid-template-columns: 1fr; }
           .kpi-card .value { font-size: 22px; }
           .expo-grid { grid-template-columns: 1fr; }
-          .expo-card .expo-stats { grid-template-columns: repeat(3, 1fr); }
           .chart-wrap { height: 280px; }
           .lb-table th, .lb-table td { padding: 6px 8px; font-size: 11px; }
         }
@@ -372,8 +469,27 @@ export default function WarRoom() {
           <div className="clock">{clock}</div>
         </div>
 
+        {/* MODE TOGGLE */}
+        <div className="toggle-bar">
+          <button
+            className={`toggle-btn ${mode === "edition" ? "active" : ""}`}
+            onClick={() => setMode("edition")}
+          >Edition Mode</button>
+          <button
+            className={`toggle-btn ${mode === "fiscal" ? "active" : ""}`}
+            onClick={() => setMode("fiscal")}
+          >Fiscal Mode</button>
+        </div>
+        <div className="mode-desc">
+          {mode === "edition"
+            ? "Showing expo performance \u2014 Valid + Transferred In contracts"
+            : "Showing sales performance \u2014 Valid + Transferred Out contracts"}
+        </div>
+
         {/* KPI CARDS */}
-        <h3 className="section-title">2026 Performance</h3>
+        <h3 className="section-title">
+          {mode === "edition" ? "Expo Performance" : "Sales Performance 2026"}
+        </h3>
         <div className="kpi-grid">
           <div className="kpi-card">
             <div className="label">Total Revenue</div>
@@ -389,54 +505,76 @@ export default function WarRoom() {
           </div>
         </div>
 
-        {/* EXPO RADAR */}
-        <h3 className="section-title">Expo Radar — Next 12 Months</h3>
-        <div className="expo-grid">
-          {expos.map(expo => {
-            const pct = expo.progress_percent ? Number(expo.progress_percent) : null;
-            return (
-              <div key={expo.id} className="expo-card">
-                <div className="expo-header">
-                  <div className="expo-name">{expo.name}</div>
-                  <div className="expo-date">{formatDate(expo.start_date)}</div>
-                </div>
-                <div className="expo-country">{getFlag(expo.country)} {expo.country || "International"}</div>
-                <div className="expo-stats">
-                  <div className="stat">
-                    <div className="stat-val">{fmt(expo.contracts)}</div>
-                    <div className="stat-label">Contracts</div>
-                  </div>
-                  <div className="stat">
-                    <div className="stat-val">{fmt(expo.sold_m2)}</div>
-                    <div className="stat-label">Sold M²</div>
-                  </div>
-                  <div className="stat">
-                    <div className="stat-val">{fmtEur(expo.revenue_eur)}</div>
-                    <div className="stat-label">Revenue</div>
-                  </div>
-                </div>
-                {pct !== null ? (
-                  <div className="progress-wrap">
-                    <div className="progress-label">
-                      <span>{fmt(expo.sold_m2)} / {fmt(expo.target_m2)} m²</span>
-                      <span className="pct" style={{ color: getProgressColor(pct) }}>{pct}%</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={{
-                        width: `${Math.min(pct, 100)}%`,
-                        backgroundColor: getProgressColor(pct),
-                      }} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="no-target">No target set</div>
-                )}
+        {/* EDITION MODE: EXPO RADAR */}
+        {mode === "edition" && (
+          <>
+            <div className="radar-header">
+              <h3 className="section-title" style={{ marginBottom: 0, borderBottom: "none", paddingBottom: 0 }}>
+                {expoView === "upcoming" ? "Expo Radar — Next 12 Months" : "Expo Radar — All 2026"}
+              </h3>
+              <div className="radar-toggle">
+                <button
+                  className={`radar-btn ${expoView === "upcoming" ? "active" : ""}`}
+                  onClick={() => setExpoView("upcoming")}
+                >Upcoming</button>
+                <button
+                  className={`radar-btn ${expoView === "all" ? "active" : ""}`}
+                  onClick={() => setExpoView("all")}
+                >All 2026</button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+            <div className="expo-grid">
+              {(expoView === "upcoming" ? expos : allExpos).map(expo => {
+                const isCompleted = expo.start_date && new Date(expo.start_date) < new Date();
+                const pct = expo.progress_percent ? Number(expo.progress_percent) : null;
+                return (
+                  <div key={expo.id} className="expo-card" style={isCompleted ? { opacity: 0.6 } : {}}>
+                    <div className="expo-header">
+                      <div className="expo-name">
+                        {expo.name}
+                        {isCompleted && <span className="completed-badge">COMPLETED</span>}
+                      </div>
+                      <div className="expo-date">{formatDate(expo.start_date)}</div>
+                    </div>
+                    <div className="expo-country">{getFlag(expo.country)} {expo.country || "International"}</div>
+                    <div className="expo-stats">
+                      <div className="stat">
+                        <div className="stat-val">{fmt(expo.contracts)}</div>
+                        <div className="stat-label">Contracts</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-val">{fmt(expo.sold_m2)}</div>
+                        <div className="stat-label">Sold M²</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-val">{fmtEur(expo.revenue_eur)}</div>
+                        <div className="stat-label">Revenue</div>
+                      </div>
+                    </div>
+                    {pct !== null ? (
+                      <div className="progress-wrap">
+                        <div className="progress-label">
+                          <span>{fmt(expo.sold_m2)} / {fmt(expo.target_m2)} m²</span>
+                          <span className="pct" style={{ color: getProgressColor(pct) }}>{pct}%</span>
+                        </div>
+                        <div className="progress-bar">
+                          <div className="progress-fill" style={{
+                            width: `${Math.min(pct, 100)}%`,
+                            backgroundColor: getProgressColor(pct),
+                          }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="no-target">No target set</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
 
-        {/* SALES LEADERBOARD */}
+        {/* SALES LEADERBOARD — always visible */}
         <div className="panel">
           <h3 className="section-title">Sales Leaderboard 2026</h3>
           <div className="chart-wrap">

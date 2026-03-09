@@ -20,6 +20,38 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+router.get('/edition-summary', async (req, res) => {
+  try {
+    const { year } = req.query;
+    let expoFilter;
+    let params = [];
+
+    if (year) {
+      expoFilter = 'EXTRACT(YEAR FROM start_date) = $1';
+      params = [parseInt(year)];
+    } else {
+      expoFilter = `start_date >= CURRENT_DATE AND start_date <= CURRENT_DATE + INTERVAL '12 months'`;
+    }
+
+    const result = await query(`
+      SELECT
+        COUNT(*) AS total_contracts,
+        COALESCE(ROUND(SUM(m2)::numeric, 1), 0) AS total_m2,
+        COALESCE(ROUND(SUM(revenue_eur)::numeric, 2), 0) AS total_revenue_eur,
+        COUNT(DISTINCT expo_id) AS total_expos,
+        COUNT(DISTINCT sales_agent) AS total_agents
+      FROM edition_contracts
+      WHERE expo_id IN (
+        SELECT id FROM expos
+        WHERE ${expoFilter}
+      )
+    `, params);
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/by-country', async (req, res) => {
   try {
     const result = await query(`

@@ -376,20 +376,55 @@ Pages:
 - / → War Room main dashboard
 
 API endpoints used:
-- GET /api/revenue/summary
-- GET /api/revenue/by-country
-- GET /api/revenue/by-year
-- GET /api/expos/metrics
-- GET /api/sales/leaderboard
+- GET /api/revenue/summary → fiscal KPIs
+- GET /api/revenue/edition-summary → edition KPIs (supports ?year=2026)
+- GET /api/expos/metrics → upcoming expos (supports ?year=2026)
+- GET /api/sales/leaderboard → top agents (always visible)
 
 Charts:
-- Revenue by Expo: horizontal bar chart (top 10)
-- Sales Leaderboard: horizontal bar chart (top 10)
-- Revenue by Country: doughnut chart
-- Contracts Over Time: dual-axis line chart
+- Sales Leaderboard: horizontal bar chart (top 10) — always visible
 
 Design:
 - Dark theme: #0a0e1a background
 - Accent: #00D4FF cyan
 - Fonts: Space Mono (numbers), Outfit (labels)
 - Animated KPI counters on load
+---
+# 16. Reporting Logic
+
+## Edition Mode
+- View: edition_contracts → status IN ('Valid', 'Transferred In')
+- Purpose: Expo performance — "How is this expo doing?"
+- KPIs update based on Expo Radar toggle (Upcoming vs All 2026)
+
+## Fiscal Mode
+- View: fiscal_contracts → status IN ('Valid', 'Transferred Out')
+- Purpose: Sales performance — "How are we performing as a company?"
+- KPIs always show fiscal year 2026
+---
+# 17. Data Validation
+
+- ELIZA verified against Zoho: 4,971 m² / €1,292,321.08 — exact match
+- Cancelled contracts excluded from all War Room views
+- Contracts without expo date in Zoho are excluded from Zoho reports but included in ELIZA — ELIZA is more accurate
+---
+# 18. Active Expo Definition
+
+- Upcoming: start_date >= CURRENT_DATE AND <= CURRENT_DATE + 12 months
+- All 2026: EXTRACT(YEAR FROM start_date) = 2026
+---
+# 19. War Room Toggles
+
+- Edition Mode / Fiscal Mode (top level) — switches KPI source and visible sections
+- Upcoming / All 2026 (Expo Radar section, edition mode only) — also updates edition KPIs
+- Sales Leaderboard is always visible regardless of mode
+---
+# 20. Status Values (Zoho)
+
+| Status          | Count |
+|-----------------|-------|
+| Valid           | 2,991 |
+| Cancelled       |   462 |
+| Transferred Out |    40 |
+| Transferred In  |    17 |
+| On Hold         |     6 |

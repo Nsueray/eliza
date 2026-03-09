@@ -4,6 +4,18 @@ const { query } = require('../../../../packages/db/index.js');
 
 router.get('/metrics', async (req, res) => {
   try {
+    const { year } = req.query;
+    let whereClause;
+    let params = [];
+
+    if (year) {
+      whereClause = 'WHERE EXTRACT(YEAR FROM e.start_date) = $1';
+      params = [parseInt(year)];
+    } else {
+      whereClause = `WHERE e.start_date >= CURRENT_DATE
+        AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'`;
+    }
+
     const result = await query(`
       SELECT
         e.id, e.name, e.country, e.start_date,
@@ -17,11 +29,10 @@ router.get('/metrics', async (req, res) => {
         END AS progress_percent
       FROM expos e
       LEFT JOIN edition_contracts c ON c.expo_id = e.id
-      WHERE e.start_date >= CURRENT_DATE
-        AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'
+      ${whereClause}
       GROUP BY e.id
       ORDER BY e.start_date ASC
-    `);
+    `, params);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
