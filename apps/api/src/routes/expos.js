@@ -16,8 +16,7 @@ router.get('/metrics', async (req, res) => {
           ELSE ROUND((COALESCE(SUM(c.m2), 0) / e.target_m2 * 100)::numeric, 1)
         END AS progress_percent
       FROM expos e
-      LEFT JOIN contracts c ON c.expo_id = e.id
-        AND c.status IN ('Valid', 'Transferred In')
+      LEFT JOIN edition_contracts c ON c.expo_id = e.id
       WHERE e.start_date >= CURRENT_DATE
         AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'
       GROUP BY e.id
@@ -41,7 +40,7 @@ router.post('/calculate-targets', async (req, res) => {
         FROM expos e2
         JOIN (
           SELECT expo_id, SUM(m2) AS total_m2
-          FROM contracts
+          FROM edition_contracts
           GROUP BY expo_id
         ) sold ON sold.expo_id = e2.id
         WHERE e2.start_date < CURRENT_DATE
@@ -69,7 +68,7 @@ router.get('/:id', async (req, res) => {
     const result = await query(`
       SELECT c.company_name, c.country, c.sales_agent,
         c.m2, c.revenue_eur, c.currency, c.contract_date
-      FROM contracts c
+      FROM edition_contracts c
       WHERE c.expo_id = $1
       ORDER BY c.contract_date DESC
     `, [req.params.id]);

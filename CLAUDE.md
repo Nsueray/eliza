@@ -108,6 +108,18 @@ Full schema defined in:
 docs/architecture/ELIZA_SYSTEM_ARCHITECTURE.md
 All database access must go through:
 packages/db
+
+## Database Views
+
+edition_contracts
+- status IN ('Valid', 'Transferred In')
+- Use for: Expo Radar, expo progress, exhibitor counts
+- Question answered: "How is this expo performing?"
+
+fiscal_contracts
+- status IN ('Valid', 'Transferred Out')
+- Use for: Sales leaderboard, revenue by period, agent performance
+- Question answered: "How are we performing as a company?"
 ---
 # 8. Current Development Phase
 Phase 1 — Data Infrastructure

@@ -11,9 +11,8 @@ router.get('/summary', async (req, res) => {
         COALESCE(ROUND(SUM(revenue_eur)::numeric, 2), 0) AS total_revenue_eur,
         COUNT(DISTINCT expo_id) AS total_expos,
         COUNT(DISTINCT sales_agent) AS total_agents
-      FROM contracts
-      WHERE status IN ('Valid', 'Transferred In')
-        AND EXTRACT(YEAR FROM contract_date) = 2026
+      FROM fiscal_contracts
+      WHERE EXTRACT(YEAR FROM contract_date) = 2026
     `);
     res.json(result.rows[0]);
   } catch (error) {

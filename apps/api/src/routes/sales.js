@@ -10,9 +10,8 @@ router.get('/leaderboard', async (req, res) => {
         COUNT(*) AS contracts,
         COALESCE(SUM(m2), 0) AS total_m2,
         COALESCE(ROUND(SUM(revenue_eur)::numeric, 2), 0) AS revenue_eur
-      FROM contracts
+      FROM fiscal_contracts
       WHERE EXTRACT(YEAR FROM contract_date) = 2026
-        AND status IN ('Valid', 'Transferred Out')
         AND sales_agent IS NOT NULL
       GROUP BY sales_agent
       ORDER BY revenue_eur DESC
