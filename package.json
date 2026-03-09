@@ -1,0 +1,11 @@
+{
+  "name": "eliza",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api"
+  }
+}
