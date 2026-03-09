@@ -212,3 +212,135 @@ Primary modules for ELIZA sync:
 - Expenses → Expensess → expenses table
 - Expos → Vendors → expos table
 - Sales Agents → Sales_Agents → sales_agents table
+---
+# 14. Zoho Sales Contracts Field Mapping
+
+Module API name: Sales_Orders
+
+| Field Label              | API Name                  | Data Type              |
+|--------------------------|---------------------------|------------------------|
+| 1. Date/Amount/Type      | Date_Amount_Type          | Single Line            |
+| 2. Date/Amount/Type      | Date_Amount_Type2         | Single Line            |
+| 3. Date/Amount/Type      | Date_Amount_Type1         | Single Line            |
+| 4. Date/Amount/Type      | Date_Amount_Type4         | Single Line            |
+| 5. Date/Amount/Type      | Date_Amount_Type3         | Single Line            |
+| 1st Payment              | st_Payment                | Currency               |
+| 1st Payment Details      | st_Payment_Details        | Single Line            |
+| 2nd Payment              | nd_Payment                | Currency               |
+| 2nd Payment Details      | nd_Payment_Details        | Single Line            |
+| Adjustment               | Adjustment                | Currency               |
+| Advertising              | Advertising               | Pick List              |
+| AF Number                | AF_Number                 | Single Line (Unique)   |
+| Agent %                  | Agent                     | Percent                |
+| Agent Com. Done          | Agent_Com_Done            | Boolean                |
+| Agent Commission         | Agent_Comission           | Formula                |
+| Agent Commission Paid    | Agent_Comission_Paid      | Currency               |
+| Agent Commissions Note   | Agent_Comissions_Note     | Multi Line             |
+| Agent Name               | Agent_Name                | Pick List              |
+| Agent Registration Fee   | Agent_Registration_Fee    | Currency               |
+| Badge                    | Badge                     | Boolean                |
+| Balance                  | Balance                   | Formula                |
+| Balance Details          | Balance_Details           | Single Line            |
+| Balance.                 | Balance1                  | Formula                |
+| Billing City             | Billing_City              | Single Line            |
+| Billing Code             | Billing_Code              | Single Line            |
+| Billing Country          | Billing_Country           | Single Line            |
+| Billing State            | Billing_State             | Single Line            |
+| Billing Street           | Billing_Street            | Single Line            |
+| Boost Mail               | Boost_Mail                | Boolean                |
+| BuildUp Rules Email      | BuildUp_Rules_Email       | Boolean                |
+| Carrier                  | Carrier                   | Pick List              |
+| Catalogue form mail      | Katalog_Formu_Maili       | Boolean                |
+| Catalogue Page           | Catalogue_Page            | Lookup                 |
+| Company Name             | Account_Name              | Lookup                 |
+| Connected To             | Connected_To__s           | MultiModuleLookup      |
+| Contact Name             | Contact_Name              | Lookup                 |
+| Contract Date            | Contract_Date             | Date                   |
+| Country of Company       | Country                   | Pick List              |
+| Created By               | Created_By                | Single Line            |
+| Currency                 | Currency                  | Pick List              |
+| Customer No.             | Customer_No               | Single Line            |
+| Description              | Description               | Multi Line             |
+| Discount                 | Discount                  | Currency               |
+| Due Date                 | Due_Date                  | Date                   |
+| Exchange Rate            | Exchange_Rate             | Decimal                |
+| Excise Duty              | Excise_Duty               | Currency               |
+| Expo Date                | Expo_Date                 | Date                   |
+| Expo Name                | Expo_Name                 | Lookup                 |
+| Extra Freight Price      | Ektra_Navlun_Fiyati       | Currency               |
+| Extra Service Mail       | Ek_Hizmetler_Maili        | Boolean                |
+| Free M2                  | Free_M2                   | Number                 |
+| Freight                  | Navlun                    | Decimal                |
+| Grand Total              | Grand_Total               | Formula                |
+| Internal Notification    | Announcement              | Boolean                |
+| M2                       | M2                        | Number                 |
+| Modified By              | Modified_By               | Single Line            |
+| Navlun Hakedisi          | Navlun_Hakedisi           | Number                 |
+| Net Total                | Net_Total                 | Formula                |
+| Ordered Items            | Ordered_Items             | Subform                |
+| Payment Done             | Payment_Done              | Boolean                |
+| Payment Method           | Payment_Method            | Multiselect            |
+| Payment Reminder         | Payment_Reminder          | Boolean                |
+| Pending                  | Pending                   | Single Line            |
+| Potential Name           | Deal_Name                 | Lookup                 |
+| Purchase Order           | Purchase_Order            | Single Line            |
+| Quote Name               | Quote_Name                | Lookup                 |
+| Reason for Cancellation  | Reason_for_Cancellation   | Multi Line             |
+| Received Payments        | Received_Payment          | Subform                |
+| Registration Fee         | Registration_Fee          | Currency               |
+| Remaining Payment        | Remaining_Payment         | Formula                |
+| Sales Agent              | Sales_Agent               | Lookup                 |
+| Sales Commission         | Sales_Commission          | Currency               |
+| Sales Contract Owner     | Owner                     | Lookup                 |
+| Sales Group              | Sales_Group               | Pick List              |
+| Sales Type               | Sales_Type                | Pick List              |
+| Scan Link                | Scan_Link                 | URL                    |
+| SD %                     | SD                        | Percent                |
+| SD Com. Done             | SD_Com_Done               | Boolean                |
+| SD Commission            | SD_Comision               | Formula                |
+| SD Commission Notes      | SD_Comision_Notes         | Multi Line             |
+| SD Commission Paid       | SD_Comision_Paid          | Currency               |
+| SD Commission Remaining  | SD_Remaining_Payment      | Formula                |
+| Send Them All Now        | Hepsini_Hemen_Gonder      | Boolean                |
+| Shipment Deadline        | Shipment_Deadline         | Boolean                |
+| Shipment Volume          | Shipment_Volume           | Decimal                |
+| Shipping City            | Shipping_City             | Single Line            |
+| Shipping Code            | Shipping_Code             | Single Line            |
+| Shipping Country         | Shipping_Country          | Single Line            |
+| Shipping State           | Shipping_State            | Single Line            |
+| Shipping Street          | Shipping_Street           | Single Line            |
+| SO Number                | SO_Number                 | Long Integer           |
+| SR %                     | SR                        | Percent                |
+| SR Com. Done             | SR_Com_Done               | Boolean                |
+| SR Commission            | SR_Prim_S                 | Formula                |
+| SR Commission Notes      | SR_Comision_Notes         | Multi Line             |
+| SR Commission Paid       | Prim                      | Currency               |
+| SR Commission Remaining  | Prim_Remaining            | Formula                |
+| Stand Design Link        | Stand_Design_Link         | URL                    |
+| Stand Design Mail        | Stand_Cizimi_Mali         | Boolean                |
+| Stand Type               | Stand_Type                | Pick List              |
+| Status                   | Status                    | Pick List              |
+| Sub Total                | Sub_Total                 | Formula                |
+| Subject                  | Subject                   | Single Line            |
+| Tag                      | Tag                       | Single Line            |
+| Tax                      | Tax                       | Currency               |
+| Terms and Conditions     | Terms_and_Conditions      | Multi Line             |
+| Total M2                 | Total_M2                  | Formula                |
+| Total Payment            | Total_Payment             | Formula                |
+| Transportation           | Transportation            | Pick List              |
+| Validity                 | Validity                  | Pick List              |
+| Website                  | Website                   | Single Line            |
+| Welcome Mail             | Hosgeldiniz_Maili         | Boolean                |
+
+Primary fields for ELIZA sync:
+- AF_Number → contracts.af_number
+- Account_Name → contracts.company_name
+- Country → contracts.country
+- Sales_Agent → contracts.sales_agent
+- Expo_Name → contracts.expo_id (lookup)
+- Contract_Date → contracts.contract_date
+- M2 → contracts.m2
+- Grand_Total → contracts.revenue
+- Status → contracts.status
+- Sales_Type → contracts.sales_type
+- Total_M2 → reference for pavilion calculations
