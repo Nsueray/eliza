@@ -122,20 +122,19 @@ fiscal_contracts
 - Question answered: "How are we performing as a company?"
 ---
 # 8. Current Development Phase
-Phase 1 — Data Infrastructure
 
-Focus only on:
-- PostgreSQL schema
-- Zoho Sync Engine
-- Base API
+Completed:
+- Phase 1: Data Infrastructure (PostgreSQL schema, Zoho Sync Engine, Base API)
+- Phase 2: War Room Dashboard (Expo Radar, Sales Leaderboard, Financial KPIs)
+- Phase 3: AI Query Engine (POST /api/ai/query — natural language to SQL)
 
-**Current task: Bootstrap monorepo structure**
+In Progress:
+- Phase 4: Risk Engine (automated expo risk scoring)
 
-Do not start:
-- dashboard development
-- WhatsApp bot
-- AI analytics
-until the API and database are stable.
+Pending:
+- Phase 5: WhatsApp Bot
+- Phase 6: Telegram Bot
+- Phase 7: Alerts System
 ---
 # 9. Coding Conventions
 Use modern JavaScript.
