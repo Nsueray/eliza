@@ -5,17 +5,60 @@ const { query } = require('../../../../packages/db/index.js');
 router.get('/metrics', async (req, res) => {
   try {
     const result = await query(`
-      SELECT e.id, e.name, e.country, e.start_date,
+      SELECT
+        e.id, e.name, e.country, e.start_date,
         COUNT(c.id) AS contracts,
-        COALESCE(SUM(c.m2), 0) AS total_m2,
+        COALESCE(SUM(c.m2), 0) AS sold_m2,
         COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur,
-        ROUND(AVG(c.m2)::numeric, 1) AS avg_stand_size
-      FROM contracts c
-      JOIN expos e ON c.expo_id = e.id
-      GROUP BY e.id, e.name, e.country, e.start_date
-      ORDER BY revenue_eur DESC
+        e.target_m2,
+        CASE
+          WHEN e.target_m2 IS NULL OR e.target_m2 = 0 THEN NULL
+          ELSE ROUND((COALESCE(SUM(c.m2), 0) / e.target_m2 * 100)::numeric, 1)
+        END AS progress_percent
+      FROM expos e
+      LEFT JOIN contracts c ON c.expo_id = e.id
+        AND c.status IN ('Valid', 'Transferred In')
+      WHERE e.start_date >= CURRENT_DATE
+        AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'
+      GROUP BY e.id
+      ORDER BY e.start_date ASC
     `);
     res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/calculate-targets', async (req, res) => {
+  try {
+    await query(`
+      UPDATE expos e
+      SET target_m2 = sub.avg_m2
+      FROM (
+        SELECT
+          REGEXP_REPLACE(e2.name, '\\s*\\d{4}$', '') AS base_name,
+          ROUND(AVG(sold.total_m2)::numeric, 0) AS avg_m2
+        FROM expos e2
+        JOIN (
+          SELECT expo_id, SUM(m2) AS total_m2
+          FROM contracts
+          GROUP BY expo_id
+        ) sold ON sold.expo_id = e2.id
+        WHERE e2.start_date < CURRENT_DATE
+        GROUP BY base_name
+      ) sub
+      WHERE REGEXP_REPLACE(e.name, '\\s*\\d{4}$', '') = sub.base_name
+        AND e.start_date >= CURRENT_DATE
+        AND sub.avg_m2 > 0
+    `);
+    const result = await query(`
+      SELECT name, target_m2, start_date
+      FROM expos
+      WHERE start_date >= CURRENT_DATE
+        AND target_m2 IS NOT NULL
+      ORDER BY start_date ASC
+    `);
+    res.json({ updated: result.rows.length, expos: result.rows });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

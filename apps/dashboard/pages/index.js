@@ -5,26 +5,13 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
-  PointElement,
-  LineElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar, Doughnut, Line } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const API = "http://localhost:3001/api";
 
@@ -55,13 +42,36 @@ function AnimatedNumber({ value, prefix = "", duration = 1200 }) {
   return <span>{prefix}{fmt(display)}</span>;
 }
 
+const countryFlags = {
+  "Nigeria": "\u{1F1F3}\u{1F1EC}",
+  "Ghana": "\u{1F1EC}\u{1F1ED}",
+  "Kenya": "\u{1F1F0}\u{1F1EA}",
+  "Morocco": "\u{1F1F2}\u{1F1E6}",
+  "Algeria": "\u{1F1E9}\u{1F1FF}",
+  "Ivory Coast": "\u{1F1E8}\u{1F1EE}",
+  "Turkey": "\u{1F1F9}\u{1F1F7}",
+};
+
+function getFlag(country) {
+  return countryFlags[country] || "\u{1F30D}";
+}
+
+function getProgressColor(pct) {
+  if (pct >= 70) return "#00E676";
+  if (pct >= 40) return "#FFD600";
+  return "#FF5252";
+}
+
+function formatDate(d) {
+  if (!d) return "-";
+  return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export default function WarRoom() {
   const [clock, setClock] = useState("");
   const [summary, setSummary] = useState({});
   const [expos, setExpos] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
-  const [byCountry, setByCountry] = useState([]);
-  const [byYear, setByYear] = useState([]);
 
   useEffect(() => {
     const tick = () => {
@@ -77,147 +87,40 @@ export default function WarRoom() {
     fetch(`${API}/revenue/summary`).then(r => r.json()).then(setSummary);
     fetch(`${API}/expos/metrics`).then(r => r.json()).then(setExpos);
     fetch(`${API}/sales/leaderboard`).then(r => r.json()).then(setLeaderboard);
-    fetch(`${API}/revenue/by-country`).then(r => r.json()).then(setByCountry);
-    fetch(`${API}/revenue/by-year`).then(r => r.json()).then(setByYear);
   }, []);
 
-  const top10Expos = expos.slice(0, 10);
   const top10Agents = leaderboard.slice(0, 10);
-  const top10Countries = byCountry.slice(0, 10);
-
-  const expoChartData = {
-    labels: top10Expos.map(e => e.name.length > 30 ? e.name.slice(0, 28) + "…" : e.name),
-    datasets: [{
-      label: "Revenue (EUR)",
-      data: top10Expos.map(e => Number(e.revenue_eur)),
-      backgroundColor: "rgba(0, 212, 255, 0.8)",
-      borderColor: "#00D4FF",
-      borderWidth: 1,
-      borderRadius: 4,
-    }],
-  };
 
   const agentChartData = {
-    labels: top10Agents.map(a => a.sales_agent.length > 20 ? a.sales_agent.slice(0, 18) + "…" : a.sales_agent),
+    labels: top10Agents.map(a => a.sales_agent.length > 22 ? a.sales_agent.slice(0, 20) + "\u2026" : a.sales_agent),
     datasets: [{
-      label: "Revenue (EUR)",
+      label: "Revenue EUR",
       data: top10Agents.map(a => Number(a.revenue_eur)),
-      backgroundColor: "rgba(0, 212, 255, 0.7)",
+      backgroundColor: "rgba(0, 212, 255, 0.75)",
       borderColor: "#00D4FF",
       borderWidth: 1,
       borderRadius: 4,
     }],
   };
 
-  const countryColors = [
-    "#00D4FF", "#FF6B35", "#00E676", "#FFD600", "#E040FB",
-    "#FF5252", "#448AFF", "#69F0AE", "#FF6E40", "#7C4DFF",
-  ];
-
-  const countryChartData = {
-    labels: top10Countries.map(c => c.country),
-    datasets: [{
-      data: top10Countries.map(c => Number(c.revenue_eur)),
-      backgroundColor: countryColors,
-      borderColor: "#0a0e1a",
-      borderWidth: 2,
-    }],
-  };
-
-  const yearChartData = {
-    labels: byYear.map(y => y.year),
-    datasets: [
-      {
-        label: "Contracts",
-        data: byYear.map(y => Number(y.contracts)),
-        borderColor: "#00D4FF",
-        backgroundColor: "rgba(0, 212, 255, 0.1)",
-        fill: true,
-        yAxisID: "y",
-        tension: 0.3,
-        pointRadius: 4,
-        pointBackgroundColor: "#00D4FF",
-      },
-      {
-        label: "Revenue EUR",
-        data: byYear.map(y => Number(y.revenue_eur)),
-        borderColor: "#FF6B35",
-        backgroundColor: "rgba(255, 107, 53, 0.1)",
-        fill: true,
-        yAxisID: "y1",
-        tension: 0.3,
-        pointRadius: 4,
-        pointBackgroundColor: "#FF6B35",
-      },
-    ],
-  };
-
-  const darkChartOptions = {
+  const agentChartOptions = {
+    indexAxis: "y",
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: "#8892b0", font: { family: "Space Mono" } } },
+      legend: { display: false },
       tooltip: {
         backgroundColor: "#1a1f35",
         titleColor: "#00D4FF",
         bodyColor: "#ccd6f6",
         borderColor: "#1e2a4a",
         borderWidth: 1,
-        callbacks: {
-          label: (ctx) => `${ctx.dataset.label}: €${fmt(ctx.raw)}`,
-        },
+        callbacks: { label: (ctx) => fmtEur(ctx.raw) },
       },
     },
     scales: {
-      x: { ticks: { color: "#8892b0", font: { size: 10 } }, grid: { color: "rgba(136,146,176,0.1)" } },
-      y: { ticks: { color: "#8892b0", callback: v => "€" + fmt(v) }, grid: { color: "rgba(136,146,176,0.1)" } },
-    },
-  };
-
-  const horizontalOptions = {
-    ...darkChartOptions,
-    indexAxis: "y",
-    scales: {
-      ...darkChartOptions.scales,
       y: { ticks: { color: "#ccd6f6", font: { size: 11 } }, grid: { display: false } },
-      x: { ticks: { color: "#8892b0", callback: v => "€" + fmt(v) }, grid: { color: "rgba(136,146,176,0.1)" } },
-    },
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { position: "right", labels: { color: "#ccd6f6", font: { size: 11 }, padding: 12 } },
-      tooltip: {
-        backgroundColor: "#1a1f35",
-        titleColor: "#00D4FF",
-        bodyColor: "#ccd6f6",
-        callbacks: {
-          label: (ctx) => `${ctx.label}: €${fmt(ctx.raw)}`,
-        },
-      },
-    },
-  };
-
-  const dualAxisOptions = {
-    ...darkChartOptions,
-    scales: {
-      x: { ticks: { color: "#8892b0" }, grid: { color: "rgba(136,146,176,0.1)" } },
-      y: {
-        type: "linear",
-        position: "left",
-        ticks: { color: "#00D4FF" },
-        grid: { color: "rgba(136,146,176,0.1)" },
-        title: { display: true, text: "Contracts", color: "#00D4FF" },
-      },
-      y1: {
-        type: "linear",
-        position: "right",
-        ticks: { color: "#FF6B35", callback: v => "€" + fmt(v) },
-        grid: { drawOnChartArea: false },
-        title: { display: true, text: "Revenue EUR", color: "#FF6B35" },
-      },
+      x: { ticks: { color: "#8892b0", callback: v => fmtEur(v) }, grid: { color: "rgba(136,146,176,0.1)" } },
     },
   };
 
@@ -226,9 +129,6 @@ export default function WarRoom() {
       <Head>
         <title>ELIZA War Room</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
       </Head>
 
       <style jsx global>{`
@@ -239,39 +139,50 @@ export default function WarRoom() {
           font-family: "Outfit", sans-serif;
           min-height: 100vh;
         }
-        .war-room { max-width: 1440px; margin: 0 auto; padding: 24px 32px; }
+        .war-room { max-width: 1440px; margin: 0 auto; padding: 20px 24px; }
 
         .header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 20px 0 32px;
+          padding: 16px 0 24px;
           border-bottom: 1px solid rgba(0,212,255,0.15);
-          margin-bottom: 32px;
+          margin-bottom: 28px;
         }
         .header h1 {
           font-family: "Space Mono", monospace;
-          font-size: 28px;
+          font-size: 26px;
           color: #00D4FF;
           letter-spacing: 6px;
           text-transform: uppercase;
         }
         .header .subtitle {
-          font-size: 13px;
+          font-size: 12px;
           color: #8892b0;
           letter-spacing: 2px;
           margin-top: 4px;
         }
         .clock {
           font-family: "Space Mono", monospace;
-          font-size: 32px;
+          font-size: 28px;
           color: #00D4FF;
           text-shadow: 0 0 20px rgba(0,212,255,0.3);
         }
 
+        .section-title {
+          font-family: "Space Mono", monospace;
+          font-size: 13px;
+          color: #00D4FF;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          margin-bottom: 16px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid rgba(0,212,255,0.1);
+        }
+
         .kpi-grid {
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
+          grid-template-columns: repeat(3, 1fr);
           gap: 16px;
           margin-bottom: 32px;
         }
@@ -292,49 +203,125 @@ export default function WarRoom() {
           color: #8892b0;
           letter-spacing: 2px;
           text-transform: uppercase;
-          margin-bottom: 12px;
+          margin-bottom: 10px;
         }
         .kpi-card .value {
           font-family: "Space Mono", monospace;
-          font-size: 26px;
+          font-size: 28px;
+          color: #00D4FF;
+          font-weight: 700;
+        }
+
+        .expo-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+        .expo-card {
+          background: linear-gradient(145deg, #0f1525, #141b2d);
+          border: 1px solid rgba(0,212,255,0.08);
+          border-radius: 12px;
+          padding: 20px;
+          transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .expo-card:hover {
+          border-color: rgba(0,212,255,0.3);
+          box-shadow: 0 0 20px rgba(0,212,255,0.06);
+        }
+        .expo-card .expo-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 12px;
+        }
+        .expo-card .expo-name {
+          font-size: 16px;
+          font-weight: 600;
+          color: #e6f1ff;
+          line-height: 1.3;
+        }
+        .expo-card .expo-date {
+          font-family: "Space Mono", monospace;
+          font-size: 11px;
+          color: #8892b0;
+          white-space: nowrap;
+          margin-left: 12px;
+        }
+        .expo-card .expo-country {
+          font-size: 13px;
+          color: #8892b0;
+          margin-bottom: 14px;
+        }
+        .expo-card .expo-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+          margin-bottom: 14px;
+        }
+        .expo-card .stat {
+          text-align: center;
+        }
+        .expo-card .stat .stat-val {
+          font-family: "Space Mono", monospace;
+          font-size: 16px;
           color: #e6f1ff;
           font-weight: 700;
         }
-        .kpi-card.primary .value { color: #00D4FF; }
+        .expo-card .stat .stat-label {
+          font-size: 10px;
+          color: #8892b0;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-top: 2px;
+        }
+        .progress-wrap {
+          margin-top: 4px;
+        }
+        .progress-label {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: #8892b0;
+          margin-bottom: 6px;
+        }
+        .progress-label .pct {
+          font-family: "Space Mono", monospace;
+          font-weight: 700;
+        }
+        .progress-bar {
+          height: 6px;
+          background: rgba(136,146,176,0.15);
+          border-radius: 3px;
+          overflow: hidden;
+        }
+        .progress-fill {
+          height: 100%;
+          border-radius: 3px;
+          transition: width 0.8s ease;
+        }
+        .no-target {
+          font-size: 11px;
+          color: #555d75;
+          font-style: italic;
+          margin-top: 4px;
+        }
 
-        .section {
+        .panel {
           background: linear-gradient(145deg, #0f1525, #141b2d);
           border: 1px solid rgba(0,212,255,0.08);
           border-radius: 12px;
           padding: 24px;
-          margin-bottom: 24px;
+          margin-bottom: 32px;
         }
-        .section h2 {
-          font-family: "Space Mono", monospace;
-          font-size: 14px;
-          color: #00D4FF;
-          letter-spacing: 3px;
-          text-transform: uppercase;
-          margin-bottom: 20px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid rgba(0,212,255,0.1);
-        }
-        .chart-container { height: 380px; }
-        .chart-container-sm { height: 320px; }
+        .chart-wrap { height: 360px; }
 
-        .two-col {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 24px;
-          margin-bottom: 24px;
-        }
-
-        .leaderboard-table {
+        .lb-table {
           width: 100%;
           border-collapse: collapse;
-          margin-top: 16px;
+          margin-top: 20px;
         }
-        .leaderboard-table th {
+        .lb-table th {
           font-size: 10px;
           color: #8892b0;
           letter-spacing: 1.5px;
@@ -343,12 +330,12 @@ export default function WarRoom() {
           padding: 8px 12px;
           border-bottom: 1px solid rgba(0,212,255,0.1);
         }
-        .leaderboard-table td {
+        .lb-table td {
           font-size: 13px;
           padding: 10px 12px;
           border-bottom: 1px solid rgba(136,146,176,0.06);
         }
-        .leaderboard-table tr:hover td { background: rgba(0,212,255,0.03); }
+        .lb-table tr:hover td { background: rgba(0,212,255,0.03); }
         .rank {
           font-family: "Space Mono", monospace;
           color: #00D4FF;
@@ -361,14 +348,17 @@ export default function WarRoom() {
           text-align: right;
         }
 
-        @media (max-width: 1024px) {
-          .kpi-grid { grid-template-columns: repeat(3, 1fr); }
-          .two-col { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 640px) {
-          .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        @media (max-width: 768px) {
+          .war-room { padding: 16px; }
+          .header { flex-direction: column; align-items: flex-start; gap: 8px; }
           .header h1 { font-size: 18px; letter-spacing: 3px; }
           .clock { font-size: 20px; }
+          .kpi-grid { grid-template-columns: 1fr; }
+          .kpi-card .value { font-size: 22px; }
+          .expo-grid { grid-template-columns: 1fr; }
+          .expo-card .expo-stats { grid-template-columns: repeat(3, 1fr); }
+          .chart-wrap { height: 280px; }
+          .lb-table th, .lb-table td { padding: 6px 8px; font-size: 11px; }
         }
       `}</style>
 
@@ -383,8 +373,9 @@ export default function WarRoom() {
         </div>
 
         {/* KPI CARDS */}
+        <h3 className="section-title">2026 Performance</h3>
         <div className="kpi-grid">
-          <div className="kpi-card primary">
+          <div className="kpi-card">
             <div className="label">Total Revenue</div>
             <div className="value"><AnimatedNumber value={summary.total_revenue_eur} prefix="€" /></div>
           </div>
@@ -396,69 +387,83 @@ export default function WarRoom() {
             <div className="label">Total M²</div>
             <div className="value"><AnimatedNumber value={summary.total_m2} /></div>
           </div>
-          <div className="kpi-card">
-            <div className="label">Expos</div>
-            <div className="value"><AnimatedNumber value={summary.total_expos} /></div>
-          </div>
-          <div className="kpi-card">
-            <div className="label">Sales Agents</div>
-            <div className="value"><AnimatedNumber value={summary.total_agents} /></div>
-          </div>
         </div>
 
-        {/* REVENUE BY EXPO */}
-        <div className="section">
-          <h2>Revenue by Expo — Top 10</h2>
-          <div className="chart-container">
-            {top10Expos.length > 0 && <Bar data={expoChartData} options={horizontalOptions} />}
-          </div>
+        {/* EXPO RADAR */}
+        <h3 className="section-title">Expo Radar — Next 12 Months</h3>
+        <div className="expo-grid">
+          {expos.map(expo => {
+            const pct = expo.progress_percent ? Number(expo.progress_percent) : null;
+            return (
+              <div key={expo.id} className="expo-card">
+                <div className="expo-header">
+                  <div className="expo-name">{expo.name}</div>
+                  <div className="expo-date">{formatDate(expo.start_date)}</div>
+                </div>
+                <div className="expo-country">{getFlag(expo.country)} {expo.country || "International"}</div>
+                <div className="expo-stats">
+                  <div className="stat">
+                    <div className="stat-val">{fmt(expo.contracts)}</div>
+                    <div className="stat-label">Contracts</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-val">{fmt(expo.sold_m2)}</div>
+                    <div className="stat-label">Sold M²</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-val">{fmtEur(expo.revenue_eur)}</div>
+                    <div className="stat-label">Revenue</div>
+                  </div>
+                </div>
+                {pct !== null ? (
+                  <div className="progress-wrap">
+                    <div className="progress-label">
+                      <span>{fmt(expo.sold_m2)} / {fmt(expo.target_m2)} m²</span>
+                      <span className="pct" style={{ color: getProgressColor(pct) }}>{pct}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{
+                        width: `${Math.min(pct, 100)}%`,
+                        backgroundColor: getProgressColor(pct),
+                      }} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="no-target">No target set</div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* TWO COLUMN: LEADERBOARD + COUNTRY */}
-        <div className="two-col">
-          <div className="section">
-            <h2>Sales Leaderboard</h2>
-            <div className="chart-container-sm">
-              {top10Agents.length > 0 && <Bar data={agentChartData} options={horizontalOptions} />}
-            </div>
-            <table className="leaderboard-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Agent</th>
-                  <th style={{ textAlign: "right" }}>Contracts</th>
-                  <th style={{ textAlign: "right" }}>M²</th>
-                  <th style={{ textAlign: "right" }}>Revenue EUR</th>
+        {/* SALES LEADERBOARD */}
+        <div className="panel">
+          <h3 className="section-title">Sales Leaderboard 2026</h3>
+          <div className="chart-wrap">
+            {top10Agents.length > 0 && <Bar data={agentChartData} options={agentChartOptions} />}
+          </div>
+          <table className="lb-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Agent</th>
+                <th style={{ textAlign: "right" }}>Contracts</th>
+                <th style={{ textAlign: "right" }}>M²</th>
+                <th style={{ textAlign: "right" }}>Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {top10Agents.map((a, i) => (
+                <tr key={a.sales_agent}>
+                  <td className="rank">{i + 1}</td>
+                  <td className="agent-name">{a.sales_agent}</td>
+                  <td className="num">{fmt(a.contracts)}</td>
+                  <td className="num">{fmt(a.total_m2)}</td>
+                  <td className="num">{fmtEur(a.revenue_eur)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {top10Agents.map((a, i) => (
-                  <tr key={a.sales_agent}>
-                    <td className="rank">{i + 1}</td>
-                    <td className="agent-name">{a.sales_agent}</td>
-                    <td className="num">{fmt(a.contracts)}</td>
-                    <td className="num">{fmt(a.total_m2)}</td>
-                    <td className="num">{fmtEur(a.revenue_eur)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="section">
-            <h2>Revenue by Country</h2>
-            <div className="chart-container">
-              {top10Countries.length > 0 && <Doughnut data={countryChartData} options={doughnutOptions} />}
-            </div>
-          </div>
-        </div>
-
-        {/* CONTRACTS OVER TIME */}
-        <div className="section">
-          <h2>Contracts Over Time</h2>
-          <div className="chart-container">
-            {byYear.length > 0 && <Line data={yearChartData} options={dualAxisOptions} />}
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </>

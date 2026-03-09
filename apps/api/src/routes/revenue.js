@@ -7,11 +7,13 @@ router.get('/summary', async (req, res) => {
     const result = await query(`
       SELECT
         COUNT(*) AS total_contracts,
-        ROUND(SUM(m2)::numeric, 1) AS total_m2,
-        ROUND(SUM(revenue_eur)::numeric, 2) AS total_revenue_eur,
+        COALESCE(ROUND(SUM(m2)::numeric, 1), 0) AS total_m2,
+        COALESCE(ROUND(SUM(revenue_eur)::numeric, 2), 0) AS total_revenue_eur,
         COUNT(DISTINCT expo_id) AS total_expos,
         COUNT(DISTINCT sales_agent) AS total_agents
       FROM contracts
+      WHERE status IN ('Valid', 'Transferred In')
+        AND EXTRACT(YEAR FROM contract_date) = 2026
     `);
     res.json(result.rows[0]);
   } catch (error) {

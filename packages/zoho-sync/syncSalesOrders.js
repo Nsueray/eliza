@@ -69,6 +69,7 @@ function mapRecord(record, expoMap) {
     currency: currency,
     exchange_rate: exchangeRate,
     revenue_eur: revenueEur,
+    status: record.Status || null,
   };
 }
 
@@ -106,9 +107,9 @@ async function syncSalesOrders() {
     }
 
     const result = await query(
-      `INSERT INTO contracts (af_number, company_name, country, sales_agent, m2, revenue, contract_date, sales_type, expo_id, currency, exchange_rate, revenue_eur)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-       ON CONFLICT (af_number) DO UPDATE SET expo_id = EXCLUDED.expo_id, currency = EXCLUDED.currency, exchange_rate = EXCLUDED.exchange_rate, revenue_eur = EXCLUDED.revenue_eur`,
+      `INSERT INTO contracts (af_number, company_name, country, sales_agent, m2, revenue, contract_date, sales_type, expo_id, currency, exchange_rate, revenue_eur, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       ON CONFLICT (af_number) DO UPDATE SET expo_id = EXCLUDED.expo_id, currency = EXCLUDED.currency, exchange_rate = EXCLUDED.exchange_rate, revenue_eur = EXCLUDED.revenue_eur, status = EXCLUDED.status`,
       [
         mapped.af_number,
         mapped.company_name,
@@ -122,6 +123,7 @@ async function syncSalesOrders() {
         mapped.currency,
         mapped.exchange_rate,
         mapped.revenue_eur,
+        mapped.status,
       ]
     );
 

@@ -4,9 +4,12 @@ const express = require('express');
 const expoRoutes = require('./routes/expos');
 const salesRoutes = require('./routes/sales');
 const revenueRoutes = require('./routes/revenue');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+app.use(express.json());
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -20,6 +23,7 @@ app.get('/health', (req, res) => {
 app.use('/api/expos', expoRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/revenue', revenueRoutes);
+app.use('/api/ai', aiRoutes);
 
 app.listen(PORT, () => {
   console.log(`ELIZA API running on port ${PORT}`);
