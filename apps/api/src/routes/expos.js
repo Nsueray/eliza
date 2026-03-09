@@ -7,8 +7,8 @@ router.get('/metrics', async (req, res) => {
     const result = await query(`
       SELECT e.id, e.name, e.country, e.start_date,
         COUNT(c.id) AS contracts,
-        SUM(c.m2) AS total_m2,
-        ROUND(SUM(c.revenue_eur)::numeric, 2) AS revenue_eur,
+        COALESCE(SUM(c.m2), 0) AS total_m2,
+        COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur,
         ROUND(AVG(c.m2)::numeric, 1) AS avg_stand_size
       FROM contracts c
       JOIN expos e ON c.expo_id = e.id

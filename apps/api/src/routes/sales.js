@@ -7,8 +7,8 @@ router.get('/leaderboard', async (req, res) => {
     const result = await query(`
       SELECT sales_agent,
         COUNT(*) AS contracts,
-        SUM(m2) AS total_m2,
-        ROUND(SUM(revenue_eur)::numeric, 2) AS revenue_eur
+        COALESCE(SUM(m2), 0) AS total_m2,
+        COALESCE(ROUND(SUM(revenue_eur)::numeric, 2), 0) AS revenue_eur
       FROM contracts
       WHERE sales_agent IS NOT NULL
       GROUP BY sales_agent

@@ -354,3 +354,30 @@ Primary fields for ELIZA sync:
 - Status → contracts.status
 - Sales_Type → contracts.sales_type
 - Total_M2 → reference for pavilion calculations
+---
+# 15. War Room Dashboard
+
+Location: apps/dashboard (Next.js)
+Running on: http://localhost:3000
+
+Pages:
+- / → War Room main dashboard
+
+API endpoints used:
+- GET /api/revenue/summary
+- GET /api/revenue/by-country
+- GET /api/revenue/by-year
+- GET /api/expos/metrics
+- GET /api/sales/leaderboard
+
+Charts:
+- Revenue by Expo: horizontal bar chart (top 10)
+- Sales Leaderboard: horizontal bar chart (top 10)
+- Revenue by Country: doughnut chart
+- Contracts Over Time: dual-axis line chart
+
+Design:
+- Dark theme: #0a0e1a background
+- Accent: #00D4FF cyan
+- Fonts: Space Mono (numbers), Outfit (labels)
+- Animated KPI counters on load

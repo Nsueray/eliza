@@ -19,4 +19,41 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+router.get('/by-country', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        c.country,
+        COUNT(*) AS contracts,
+        COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur
+      FROM contracts c
+      WHERE c.country IS NOT NULL
+      GROUP BY c.country
+      ORDER BY revenue_eur DESC
+      LIMIT 15
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/by-year', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        EXTRACT(YEAR FROM contract_date)::integer AS year,
+        COUNT(*) AS contracts,
+        COALESCE(ROUND(SUM(revenue_eur)::numeric, 2), 0) AS revenue_eur
+      FROM contracts
+      WHERE contract_date IS NOT NULL
+      GROUP BY year
+      ORDER BY year ASC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
