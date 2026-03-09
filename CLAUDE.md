@@ -207,6 +207,16 @@ Zoho region: Global
 Base API URL: https://www.zohoapis.com/crm/v2
 Auth URL: https://accounts.zoho.com/oauth/v2/token
 
+Vendors (Expos) key fields:
+
+| Field Label    | API Name          |
+|----------------|-------------------|
+| Vendor Name    | Vendor_Name       |
+| Country        | Country1          |
+| City           | City              |
+| Start Date     | Baslangic_Tarihi  |
+| End Date       | Bitis_Tarihi      |
+
 Primary modules for ELIZA sync:
 - Sales Contracts → Sales_Orders → contracts table
 - Expenses → Expensess → expenses table
