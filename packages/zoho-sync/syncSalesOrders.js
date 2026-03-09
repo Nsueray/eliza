@@ -42,9 +42,9 @@ function getExpoName(record) {
 
 function mapRecord(record, expoMap) {
   const expoName = getExpoName(record);
-  const revenue = record.Grand_Total || null;
+  const revenue = record.Grand_Total ?? null;
   const currency = record.Currency || null;
-  const exchangeRate = record.Exchange_Rate || null;
+  const exchangeRate = record.Exchange_Rate ?? null;
 
   let revenueEur = null;
   if (revenue !== null) {
@@ -60,7 +60,7 @@ function mapRecord(record, expoMap) {
     company_name: record.Account_Name ? record.Account_Name.name : null,
     country: record.Country || null,
     sales_agent: record.Sales_Agent ? record.Sales_Agent.name : null,
-    m2: record.M2 || null,
+    m2: record.M2 ?? null,
     revenue: revenue,
     contract_date: record.Contract_Date || null,
     sales_type: record.Sales_Type || null,
