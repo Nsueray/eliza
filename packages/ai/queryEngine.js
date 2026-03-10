@@ -161,7 +161,24 @@ function buildQuery(intent, entities) {
         params: [`%${e.expo_name || ''}%`, e.year || null],
       };
 
-    case 'agent_performance':
+    case 'agent_performance': {
+      const hasExpo = e.expo_name && e.expo_name.length > 0;
+      if (hasExpo) {
+        return {
+          sql: `SELECT c.sales_agent, COUNT(*) AS contracts,
+            COALESCE(SUM(c.m2),0) AS total_m2,
+            COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM fiscal_contracts c
+          JOIN expos e ON c.expo_id = e.id
+          WHERE c.sales_agent ILIKE $1
+            ${EXCL_AGENT}
+            AND e.name ILIKE $2
+            AND ($3::int IS NULL OR EXTRACT(YEAR FROM c.contract_date) = $3)
+            AND ($4::int IS NULL OR EXTRACT(MONTH FROM c.contract_date) = $4)
+          GROUP BY c.sales_agent`,
+          params: [`%${e.agent_name || ''}%`, `%${e.expo_name}%`, e.year || null, e.month || null],
+        };
+      }
       return {
         sql: `SELECT sales_agent, COUNT(*) AS contracts,
           COALESCE(SUM(m2),0) AS total_m2,
@@ -174,6 +191,7 @@ function buildQuery(intent, entities) {
         GROUP BY sales_agent`,
         params: [`%${e.agent_name || ''}%`, e.year || null, e.month || null],
       };
+    }
 
     case 'agent_country_breakdown':
       return {
@@ -274,7 +292,33 @@ function buildQuery(intent, entities) {
       };
     }
 
-    case 'revenue_summary':
+    case 'revenue_summary': {
+      // "bugün" → today only
+      if (e.period === 'today') {
+        return {
+          sql: `SELECT
+            COUNT(*) AS contracts,
+            COALESCE(SUM(m2),0) AS total_m2,
+            COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM edition_contracts
+          WHERE DATE(contract_date) = CURRENT_DATE`,
+          params: [],
+        };
+      }
+      // "son 2 yıl" → relative years
+      if (e.relative_years) {
+        return {
+          sql: `SELECT
+            EXTRACT(YEAR FROM contract_date)::integer AS year,
+            COUNT(*) AS contracts,
+            COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM edition_contracts
+          WHERE contract_date IS NOT NULL
+            AND contract_date >= CURRENT_DATE - ($1 || ' years')::interval
+          GROUP BY year ORDER BY year`,
+          params: [e.relative_years],
+        };
+      }
       return {
         sql: `SELECT
           EXTRACT(YEAR FROM contract_date)::integer AS year,
@@ -286,6 +330,7 @@ function buildQuery(intent, entities) {
         GROUP BY year ORDER BY year`,
         params: [e.year || null],
       };
+    }
 
     case 'expo_list':
       if (e.metric === 'risk') {

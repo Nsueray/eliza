@@ -215,6 +215,16 @@ const RULES = [
       ['revenu total'],
       ['kac kontrat', 'yil'],
       ['how many contracts', 'year'],
+      ['bugun', 'kontrat'],
+      ['bugun', 'satis'],
+      ['bugun', 'gelir'],
+      ['today', 'contract'],
+      ['today', 'revenue'],
+      ['today', 'sales'],
+      ['son 2 yil'],
+      ['son iki yil'],
+      ['last 2 year'],
+      ['last two year'],
     ],
   },
 
@@ -281,6 +291,11 @@ function extractEntities(norm, original) {
     entities.month = new Date().getMonth() + 1;
   }
 
+  // Period: today
+  if (norm.includes('bugun') || norm.includes('today') || norm.includes("aujourd'hui")) {
+    entities.period = 'today';
+  }
+
   // Relative time extraction
   const relDaysMatch = norm.match(/son (\d+) gun/);
   if (relDaysMatch) {
@@ -291,6 +306,15 @@ function extractEntities(norm, original) {
   }
   if (norm.includes('gecen ay') || norm.includes('last month') || norm.includes('mois dernier')) {
     entities.relative_month = 'last';
+  }
+
+  // Relative years extraction: "son 2 yıl" → relative_years: 2
+  const relYearsMatch = norm.match(/son (\d+) yil/);
+  if (relYearsMatch) {
+    entities.relative_years = parseInt(relYearsMatch[1]);
+  }
+  if (norm.includes('last 2 year') || norm.includes('last two year')) {
+    entities.relative_years = 2;
   }
 
   // Expo name extraction

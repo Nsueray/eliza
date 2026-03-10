@@ -9,7 +9,7 @@ const DELAY_BETWEEN = 500;
 const ERROR_KEYWORDS = [
   'veri yok', 'veri bulunamadı', 'data missing', 'sonuç bulunamadı',
   'bilgi yok', 'bilgi bulunamadı', 'no data available', 'no results found',
-  'not found in the database', 'unknown error', 'hesaplanamıyor',
+  'not found in the database', 'unknown error',
   'veri eksik', 'data is missing',
 ];
 
