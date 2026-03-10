@@ -16,10 +16,24 @@ const ACCENT_MAP = {
   'â': 'a', 'à': 'a',
 };
 
+// Turkish → English time mapping (applied after accent normalization)
+const TIME_MAP = [
+  ['bugun', 'today'],
+  ['dun', 'yesterday'],
+  ['bu hafta', 'this week'],
+  ['bu ay', 'this month'],
+  ['gecen hafta', 'last week'],
+  ['gecen ay', 'last month'],
+];
+
 function normalize(text) {
   let result = text.toLowerCase();
   for (const [accented, plain] of Object.entries(ACCENT_MAP)) {
     result = result.replaceAll(accented, plain);
+  }
+  // Map Turkish time phrases to English equivalents
+  for (const [tr, en] of TIME_MAP) {
+    result = result.replaceAll(tr, en);
   }
   return result;
 }
@@ -215,12 +229,20 @@ const RULES = [
       ['revenu total'],
       ['kac kontrat', 'yil'],
       ['how many contracts', 'year'],
-      ['bugun', 'kontrat'],
-      ['bugun', 'satis'],
-      ['bugun', 'gelir'],
       ['today', 'contract'],
       ['today', 'revenue'],
       ['today', 'sales'],
+      ['today', 'sozlesme'],
+      ['today', 'kontrat'],
+      ['today', 'gelir'],
+      ['today', 'satis'],
+      ['yesterday', 'contract'],
+      ['yesterday', 'revenue'],
+      ['yesterday', 'sales'],
+      ['yesterday', 'sozlesme'],
+      ['yesterday', 'kontrat'],
+      ['yesterday', 'gelir'],
+      ['yesterday', 'satis'],
       ['son 2 yil'],
       ['son iki yil'],
       ['last 2 year'],
@@ -241,7 +263,7 @@ const RULES = [
       ['expo list'],
       ['hangi fuar', 'risk'],
       ['expos at risk'],
-      ['bu ay', 'fuar'],
+      ['this month', 'fuar'],
       ['onumuzdeki', 'fuar'],
       ['en son fuar'],
       ['en hizli buyu'],
@@ -286,14 +308,16 @@ function extractEntities(norm, original) {
     entities.year = new Date().getFullYear();
   }
 
-  // Month extraction
-  if (/\bbu ay\b|\bthis month\b|\bce mois\b/.test(norm)) {
+  // Month extraction ("bu ay" already normalized to "this month")
+  if (/\bthis month\b|\bce mois\b/.test(norm)) {
     entities.month = new Date().getMonth() + 1;
   }
 
-  // Period: today
-  if (norm.includes('bugun') || norm.includes('today') || norm.includes("aujourd'hui")) {
+  // Period: today / yesterday
+  if (norm.includes('today') || norm.includes("aujourd'hui")) {
     entities.period = 'today';
+  } else if (norm.includes('yesterday') || norm.includes('hier')) {
+    entities.period = 'yesterday';
   }
 
   // Relative time extraction
@@ -301,10 +325,13 @@ function extractEntities(norm, original) {
   if (relDaysMatch) {
     entities.relative_days = parseInt(relDaysMatch[1]);
   }
-  if (norm.includes('bu hafta') || norm.includes('this week') || norm.includes('cette semaine')) {
+  if (norm.includes('this week') || norm.includes('cette semaine')) {
     entities.relative_days = 7;
   }
-  if (norm.includes('gecen ay') || norm.includes('last month') || norm.includes('mois dernier')) {
+  if (norm.includes('last week') || norm.includes('semaine derniere')) {
+    entities.relative_days = 14;
+  }
+  if (norm.includes('last month') || norm.includes('mois dernier')) {
     entities.relative_month = 'last';
   }
 

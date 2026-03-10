@@ -293,7 +293,7 @@ function buildQuery(intent, entities) {
     }
 
     case 'revenue_summary': {
-      // "bugün" → today only
+      // "bugün" / "today" → today only
       if (e.period === 'today') {
         return {
           sql: `SELECT
@@ -302,6 +302,18 @@ function buildQuery(intent, entities) {
             COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
           FROM edition_contracts
           WHERE DATE(contract_date) = CURRENT_DATE`,
+          params: [],
+        };
+      }
+      // "dün" / "yesterday"
+      if (e.period === 'yesterday') {
+        return {
+          sql: `SELECT
+            COUNT(*) AS contracts,
+            COALESCE(SUM(m2),0) AS total_m2,
+            COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM edition_contracts
+          WHERE DATE(contract_date) = CURRENT_DATE - 1`,
           params: [],
         };
       }
