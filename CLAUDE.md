@@ -91,8 +91,12 @@ Group participation.
 1 contract may represent multiple exhibitors.
 Sales Agent  
 Individual or agency responsible for a sale.
-Rebooking  
+Rebooking
 Exhibitor commits to the next edition.
+ELAN EXPO
+Internal operations agent. Not a real sales agent.
+Include in: revenue totals.
+Exclude from: m² totals, contract counts, exhibitor counts, agent rankings, company lists.
 ---
 # 7. Database
 Primary database: PostgreSQL

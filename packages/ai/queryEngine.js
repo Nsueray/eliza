@@ -9,6 +9,13 @@ const MODEL = process.env.AI_MODEL || 'claude-haiku-4-5-20251001';
 const ALLOWED_TABLES = ['expos', 'contracts', 'edition_contracts', 'fiscal_contracts', 'expo_metrics'];
 const FORBIDDEN_KEYWORDS = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE', 'EXEC'];
 
+// ELAN EXPO business rule: internal operations agent
+// Include in revenue totals. Exclude from: m² totals, contract counts,
+// exhibitor counts, agent performance rankings, company lists.
+const INTERNAL_AGENT = 'ELAN EXPO';
+const EXCL_AGENT = `AND c.sales_agent != '${INTERNAL_AGENT}'`;
+const EXCL_AGENT_FC = `AND sales_agent != '${INTERNAL_AGENT}'`;
+
 const INTENT_PROMPT = `You are an intent extractor for ELIZA, a business intelligence system for Elan Expo (the company that organizes exhibitions).
 
 IMPORTANT: "Elan Expo" is the COMPANY NAME, not an expo/exhibition. Never use "Elan Expo" as expo_name.
@@ -127,10 +134,10 @@ function buildQuery(intent, entities) {
     case 'expo_progress':
       return {
         sql: `SELECT e.name, e.start_date, e.target_m2,
-          COALESCE(SUM(c.m2),0) AS sold_m2,
+          COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END),0) AS sold_m2,
           COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS revenue_eur,
-          COUNT(c.id) AS contracts,
-          CASE WHEN e.target_m2 > 0 THEN ROUND((COALESCE(SUM(c.m2),0)/e.target_m2*100)::numeric,1) ELSE NULL END AS progress_pct
+          COUNT(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.id END) AS contracts,
+          CASE WHEN e.target_m2 > 0 THEN ROUND((COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END),0)/e.target_m2*100)::numeric,1) ELSE NULL END AS progress_pct
         FROM expos e
         LEFT JOIN edition_contracts c ON c.expo_id = e.id
         WHERE e.name ILIKE $1
@@ -146,6 +153,7 @@ function buildQuery(intent, entities) {
           COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
         FROM fiscal_contracts
         WHERE sales_agent ILIKE $1
+          ${EXCL_AGENT_FC}
           AND ($2::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $2)
           AND ($3::int IS NULL OR EXTRACT(MONTH FROM contract_date) = $3)
         GROUP BY sales_agent`,
@@ -190,6 +198,7 @@ function buildQuery(intent, entities) {
         WHERE e.name ILIKE $1
           AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
           AND c.country IS NOT NULL
+          ${EXCL_AGENT}
         GROUP BY c.country ORDER BY exhibitors DESC LIMIT 50`,
         params: [`%${e.expo_name || ''}%`, e.year || null],
       };
@@ -204,6 +213,7 @@ function buildQuery(intent, entities) {
           WHERE c.country ILIKE $1
             AND e.name ILIKE $2
             AND e.start_date >= CURRENT_DATE
+            ${EXCL_AGENT}
           ORDER BY c.m2 DESC LIMIT 50`,
           params: [`%${e.country || ''}%`, `%${e.expo_name}%`],
         };
@@ -214,6 +224,7 @@ function buildQuery(intent, entities) {
         JOIN expos e ON c.expo_id = e.id
         WHERE c.country ILIKE $1
           AND e.start_date >= CURRENT_DATE
+          ${EXCL_AGENT}
         GROUP BY e.name ORDER BY exhibitors DESC LIMIT 20`,
         params: [`%${e.country || ''}%`],
       };
@@ -228,6 +239,7 @@ function buildQuery(intent, entities) {
         WHERE ($1::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $1)
           AND ($2::int IS NULL OR EXTRACT(MONTH FROM contract_date) = $2)
           AND sales_agent IS NOT NULL
+          ${EXCL_AGENT_FC}
         GROUP BY sales_agent ORDER BY revenue_eur DESC LIMIT 10`,
         params: [e.year || null, e.month || null],
       };
@@ -260,8 +272,8 @@ function buildQuery(intent, entities) {
       if (e.year) {
         return {
           sql: `SELECT e.name, e.country, e.start_date,
-            COUNT(c.id) AS contracts,
-            COALESCE(SUM(c.m2),0) AS sold_m2,
+            COUNT(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.id END) AS contracts,
+            COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END),0) AS sold_m2,
             COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS revenue_eur
           FROM expos e
           LEFT JOIN edition_contracts c ON c.expo_id = e.id
@@ -272,8 +284,8 @@ function buildQuery(intent, entities) {
       }
       return {
         sql: `SELECT e.name, e.country, e.start_date,
-          COUNT(c.id) AS contracts,
-          COALESCE(SUM(c.m2),0) AS sold_m2,
+          COUNT(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.id END) AS contracts,
+          COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END),0) AS sold_m2,
           COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS revenue_eur
         FROM expos e
         LEFT JOIN edition_contracts c ON c.expo_id = e.id
@@ -292,6 +304,7 @@ function buildQuery(intent, entities) {
         WHERE e.name ILIKE $1
           AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
           AND c.sales_agent IS NOT NULL
+          ${EXCL_AGENT}
         GROUP BY c.sales_agent ORDER BY revenue_eur DESC LIMIT 20`,
         params: [`%${e.expo_name || ''}%`, e.year || null],
       };
@@ -306,6 +319,7 @@ function buildQuery(intent, entities) {
         JOIN expos e ON c.expo_id = e.id
         WHERE e.name ILIKE $1
           AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+          ${EXCL_AGENT}
         GROUP BY c.company_name, c.country
         ORDER BY revenue_eur DESC LIMIT 100`,
         params: [`%${e.expo_name || ''}%`, e.year || null],
@@ -464,6 +478,7 @@ function buildQuery(intent, entities) {
           FROM edition_contracts c
           JOIN expos e ON c.expo_id = e.id
           WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
+            ${EXCL_AGENT}
             AND e.name ILIKE $1
             AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
           GROUP BY e.id ORDER BY avg_price_per_m2 DESC LIMIT 20`,
@@ -480,6 +495,7 @@ function buildQuery(intent, entities) {
         FROM edition_contracts c
         JOIN expos e ON c.expo_id = e.id
         WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
+          ${EXCL_AGENT}
           AND ($1::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $1)
         GROUP BY e.id ORDER BY avg_price_per_m2 DESC LIMIT 20`,
         params: [e.year || null],
@@ -524,10 +540,11 @@ function buildQuery(intent, entities) {
     case 'general_stats':
     default:
       return {
-        sql: `SELECT COUNT(*) AS contracts,
+        sql: `SELECT
+          COUNT(CASE WHEN sales_agent != '${INTERNAL_AGENT}' THEN id END) AS contracts,
           ROUND(SUM(revenue_eur)::numeric,2) AS total_revenue_eur,
           COUNT(DISTINCT expo_id) AS expos,
-          COUNT(DISTINCT sales_agent) AS agents
+          COUNT(DISTINCT CASE WHEN sales_agent != '${INTERNAL_AGENT}' THEN sales_agent END) AS agents
         FROM edition_contracts
         WHERE EXTRACT(YEAR FROM contract_date) = EXTRACT(YEAR FROM CURRENT_DATE)`,
         params: [],
