@@ -3,8 +3,11 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { query } = require('../db/index.js');
 
+const { route, normalize } = require('./router.js');
+
 const client = new Anthropic();
-const MODEL = process.env.AI_MODEL || 'claude-haiku-4-5-20251001';
+const INTENT_MODEL = process.env.AI_INTENT_MODEL || 'claude-haiku-4-5-20251001';
+const ANSWER_MODEL = process.env.AI_ANSWER_MODEL || 'claude-sonnet-4-6';
 
 const ALLOWED_TABLES = ['expos', 'contracts', 'edition_contracts', 'fiscal_contracts', 'expo_metrics'];
 const FORBIDDEN_KEYWORDS = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE', 'EXEC'];
@@ -86,10 +89,17 @@ If the question contains multiple distinct questions (connected by "ve", "and", 
 Q: elif ulke breakdown ve emircan expo breakdown → {"intent":"compound","entities":{"questions":["elif ulke breakdown","emircan expo breakdown"]}}
 Limit to max 2 sub-questions.`;
 
-// STEP 1 — Intent Extraction
+// STEP 1 — Intent Extraction (Haiku — fast, cheap)
 async function extractIntent(question) {
+  // Try keyword router first (0 API calls)
+  const routed = route(question);
+  if (routed) {
+    return routed;
+  }
+
+  // Fallback to LLM
   const response = await client.messages.create({
-    model: MODEL,
+    model: INTENT_MODEL,
     max_tokens: 400,
     messages: [{
       role: 'user',
@@ -235,7 +245,21 @@ function buildQuery(intent, entities) {
       };
     }
 
-    case 'top_agents':
+    case 'top_agents': {
+      // Support relative_days: "son 30 günde agent" → last 30 days filter
+      if (e.relative_days) {
+        return {
+          sql: `SELECT sales_agent, COUNT(*) AS contracts,
+            COALESCE(SUM(m2),0) AS total_m2,
+            COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM fiscal_contracts
+          WHERE contract_date >= CURRENT_DATE - ($1 || ' days')::interval
+            AND sales_agent IS NOT NULL
+            ${EXCL_AGENT_FC}
+          GROUP BY sales_agent ORDER BY revenue_eur DESC LIMIT 10`,
+          params: [e.relative_days],
+        };
+      }
       return {
         sql: `SELECT sales_agent, COUNT(*) AS contracts,
           COALESCE(SUM(m2),0) AS total_m2,
@@ -248,6 +272,7 @@ function buildQuery(intent, entities) {
         GROUP BY sales_agent ORDER BY revenue_eur DESC LIMIT 10`,
         params: [e.year || null, e.month || null],
       };
+    }
 
     case 'revenue_summary':
       return {
@@ -577,53 +602,31 @@ function validateSQL(sql) {
   return sql;
 }
 
-// STEP 4 — Answer Generator
+// STEP 4 — Answer Generator (Sonnet — quality)
 async function generateAnswer(question, data, lang) {
-  const langInstruction = {
-    tr: 'TÜRKÇE yanıt ver.',
-    en: 'Answer in ENGLISH.',
-    fr: 'Réponds en FRANÇAIS.',
-  };
-
-  const examples = {
-    tr: [
-      '"Elif\'in 2025\'teki en güçlü pazarı 23 kontratla Nijerya, ardından 22 kontratla Çin."',
-      '"SIEMA 2026 hedefin %127\'sine ulaştı — 1.685 m² hedefe karşı 2.139 m² satıldı."',
-    ],
-    en: [
-      '"Elif\'s top market in 2025 was Nigeria with 23 contracts, followed by China with 22."',
-      '"SIEMA 2026 reached 127% of target — 2,139 m² sold against 1,685 m² target."',
-    ],
-    fr: [
-      '"Le meilleur marché d\'Elif en 2025 était le Nigeria avec 23 contrats, suivi de la Chine avec 22."',
-      '"SIEMA 2026 a atteint 127% de l\'objectif — 2 139 m² vendus sur un objectif de 1 685 m²."',
-    ],
-  };
-
   const l = lang || 'tr';
+
+  const langMap = { tr: "Turkish", en: "English", fr: "French" };
+  const langName = langMap[l] || langMap.tr;
 
   // Limit data sent to answer generator to prevent overly long answers
   const trimmedData = Array.isArray(data) && data.length > 5 ? data.slice(0, 5) : data;
 
   const response = await client.messages.create({
-    model: MODEL,
+    model: ANSWER_MODEL,
     max_tokens: 300,
+    system: `You are ELIZA, CEO assistant for Elan Expo.
+Write a short CEO-friendly answer.
+Rules:
+- Max 2 sentences summary
+- List max 3 rows only
+- No markdown, no headers, no tables, no ALL CAPS
+- Focus on key business insight only
+- Language: ${langName}
+Format: dates "22 Eylül 2026", money "€562.512", percent "%127", area "2.139 m²"`,
     messages: [{
       role: 'user',
-      content: `Sen ELIZA, Elan Expo CEO'sunun kısa ve öz AI asistanısın.
-${langInstruction[l] || langInstruction.tr}
-Maksimum 1-3 kısa cümle. Doğrudan sonucu söyle.
-Başlık, liste, büyük harf, markdown, tablo KULLANMA.
-Veri listesi ayrıca gösterilecek — verileri cümle içinde tekrarlama.
-Sadece ana bulguyu ve yorumu ver. Firma/agent isimleri listeleme — max 3 isim yeter.
-
-Format: tarihler "22 Eylül 2026", para "€562.512", yüzde "%127", m² "2.139 m²"
-
-Örnekler:
-${examples[l].join('\n')}
-
-Question: ${question}
-Data: ${JSON.stringify(trimmedData)}`,
+      content: `Question: ${question}\nData: ${JSON.stringify(trimmedData)}`,
     }],
   });
 

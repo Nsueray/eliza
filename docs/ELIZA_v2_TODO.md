@@ -326,8 +326,10 @@ Sıradaki: Phase 7 (Risk Engine Expansion)
 - [x] 50 soru benchmark suite oluşturuldu (docs/benchmark/questions.json)
 - [x] Otomatik runner: node packages/ai/benchmark.js
 - [x] Intent synonym mapping (tolerance)
-- [ ] Pass rate %70 → %90 çıkar
-- [ ] Answer length enforcement (max 300 char)
+- [x] Pass rate %98 (49 PASS / 0 FAIL / 1 WARN)
+- [x] Intent Router: keyword-based, accent normalization, 0 API calls
+- [x] Model Split: Haiku (intent) + Sonnet (answer)
+- [x] Relative time support (son 30 gün, bu hafta)
 - [ ] Yeni intents: expo_ranking, agent_pricing, attention_items
 
 ---

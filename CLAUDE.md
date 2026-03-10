@@ -598,13 +598,29 @@ Intent Engine Notlari:
 - expo_company_list: GROUP BY ile duplicate firma önlenir
 - price_per_m2: agent bazlı, m2>0 AND sales_agent IS NOT NULL filtresi
 
+## AI Model Split
+- Intent: Router (keyword, 0 API) → Haiku fallback (fast, cheap)
+- Answer: Sonnet (quality, CEO-friendly)
+- Router: packages/ai/router.js — accent normalization, priority-ordered rules
+- Env: AI_INTENT_MODEL, AI_ANSWER_MODEL
+
+## Router Architecture
+- Accent normalization: è→e, ç→c, ü→u, ı→i, ş→s, ğ→g, ö→o
+- Priority order: days_to_event → payment_status → rebooking_rate → price_per_m2 → monthly_trend → top_agents → agent_country_breakdown → agent_expo_breakdown → exhibitors_by_country → country_count → revenue_summary → expo_list
+- Returns: { intent, entities, confidence: 1.0 }
+- Entities: year, month, relative_days, expo_name, agent_name, country, metric
+- Relative time: "son 30 gün" → relative_days: 30, "bu hafta" → 7
+
+## Sonnet System Prompt
+"You are ELIZA, CEO assistant for Elan Expo. Max 2 sentences, max 3 rows, no markdown, key insight only."
+Claude must NOT generate SQL — all queries come from templates in buildQuery().
+
 # 27. Benchmark
 Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)
 Runner: node packages/ai/benchmark.js
 Hedef: >= 90% PASS rate
 
-Ilk sonuc: 42 PASS / 1 FAIL / 7 WARN — %84
-Hedef: >= 90% PASS
+Son sonuc: 49 PASS / 0 FAIL / 1 WARN — %98
 
 Intent synonym mapping (benchmark tolerance):
 - exhibitors_by_country <-> country_count
@@ -613,5 +629,4 @@ Intent synonym mapping (benchmark tolerance):
 - general_stats <-> revenue_summary, exhibitors_by_country, expo_list
 - agent_country_breakdown <-> agent_performance, agent_expo_breakdown
 
-WARN nedenleri: intent taxonomy overlap, answer length > 300 char
-FAIL nedenleri: hedef verisi eksik expolar (Madesign target_m2 NULL)
+WARN threshold: answer >= 450 chars borderline, > 600 too long

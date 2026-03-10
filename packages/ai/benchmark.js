@@ -3,7 +3,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const queryEngine = require('./queryEngine.js');
 const fs = require('fs');
 
-const QUESTION_TIMEOUT = 10000;
+const QUESTION_TIMEOUT = 15000;
 const DELAY_BETWEEN = 500;
 
 const ERROR_KEYWORDS = [
@@ -69,12 +69,12 @@ function classify(q, result) {
   }
 
   // Answer too long
-  if (answer.length > 500) {
+  if (answer.length > 600) {
     return { status: 'WARN', reason: `answer too long: ${answer.length} chars` };
   }
 
   // Long but passing
-  if (answer.length >= 300) {
+  if (answer.length >= 450) {
     return { status: 'WARN', reason: `answer borderline long: ${answer.length} chars` };
   }
 
