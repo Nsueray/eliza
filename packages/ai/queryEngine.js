@@ -9,7 +9,10 @@ const MODEL = process.env.AI_MODEL || 'claude-haiku-4-5-20251001';
 const ALLOWED_TABLES = ['expos', 'contracts', 'edition_contracts', 'fiscal_contracts', 'expo_metrics'];
 const FORBIDDEN_KEYWORDS = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE', 'EXEC'];
 
-const INTENT_PROMPT = `You are an intent extractor for ELIZA, a business intelligence system for an exhibition company.
+const INTENT_PROMPT = `You are an intent extractor for ELIZA, a business intelligence system for Elan Expo (the company that organizes exhibitions).
+
+IMPORTANT: "Elan Expo" is the COMPANY NAME, not an expo/exhibition. Never use "Elan Expo" as expo_name.
+Expo names are specific event brands like: SIEMA, Mega Clima, Foodexpo, Buildexpo, Plastexpo, etc.
 
 Database schema:
 - expos: id, name, country, start_date, end_date, edition_year, target_m2
@@ -52,6 +55,8 @@ Q: SIEMA ya tekrar katilan firmalar → {"intent":"rebooking_rate","entities":{"
 Q: SIEMA 2026 ortalama m2 fiyatı → {"intent":"price_per_m2","entities":{"expo_name":"SIEMA","year":2026}}
 Q: satış fiyatı ortalaması nedir → {"intent":"price_per_m2","entities":{}}
 Q: elif bu yıl ay ay ne kadar sattı → {"intent":"monthly_trend","entities":{"agent_name":"Elif","year":"current"}}
+Q: Elan Expo 2026 fuarları → {"intent":"expo_list","entities":{"year":2026}}
+Q: Elan Expo exhibitions 2026 → {"intent":"expo_list","entities":{"year":2026}}
 
 If the question contains multiple distinct questions (connected by "ve", "and", "also", "ayrıca", "+"), set intent to "compound" and list sub-questions:
 Q: elif ulke breakdown ve emircan expo breakdown → {"intent":"compound","entities":{"questions":["elif ulke breakdown","emircan expo breakdown"]}}
@@ -238,6 +243,19 @@ function buildQuery(intent, entities) {
           FROM expo_metrics
           ORDER BY risk_score DESC, months_to_event ASC LIMIT 20`,
           params: [],
+        };
+      }
+      if (e.year) {
+        return {
+          sql: `SELECT e.name, e.country, e.start_date,
+            COUNT(c.id) AS contracts,
+            COALESCE(SUM(c.m2),0) AS sold_m2,
+            COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM expos e
+          LEFT JOIN edition_contracts c ON c.expo_id = e.id
+          WHERE EXTRACT(YEAR FROM e.start_date) = $1
+          GROUP BY e.id ORDER BY e.start_date ASC`,
+          params: [e.year],
         };
       }
       return {
