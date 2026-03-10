@@ -639,3 +639,12 @@ Intent synonym mapping (benchmark tolerance):
 - agent_country_breakdown <-> agent_performance, agent_expo_breakdown
 
 WARN threshold: answer >= 450 chars borderline, > 600 too long
+
+# 28. Known Issues
+Dosya: docs/KNOWN_ISSUES.md
+Kurallar:
+- Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
+- Fix edilince Status: FIXED + commit hash yaz
+- Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
+Open: ISSUE-001 (duplicate rows in WhatsApp response)
+Fixed: ISSUE-002..008
