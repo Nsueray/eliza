@@ -131,9 +131,9 @@ Completed:
 - Phase 4: Attention Engine (CEO dikkat takibi)
 - Phase 5: Alert Generator + Morning Brief (payment watch, dedup, scheduler, Twilio)
 - Phase 8a: WhatsApp Bot temel (Twilio webhook, auth, AI query, CEO kişiliği)
+- Phase 6: Message Generator (4 şablon, 3 dil, .msg komutu, human-in-the-loop)
 
 Pending:
-- Phase 6: Message Generator
 - Phase 7: Risk Engine Expansion + Explainable AI
 - Phase 8b: WhatsApp Planner Agent + Konuşma Hafızası
 - Phase 9: Memory Layer + Pattern Detection
@@ -508,7 +508,7 @@ sales_start_date = previous edition end_date (auto-calculated on sync)
 
 # 23. Roadmap
 Active TODO: docs/ELIZA_v2_TODO.md
-Current phase: Phase 6 — Message Generator
+Current phase: Phase 7 — Risk Engine Expansion
 
 # 24. Infrastructure & Environment
 Repository: https://github.com/Nsueray/eliza (public, main branch)
@@ -556,6 +556,31 @@ Veri Formatlama:
 - Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
 - Max 5 satir, fazlasi: "... ve X sonuç daha" + dashboard linki (localhost:3000/expos)
 - Satir arasi bos satir ile ayrilir
+
+# 26. Message Generator (Phase 6)
+Location: packages/messages/index.js
+Table: message_drafts, sales_agents.preferred_language
+API: GET /api/messages/templates, POST /api/messages/generate, POST /api/messages/send
+
+Sablonlar (4 tip, 3 dil — TR/EN/FR):
+- agent_activation: Agent aktivasyon/düşük performans mesajı
+- rebooking_request: Exhibitor'a yeni edisyon daveti
+- payment_reminder: Ödeme hatırlatma
+- meeting_prep: Toplantı öncesi expo özeti
+
+Dil kurali:
+- sales_agents.preferred_language alanından otomatik seçilir
+- Elif → TR, Meriem → FR, diğerleri → EN
+
+WhatsApp komutu:
+- .msg [kişi] [konu] → taslak üret, CEO'ya göster
+- CEO "gönder" → Twilio ile ilet, "iptal" → düşür
+- 10 dakika içinde cevaplanmazsa otomatik expire
+- Human-in-the-loop zorunlu: CEO onayı olmadan gönderilmez
+
+Bağlam entegrasyonu:
+- expo_metrics + edition_contracts verisiyle kişiselleştirilmiş mesaj
+- Gerçek progress%, m², hedef verisi mesaja dahil edilir
 
 Intent Engine Notlari:
 - "Elan Expo" = sirket adi, expo adi degil (intent prompt'a eklendi)

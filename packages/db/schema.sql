@@ -54,7 +54,8 @@ CREATE TABLE sales_agents (
     name TEXT NOT NULL,
     office TEXT,
     phone_number TEXT UNIQUE,
-    role TEXT
+    role TEXT,
+    preferred_language TEXT DEFAULT 'en'
 );
 
 -- alerts: Risk and event notifications for CEO oversight
@@ -88,3 +89,23 @@ CREATE INDEX idx_alerts_expo_id ON alerts(expo_id);
 CREATE INDEX idx_alerts_alert_type ON alerts(alert_type);
 
 CREATE INDEX idx_whatsapp_messages_sender_phone ON whatsapp_messages(sender_phone);
+
+-- message_drafts: Generated messages pending CEO approval
+CREATE TABLE message_drafts (
+    id SERIAL PRIMARY KEY,
+    recipient_name TEXT NOT NULL,
+    recipient_phone TEXT,
+    template_type TEXT NOT NULL,
+    language TEXT NOT NULL DEFAULT 'en',
+    subject TEXT,
+    body TEXT NOT NULL,
+    context_data JSONB,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_by TEXT NOT NULL DEFAULT 'ceo',
+    created_at TIMESTAMP DEFAULT NOW(),
+    approved_at TIMESTAMP,
+    sent_at TIMESTAMP,
+    expired_at TIMESTAMP
+);
+
+CREATE INDEX idx_message_drafts_status ON message_drafts(status);

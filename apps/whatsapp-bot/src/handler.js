@@ -3,6 +3,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
 const queryEngine = require('../../../packages/ai/queryEngine.js');
 const { generateBriefing } = require('../../../packages/briefing/index.js');
 const { scan: attentionScan } = require('../../../packages/attention/index.js');
+const { generateMessage, getPendingDraft, approveDraft, cancelDraft, expireOldDrafts } = require('../../../packages/messages/index.js');
 
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -59,6 +60,19 @@ async function handleMessage(text, user) {
   const trimmed = text.trim();
   const isCeo = user && user.role === 'ceo';
   const lang = detectLang(trimmed);
+
+  // Check for message approval/cancel keywords (CEO only)
+  if (isCeo) {
+    const lower = trimmed.toLowerCase();
+    if (lower === 'gönder' || lower === 'send' || lower === 'envoyer') {
+      const response = await handleApproval(true);
+      return wrapForCeo(response, lang, true);
+    }
+    if (lower === 'iptal' || lower === 'cancel' || lower === 'annuler') {
+      const response = await handleApproval(false);
+      return wrapForCeo(response, lang, true);
+    }
+  }
 
   if (trimmed.startsWith('.')) {
     const response = await handleCommand(trimmed, user);
@@ -137,6 +151,40 @@ async function handleCommand(text, user) {
       }
     }
 
+    case '.msg': {
+      if (!user || user.role !== 'ceo') {
+        return 'Bu komut sadece CEO tarafından kullanılabilir.';
+      }
+      // .msg [kişi] [konu]
+      const recipientName = parts[1];
+      const subject = parts.slice(2).join(' ') || null;
+      if (!recipientName) {
+        return 'Kullanım: .msg [kişi] [konu]\nÖrnek: .msg Elif Madesign';
+      }
+      try {
+        // Expire old drafts first
+        await expireOldDrafts();
+        const { draft, recipient, context } = await generateMessage(recipientName, subject);
+        const langLabel = { tr: 'Türkçe', en: 'English', fr: 'Français' };
+        const lines = [
+          `📝 Mesaj Taslağı (${langLabel[draft.language] || draft.language})`,
+          `Alıcı: ${recipient.name}${recipient.phone_number ? ' (' + recipient.phone_number + ')' : ''}`,
+          `Şablon: ${draft.template_type}`,
+          '',
+          '---',
+          draft.body,
+          '---',
+          '',
+          '✅ Onaylamak için "gönder" yazın',
+          '❌ İptal etmek için "iptal" yazın',
+          `⏱️ 10 dakika içinde cevaplanmazsa düşer`,
+        ];
+        return lines.join('\n');
+      } catch (err) {
+        return `Mesaj oluşturulamadı: ${err.message}`;
+      }
+    }
+
     case '.help': {
       return [
         '*ELIZA Komutları:*',
@@ -150,12 +198,38 @@ async function handleCommand(text, user) {
         '   .brief — Sabah brifingini getir',
         '   .risk [expo] — Risk raporu',
         '   .attention — Dikkat gerektiren konular',
+        '   .msg [kişi] [konu] — Mesaj taslağı oluştur',
         '   .help — Bu menü',
       ].join('\n');
     }
 
     default:
       return `Bilinmeyen komut: ${cmd}\n.help yazarak komut listesini görebilirsiniz.`;
+  }
+}
+
+// --- Message Approval ---
+
+async function handleApproval(approve) {
+  try {
+    await expireOldDrafts();
+    const draft = await getPendingDraft();
+    if (!draft) {
+      return 'Bekleyen mesaj taslağı yok.';
+    }
+
+    if (approve) {
+      const result = await approveDraft(draft.id);
+      if (result.sent) {
+        return `✅ Mesaj gönderildi → ${draft.recipient_name}`;
+      }
+      return `⚠️ Mesaj onaylandı ancak gönderilemedi. (Twilio hatası veya telefon numarası eksik)`;
+    } else {
+      await cancelDraft(draft.id);
+      return `❌ Mesaj iptal edildi.`;
+    }
+  } catch (err) {
+    return `Hata: ${err.message}`;
   }
 }
 

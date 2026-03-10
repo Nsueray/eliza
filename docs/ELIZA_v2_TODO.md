@@ -16,6 +16,7 @@ Tarih: Mart 2026
 - ✅ Phase 4 — Attention Engine (CEO dikkat takibi)
 - ✅ Phase 5 — Alert Generator + Morning Brief (payment watch, dedup, scheduler)
 - ✅ Phase 8a — WhatsApp Bot temel (Twilio webhook, auth, AI query, CEO kişiliği)
+- ✅ Phase 6 — Message Generator (4 şablon, 3 dil, .msg komutu, human-in-the-loop)
 
 ---
 
@@ -131,23 +132,25 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 
 ---
 
-## PHASE 6 — Message Generator ← CURRENT
+## PHASE 6 — Message Generator
 **Hedef:** ELIZA, CEO adına hazır mesajlar üretir.
 
-**Durum:** ⬜ Pending
+**Durum:** ✅ Tamamlandı
 
-- [ ] `packages/messages` modülü oluştur
-- [ ] Mesaj şablonları:
-  - [ ] Agent aktivasyon mesajı ("Elif, Madesign geride, bu hafta önceliklendir")
-  - [ ] Exhibitor rebooking mesajı ("Samsung SIEMA'ya davet")
-  - [ ] Ödeme hatırlatma mesajı
-  - [ ] Toplantı öncesi özet
-- [ ] Çok dil desteği:
-  - [ ] Kullanıcı/alıcıya göre dil otomatik seçilir
-  - [ ] Elif → Türkçe / Meriem → Fransızca / Jude → İngilizce
-  - [ ] `users` tablosuna `preferred_language` alanı ekle
-- [ ] Human-in-the-loop: ELIZA önerir, CEO onaylar
-- [ ] WhatsApp'tan: "Elif'e Madesign için mesaj yaz" → taslak üret → CEO onayla → gönder
+- [x] `packages/messages` modülü oluştur
+- [x] Mesaj şablonları:
+  - [x] Agent aktivasyon mesajı ("Elif, Madesign geride, bu hafta önceliklendir")
+  - [x] Exhibitor rebooking mesajı ("Samsung SIEMA'ya davet")
+  - [x] Ödeme hatırlatma mesajı
+  - [x] Toplantı öncesi özet
+- [x] Çok dil desteği:
+  - [x] Kullanıcı/alıcıya göre dil otomatik seçilir
+  - [x] Elif → Türkçe / Meriem → Fransızca / diğerleri → İngilizce
+  - [x] `sales_agents` tablosuna `preferred_language` alanı eklendi
+- [x] Human-in-the-loop: ELIZA önerir, CEO onaylar (10 dk expiry)
+- [x] WhatsApp'tan: `.msg [kişi] [konu]` → taslak üret → CEO "gönder"/"iptal" → Twilio ile ilet
+- [x] API endpoints: GET /api/messages/templates, POST /api/messages/generate, POST /api/messages/send
+- [x] Bağlam entegrasyonu: expo_metrics + edition_contracts verisiyle kişiselleştirilmiş mesaj
 
 **Kabul kriterleri:**
 - 3 dilde mesaj üretebiliyor
@@ -156,7 +159,7 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 
 ---
 
-## PHASE 7 — Risk Engine Expansion + Explainable AI
+## PHASE 7 — Risk Engine Expansion + Explainable AI ← CURRENT
 **Hedef:** Risk açıklamalı olsun, daha fazla sinyal kullansın.
 
 **Durum:** ⬜ Pending
@@ -314,7 +317,7 @@ Phase 11 (Deploy)              → 2-3 gün
 
 **İlk kullanılabilir milestone:** Phase 4 + 5 + 8a tamamlandı ✅
 WhatsApp'tan soru sorabilir + sabah brifing alabilirsin.
-Sıradaki: Phase 6 (Message Generator)
+Sıradaki: Phase 7 (Risk Engine Expansion)
 
 ---
 
