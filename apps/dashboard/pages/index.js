@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -20,10 +20,10 @@ function fmt(n) {
 }
 
 function fmtEur(n) {
-  return "€" + Number(n || 0).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return "\u20AC" + Number(n || 0).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-function AnimatedNumber({ value, prefix = "", duration = 1200 }) {
+function AnimatedNumber({ value, prefix = "", duration = 1000 }) {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
     const target = Number(value || 0);
@@ -42,33 +42,31 @@ function AnimatedNumber({ value, prefix = "", duration = 1200 }) {
   return <span>{prefix}{fmt(display)}</span>;
 }
 
-const countryFlags = {
-  "Nigeria": "\u{1F1F3}\u{1F1EC}",
-  "Ghana": "\u{1F1EC}\u{1F1ED}",
-  "Kenya": "\u{1F1F0}\u{1F1EA}",
-  "Morocco": "\u{1F1F2}\u{1F1E6}",
-  "Algeria": "\u{1F1E9}\u{1F1FF}",
-  "Ivory Coast": "\u{1F1E8}\u{1F1EE}",
-  "Turkey": "\u{1F1F9}\u{1F1F7}",
-};
-
-function getFlag(country) {
-  return countryFlags[country] || "\u{1F30D}";
+function formatDate(d) {
+  if (!d) return "\u2014";
+  return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function getProgressColor(pct) {
-  if (pct >= 70) return "#00E676";
-  if (pct >= 40) return "#FFD600";
-  return "#FF5252";
+  if (pct >= 70) return "var(--success)";
+  if (pct >= 40) return "var(--warning)";
+  return "var(--danger)";
 }
 
-function formatDate(d) {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+function renderAnswer(text) {
+  if (!text) return null;
+  return text.split("\n").map((line, i) => {
+    let processed = line
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/^##\s+(.+)/, "<span class='ans-heading'>$1</span>")
+      .replace(/^#\s+(.+)/, "<span class='ans-heading'>$1</span>");
+    return <span key={i} dangerouslySetInnerHTML={{ __html: processed + (i < text.split("\n").length - 1 ? "<br/>" : "") }} />;
+  });
 }
 
 export default function WarRoom() {
   const [clock, setClock] = useState("");
+  const [dateStr, setDateStr] = useState("");
   const [mode, setMode] = useState("edition");
   const [expoView, setExpoView] = useState("upcoming");
   const [editionSummary, setEditionSummary] = useState({});
@@ -77,10 +75,52 @@ export default function WarRoom() {
   const [allExpos, setAllExpos] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
 
+  // Chat state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+
+  const suggestions = [
+    "Which expos are at risk?",
+    "Top sales agents this month",
+    "Revenue of SIEMA 2026",
+    "How many contracts this year?",
+  ];
+
+  function askEliza(question) {
+    if (!question.trim() || chatLoading) return;
+    setChatLoading(true);
+    setChatInput("");
+    fetch(`${API}/ai/query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: question.trim() }),
+    })
+      .then(r => r.json())
+      .then(res => {
+        setChatHistory(prev => [
+          ...prev.slice(-4),
+          { question: question.trim(), answer: res.answer, data: res.data, time: new Date() },
+        ]);
+        setChatLoading(false);
+        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+      })
+      .catch(() => {
+        setChatHistory(prev => [
+          ...prev.slice(-4),
+          { question: question.trim(), answer: "Connection error. Is the API running?", data: null, time: new Date() },
+        ]);
+        setChatLoading(false);
+      });
+  }
+
   useEffect(() => {
     const tick = () => {
       const now = new Date();
       setClock(now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      setDateStr(now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }));
     };
     tick();
     const interval = setInterval(tick, 1000);
@@ -103,16 +143,18 @@ export default function WarRoom() {
 
   const summary = mode === "edition" ? editionSummary : fiscalSummary;
   const top10Agents = leaderboard.slice(0, 10);
+  const displayExpos = expoView === "upcoming" ? expos : allExpos;
 
   const agentChartData = {
-    labels: top10Agents.map(a => a.sales_agent.length > 22 ? a.sales_agent.slice(0, 20) + "\u2026" : a.sales_agent),
+    labels: top10Agents.map(a => a.sales_agent.length > 25 ? a.sales_agent.slice(0, 23) + "\u2026" : a.sales_agent),
     datasets: [{
       label: "Revenue EUR",
       data: top10Agents.map(a => Number(a.revenue_eur)),
-      backgroundColor: "rgba(0, 212, 255, 0.75)",
-      borderColor: "#00D4FF",
+      backgroundColor: "rgba(200, 169, 122, 0.7)",
+      borderColor: "rgba(200, 169, 122, 0.9)",
       borderWidth: 1,
-      borderRadius: 4,
+      borderRadius: 2,
+      barThickness: 18,
     }],
   };
 
@@ -123,487 +165,743 @@ export default function WarRoom() {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: "#1a1f35",
-        titleColor: "#00D4FF",
-        bodyColor: "#ccd6f6",
-        borderColor: "#1e2a4a",
+        backgroundColor: "#141B22",
+        titleColor: "#C8A97A",
+        bodyColor: "#E8EDF2",
+        borderColor: "#1E2A35",
         borderWidth: 1,
         callbacks: { label: (ctx) => fmtEur(ctx.raw) },
       },
     },
     scales: {
-      y: { ticks: { color: "#ccd6f6", font: { size: 11 } }, grid: { display: false } },
-      x: { ticks: { color: "#8892b0", callback: v => fmtEur(v) }, grid: { color: "rgba(136,146,176,0.1)" } },
+      y: {
+        ticks: { color: "#5A7080", font: { family: "DM Sans", size: 11 } },
+        grid: { display: false },
+      },
+      x: {
+        ticks: { color: "#3A4A55", font: { family: "DM Mono", size: 10 }, callback: v => fmtEur(v) },
+        grid: { color: "rgba(30,42,53,0.5)" },
+      },
     },
   };
 
   return (
     <>
       <Head>
-        <title>ELIZA War Room</title>
+        <title>ELIZA | War Room</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <style jsx global>{`
+        :root {
+          --bg: #080B10;
+          --surface: #0E1318;
+          --surface-2: #141B22;
+          --border: #1E2A35;
+          --text-primary: #E8EDF2;
+          --text-secondary: #5A7080;
+          --accent: #C8A97A;
+          --accent-2: #4A9EBF;
+          --danger: #C0392B;
+          --warning: #D4A017;
+          --success: #2ECC71;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-          background: #0a0e1a;
-          color: #ccd6f6;
-          font-family: "Outfit", sans-serif;
+          background: var(--bg);
+          color: var(--text-primary);
+          font-family: "DM Sans", -apple-system, sans-serif;
           min-height: 100vh;
+          -webkit-font-smoothing: antialiased;
         }
-        .war-room { max-width: 1440px; margin: 0 auto; padding: 20px 24px; }
 
-        .header {
+        .wr { max-width: 1400px; margin: 0 auto; padding: 32px 48px; }
+
+        /* HEADER */
+        .hdr {
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          padding: 16px 0 24px;
-          border-bottom: 1px solid rgba(0,212,255,0.15);
-          margin-bottom: 24px;
+          align-items: flex-end;
+          padding-bottom: 24px;
+          border-bottom: 1px solid var(--accent);
+          margin-bottom: 32px;
         }
-        .header h1 {
-          font-family: "Space Mono", monospace;
-          font-size: 26px;
-          color: #00D4FF;
-          letter-spacing: 6px;
+        .hdr-brand {
+          font-family: "DM Mono", monospace;
+          font-size: 32px;
+          font-weight: 500;
+          color: var(--text-primary);
+          letter-spacing: 8px;
+        }
+        .hdr-brand .dot { color: var(--accent); }
+        .hdr-sub {
+          font-size: 11px;
+          color: var(--text-secondary);
+          letter-spacing: 3px;
           text-transform: uppercase;
-        }
-        .header .subtitle {
-          font-size: 12px;
-          color: #8892b0;
-          letter-spacing: 2px;
           margin-top: 4px;
         }
-        .clock {
-          font-family: "Space Mono", monospace;
-          font-size: 28px;
-          color: #00D4FF;
-          text-shadow: 0 0 20px rgba(0,212,255,0.3);
+        .hdr-right { text-align: right; }
+        .hdr-clock {
+          font-family: "DM Mono", monospace;
+          font-size: 24px;
+          color: var(--text-primary);
+          font-weight: 400;
+        }
+        .hdr-date {
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-top: 4px;
         }
 
-        .toggle-bar {
+        /* MODE TABS */
+        .mode-tabs {
           display: flex;
-          align-items: center;
-          gap: 12px;
+          gap: 32px;
           margin-bottom: 8px;
         }
-        .toggle-btn {
-          font-family: "Space Mono", monospace;
+        .mode-tab {
+          font-family: "DM Mono", monospace;
           font-size: 12px;
-          letter-spacing: 2px;
+          letter-spacing: 3px;
           text-transform: uppercase;
-          padding: 10px 24px;
-          border-radius: 8px;
-          border: 1px solid #00D4FF;
+          padding: 8px 0;
+          border: none;
+          background: none;
+          color: var(--text-secondary);
           cursor: pointer;
-          transition: all 0.3s ease;
-          background: transparent;
-          color: #00D4FF;
+          border-bottom: 2px solid transparent;
+          transition: all 0.2s;
         }
-        .toggle-btn.active {
-          background: #00D4FF;
-          color: #0a0e1a;
-          font-weight: 700;
-          box-shadow: 0 0 20px rgba(0,212,255,0.25);
+        .mode-tab.active {
+          color: var(--accent);
+          border-bottom-color: var(--accent);
         }
-        .toggle-btn:not(.active):hover {
-          background: rgba(0,212,255,0.1);
-        }
+        .mode-tab:hover:not(.active) { color: var(--text-primary); }
         .mode-desc {
           font-size: 12px;
-          color: #555d75;
-          margin-bottom: 24px;
-          font-style: italic;
+          color: var(--text-secondary);
+          margin-bottom: 32px;
         }
 
-        .radar-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-          padding-bottom: 10px;
-          border-bottom: 1px solid rgba(0,212,255,0.1);
-        }
-        .radar-toggle {
-          display: flex;
-          gap: 6px;
-        }
-        .radar-btn {
-          font-family: "Space Mono", monospace;
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          padding: 6px 14px;
-          border-radius: 6px;
-          border: 1px solid #00D4FF;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          background: transparent;
-          color: #00D4FF;
-        }
-        .radar-btn.active {
-          background: #00D4FF;
-          color: #0a0e1a;
-          font-weight: 700;
-        }
-        .radar-btn:not(.active):hover {
-          background: rgba(0,212,255,0.1);
-        }
-        .completed-badge {
-          display: inline-block;
-          font-family: "Space Mono", monospace;
-          font-size: 9px;
-          letter-spacing: 1px;
-          background: rgba(136,146,176,0.2);
-          color: #8892b0;
-          padding: 2px 8px;
-          border-radius: 4px;
-          margin-left: 10px;
-          vertical-align: middle;
-        }
-
-        .section-title {
-          font-family: "Space Mono", monospace;
-          font-size: 13px;
-          color: #00D4FF;
+        /* SECTION TITLE */
+        .sec-title {
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+          color: var(--text-secondary);
           letter-spacing: 3px;
           text-transform: uppercase;
           margin-bottom: 16px;
-          padding-bottom: 10px;
-          border-bottom: 1px solid rgba(0,212,255,0.1);
         }
 
-        .kpi-grid {
+        /* KPI CARDS */
+        .kpi-row {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
-          margin-bottom: 32px;
+          gap: 20px;
+          margin-bottom: 40px;
         }
-        .kpi-card {
-          background: linear-gradient(145deg, #0f1525, #141b2d);
-          border: 1px solid rgba(0,212,255,0.12);
-          border-radius: 12px;
-          padding: 24px;
-          text-align: center;
-          transition: border-color 0.3s, box-shadow 0.3s;
+        .kpi {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-left: 3px solid var(--accent);
+          border-radius: 4px;
+          padding: 24px 28px;
         }
-        .kpi-card:hover {
-          border-color: rgba(0,212,255,0.4);
-          box-shadow: 0 0 30px rgba(0,212,255,0.08);
-        }
-        .kpi-card .label {
+        .kpi .kpi-label {
           font-size: 11px;
-          color: #8892b0;
+          color: var(--text-secondary);
           letter-spacing: 2px;
           text-transform: uppercase;
-          margin-bottom: 10px;
-        }
-        .kpi-card .value {
-          font-family: "Space Mono", monospace;
-          font-size: 28px;
-          color: #00D4FF;
-          font-weight: 700;
-        }
-
-        .expo-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
-          margin-bottom: 32px;
-        }
-        .expo-card {
-          background: linear-gradient(145deg, #0f1525, #141b2d);
-          border: 1px solid rgba(0,212,255,0.08);
-          border-radius: 12px;
-          padding: 20px;
-          transition: border-color 0.3s, box-shadow 0.3s;
-        }
-        .expo-card:hover {
-          border-color: rgba(0,212,255,0.3);
-          box-shadow: 0 0 20px rgba(0,212,255,0.06);
-        }
-        .expo-card .expo-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
           margin-bottom: 12px;
         }
-        .expo-card .expo-name {
-          font-size: 16px;
-          font-weight: 600;
-          color: #e6f1ff;
-          line-height: 1.3;
+        .kpi .kpi-val {
+          font-family: "DM Mono", monospace;
+          font-size: 30px;
+          color: var(--text-primary);
+          font-weight: 500;
         }
-        .expo-card .expo-date {
-          font-family: "Space Mono", monospace;
-          font-size: 11px;
-          color: #8892b0;
-          white-space: nowrap;
-          margin-left: 12px;
-        }
-        .expo-card .expo-country {
-          font-size: 13px;
-          color: #8892b0;
-          margin-bottom: 14px;
-        }
-        .expo-card .expo-stats {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 8px;
-          margin-bottom: 14px;
-        }
-        .expo-card .stat {
-          text-align: center;
-        }
-        .expo-card .stat .stat-val {
-          font-family: "Space Mono", monospace;
-          font-size: 16px;
-          color: #e6f1ff;
-          font-weight: 700;
-        }
-        .expo-card .stat .stat-label {
-          font-size: 10px;
-          color: #8892b0;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-top: 2px;
-        }
-        .progress-wrap {
-          margin-top: 4px;
-        }
-        .progress-label {
+
+        /* EXPO TABLE */
+        .expo-section { margin-bottom: 40px; }
+        .expo-header {
           display: flex;
           justify-content: space-between;
-          font-size: 11px;
-          color: #8892b0;
-          margin-bottom: 6px;
+          align-items: center;
+          margin-bottom: 16px;
         }
-        .progress-label .pct {
-          font-family: "Space Mono", monospace;
-          font-weight: 700;
+        .view-tabs {
+          display: flex;
+          gap: 16px;
         }
-        .progress-bar {
-          height: 6px;
-          background: rgba(136,146,176,0.15);
-          border-radius: 3px;
+        .view-tab {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 4px 0;
+          border: none;
+          background: none;
+          color: var(--text-secondary);
+          cursor: pointer;
+          border-bottom: 1px solid transparent;
+          transition: all 0.2s;
+        }
+        .view-tab.active {
+          color: var(--accent);
+          border-bottom-color: var(--accent);
+        }
+        .view-tab:hover:not(.active) { color: var(--text-primary); }
+        .expo-table {
+          width: 100%;
+          border-collapse: collapse;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
           overflow: hidden;
         }
-        .progress-fill {
-          height: 100%;
+        .expo-table th {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          color: var(--text-secondary);
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          text-align: left;
+          padding: 12px 16px;
+          border-bottom: 1px solid var(--border);
+          background: var(--surface-2);
+        }
+        .expo-table th.r { text-align: right; }
+        .expo-table td {
+          font-size: 13px;
+          padding: 12px 16px;
+          border-bottom: 1px solid var(--border);
+          color: var(--text-primary);
+        }
+        .expo-table td.mono {
+          font-family: "DM Mono", monospace;
+          font-size: 12px;
+        }
+        .expo-table td.r { text-align: right; }
+        .expo-table td.muted { color: var(--text-secondary); }
+        .expo-table tr:last-child td { border-bottom: none; }
+        .expo-table tr:hover td { background: rgba(200,169,122,0.03); }
+        .expo-completed {
+          opacity: 0.45;
+        }
+        .badge-done {
+          font-family: "DM Mono", monospace;
+          font-size: 9px;
+          letter-spacing: 1px;
+          color: var(--text-secondary);
+          background: rgba(90,112,128,0.15);
+          padding: 2px 6px;
           border-radius: 3px;
-          transition: width 0.8s ease;
+          margin-left: 8px;
         }
-        .no-target {
+        .prog-cell {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          justify-content: flex-end;
+        }
+        .prog-bar-wrap {
+          width: 80px;
+          height: 4px;
+          background: rgba(90,112,128,0.15);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        .prog-bar-fill {
+          height: 100%;
+          border-radius: 2px;
+          background: var(--accent);
+          transition: width 0.6s ease;
+        }
+        .prog-pct {
+          font-family: "DM Mono", monospace;
           font-size: 11px;
-          color: #555d75;
-          font-style: italic;
-          margin-top: 4px;
+          min-width: 36px;
+          text-align: right;
         }
 
-        .panel {
-          background: linear-gradient(145deg, #0f1525, #141b2d);
-          border: 1px solid rgba(0,212,255,0.08);
-          border-radius: 12px;
+        /* LEADERBOARD */
+        .lb-section { margin-bottom: 40px; }
+        .lb-panel {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
           padding: 24px;
-          margin-bottom: 32px;
         }
-        .chart-wrap { height: 360px; }
-
+        .lb-chart { height: 340px; margin-bottom: 20px; }
         .lb-table {
           width: 100%;
           border-collapse: collapse;
-          margin-top: 20px;
         }
         .lb-table th {
+          font-family: "DM Mono", monospace;
           font-size: 10px;
-          color: #8892b0;
+          color: var(--text-secondary);
           letter-spacing: 1.5px;
           text-transform: uppercase;
           text-align: left;
           padding: 8px 12px;
-          border-bottom: 1px solid rgba(0,212,255,0.1);
+          border-bottom: 1px solid var(--border);
         }
+        .lb-table th.r { text-align: right; }
         .lb-table td {
           font-size: 13px;
           padding: 10px 12px;
-          border-bottom: 1px solid rgba(136,146,176,0.06);
+          border-bottom: 1px solid rgba(30,42,53,0.5);
+          color: var(--text-primary);
         }
-        .lb-table tr:hover td { background: rgba(0,212,255,0.03); }
-        .rank {
-          font-family: "Space Mono", monospace;
-          color: #00D4FF;
-          font-weight: 700;
+        .lb-table td.rank {
+          font-family: "DM Mono", monospace;
+          color: var(--accent);
+          font-weight: 500;
+          width: 40px;
         }
-        .agent-name { color: #e6f1ff; }
-        .num {
-          font-family: "Space Mono", monospace;
-          color: #ccd6f6;
-          text-align: right;
+        .lb-table td.mono {
+          font-family: "DM Mono", monospace;
+          font-size: 12px;
+        }
+        .lb-table td.r { text-align: right; }
+        .lb-table tr:last-child td { border-bottom: none; }
+        .lb-table tr:hover td { background: rgba(200,169,122,0.03); }
+
+        /* CHAT FLOATING BUTTON */
+        .chat-fab {
+          position: fixed;
+          bottom: 32px;
+          right: 32px;
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          background: var(--surface);
+          border: 1px solid var(--accent);
+          color: var(--accent);
+          font-family: "DM Mono", monospace;
+          font-size: 18px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+          z-index: 1000;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+        .chat-fab:hover {
+          background: var(--surface-2);
+        }
+        .chat-fab.open {
+          background: var(--accent);
+          color: var(--bg);
+        }
+
+        /* CHAT PANEL */
+        .chat-panel {
+          position: fixed;
+          bottom: 90px;
+          right: 24px;
+          width: 380px;
+          max-height: 560px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          display: flex;
+          flex-direction: column;
+          z-index: 9999;
+          box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+          overflow: hidden;
+        }
+        .chat-head {
+          padding: 16px 20px;
+          border-bottom: 1px solid var(--border);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .chat-head-title {
+          font-family: "DM Mono", monospace;
+          font-size: 12px;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          color: var(--accent);
+        }
+        .chat-head-close {
+          background: none;
+          border: none;
+          color: var(--text-secondary);
+          cursor: pointer;
+          font-size: 16px;
+          padding: 4px;
+        }
+        .chat-head-close:hover { color: var(--text-primary); }
+        .chat-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          padding: 12px 20px;
+          border-bottom: 1px solid var(--border);
+        }
+        .chat-chip {
+          font-family: "DM Sans", sans-serif;
+          font-size: 11px;
+          padding: 5px 12px;
+          border-radius: 3px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .chat-chip:hover {
+          border-color: var(--accent);
+          color: var(--accent);
+        }
+        .chat-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 16px 20px;
+          min-height: 200px;
+          scrollbar-width: thin;
+          scrollbar-color: var(--border) transparent;
+        }
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .chat-msg { margin-bottom: 20px; }
+        .chat-q {
+          font-size: 12px;
+          color: var(--accent);
+          padding-left: 12px;
+          border-left: 2px solid var(--accent);
+          margin-bottom: 10px;
+        }
+        .chat-a {
+          font-size: 14px;
+          color: var(--text-primary);
+          line-height: 1.7;
+        }
+        .chat-a .ans-heading {
+          display: block;
+          font-family: "DM Mono", monospace;
+          font-size: 12px;
+          color: var(--accent);
+          letter-spacing: 1px;
+          margin: 8px 0 4px;
+        }
+        .chat-a strong { color: var(--accent); font-weight: 500; }
+        .chat-time {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          color: var(--text-secondary);
+          margin-top: 6px;
+          opacity: 0.6;
+        }
+        .chat-data-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 10px;
+          font-size: 11px;
+        }
+        .chat-data-table th {
+          font-family: "DM Mono", monospace;
+          font-size: 9px;
+          color: var(--accent);
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          text-align: left;
+          padding: 6px 8px;
+          border-bottom: 1px solid var(--border);
+        }
+        .chat-data-table td {
+          padding: 5px 8px;
+          color: var(--text-primary);
+          border-bottom: 1px solid rgba(30,42,53,0.4);
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+        }
+        .chat-data-table tr:nth-child(even) td {
+          background: rgba(14,19,24,0.5);
+        }
+        .chat-thinking {
+          font-family: "DM Mono", monospace;
+          font-size: 12px;
+          color: var(--accent);
+          padding: 8px 0;
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        .chat-input-row {
+          display: flex;
+          border-top: 1px solid var(--border);
+        }
+        .chat-input {
+          flex: 1;
+          font-family: "DM Sans", sans-serif;
+          font-size: 13px;
+          padding: 14px 20px;
+          border: none;
+          background: var(--surface-2);
+          color: var(--text-primary);
+          outline: none;
+        }
+        .chat-input::placeholder { color: var(--text-secondary); }
+        .chat-send {
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+          letter-spacing: 1px;
+          padding: 14px 20px;
+          border: none;
+          background: var(--accent);
+          color: var(--bg);
+          font-weight: 500;
+          cursor: pointer;
+          transition: opacity 0.15s;
+        }
+        .chat-send:hover { opacity: 0.85; }
+        .chat-send:disabled { opacity: 0.3; cursor: not-allowed; }
+        .chat-empty {
+          text-align: center;
+          padding: 24px 0;
+          color: var(--text-secondary);
+          font-size: 12px;
         }
 
         @media (max-width: 768px) {
-          .war-room { padding: 16px; }
-          .header { flex-direction: column; align-items: flex-start; gap: 8px; }
-          .header h1 { font-size: 18px; letter-spacing: 3px; }
-          .clock { font-size: 20px; }
-          .toggle-bar { flex-direction: column; align-items: flex-start; }
-          .toggle-btn { padding: 8px 16px; font-size: 11px; }
-          .radar-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-          .radar-btn { padding: 5px 10px; font-size: 9px; }
-          .kpi-grid { grid-template-columns: 1fr; }
-          .kpi-card .value { font-size: 22px; }
-          .expo-grid { grid-template-columns: 1fr; }
-          .chart-wrap { height: 280px; }
+          .wr { padding: 16px; }
+          .hdr { flex-direction: column; align-items: flex-start; gap: 12px; }
+          .hdr-brand { font-size: 22px; letter-spacing: 4px; }
+          .hdr-clock { font-size: 18px; }
+          .hdr-right { text-align: left; }
+          .mode-tabs { gap: 20px; }
+          .kpi-row { grid-template-columns: 1fr; gap: 12px; }
+          .kpi .kpi-val { font-size: 24px; }
+          .expo-table { font-size: 11px; }
+          .expo-table th, .expo-table td { padding: 8px 10px; }
+          .lb-chart { height: 260px; }
           .lb-table th, .lb-table td { padding: 6px 8px; font-size: 11px; }
+          .chat-panel { width: calc(100vw - 32px); right: 16px; bottom: 80px; }
+          .chat-fab { bottom: 20px; right: 20px; width: 44px; height: 44px; font-size: 16px; }
         }
       `}</style>
 
-      <div className="war-room">
+      <div className="wr">
         {/* HEADER */}
-        <div className="header">
+        <div className="hdr">
           <div>
-            <h1>ELIZA WAR ROOM</h1>
-            <div className="subtitle">Elan Expo Intelligence System</div>
+            <div className="hdr-brand">ELIZA<span className="dot">.</span></div>
+            <div className="hdr-sub">War Room</div>
           </div>
-          <div className="clock">{clock}</div>
+          <div className="hdr-right">
+            <div className="hdr-clock">{clock}</div>
+            <div className="hdr-date">{dateStr}</div>
+          </div>
         </div>
 
-        {/* MODE TOGGLE */}
-        <div className="toggle-bar">
-          <button
-            className={`toggle-btn ${mode === "edition" ? "active" : ""}`}
-            onClick={() => setMode("edition")}
-          >Edition Mode</button>
-          <button
-            className={`toggle-btn ${mode === "fiscal" ? "active" : ""}`}
-            onClick={() => setMode("fiscal")}
-          >Fiscal Mode</button>
+        {/* MODE TABS */}
+        <div className="mode-tabs">
+          <button className={`mode-tab ${mode === "edition" ? "active" : ""}`} onClick={() => setMode("edition")}>
+            Edition
+          </button>
+          <button className={`mode-tab ${mode === "fiscal" ? "active" : ""}`} onClick={() => setMode("fiscal")}>
+            Fiscal
+          </button>
         </div>
         <div className="mode-desc">
           {mode === "edition"
-            ? "Showing expo performance \u2014 Valid + Transferred In contracts"
-            : "Showing sales performance \u2014 Valid + Transferred Out contracts"}
+            ? "Expo performance \u2014 Valid + Transferred In contracts"
+            : "Sales performance \u2014 Valid + Transferred Out contracts \u2014 FY 2026"}
         </div>
 
         {/* KPI CARDS */}
-        <h3 className="section-title">
-          {mode === "edition" ? "Expo Performance" : "Sales Performance 2026"}
-        </h3>
-        <div className="kpi-grid">
-          <div className="kpi-card">
-            <div className="label">Total Revenue</div>
-            <div className="value"><AnimatedNumber value={summary.total_revenue_eur} prefix="€" /></div>
+        <div className="sec-title">
+          {mode === "edition" ? "Expo Performance" : "Sales Performance"}
+        </div>
+        <div className="kpi-row">
+          <div className="kpi">
+            <div className="kpi-label">Revenue</div>
+            <div className="kpi-val"><AnimatedNumber value={summary.total_revenue_eur} prefix={"\u20AC"} /></div>
           </div>
-          <div className="kpi-card">
-            <div className="label">Contracts</div>
-            <div className="value"><AnimatedNumber value={summary.total_contracts} /></div>
+          <div className="kpi">
+            <div className="kpi-label">Contracts</div>
+            <div className="kpi-val"><AnimatedNumber value={summary.total_contracts} /></div>
           </div>
-          <div className="kpi-card">
-            <div className="label">Total M²</div>
-            <div className="value"><AnimatedNumber value={summary.total_m2} /></div>
+          <div className="kpi">
+            <div className="kpi-label">Sold M\u00B2</div>
+            <div className="kpi-val"><AnimatedNumber value={summary.total_m2} /></div>
           </div>
         </div>
 
-        {/* EDITION MODE: EXPO RADAR */}
+        {/* EXPO RADAR */}
         {mode === "edition" && (
-          <>
-            <div className="radar-header">
-              <h3 className="section-title" style={{ marginBottom: 0, borderBottom: "none", paddingBottom: 0 }}>
-                {expoView === "upcoming" ? "Expo Radar — Next 12 Months" : "Expo Radar — All 2026"}
-              </h3>
-              <div className="radar-toggle">
-                <button
-                  className={`radar-btn ${expoView === "upcoming" ? "active" : ""}`}
-                  onClick={() => setExpoView("upcoming")}
-                >Upcoming</button>
-                <button
-                  className={`radar-btn ${expoView === "all" ? "active" : ""}`}
-                  onClick={() => setExpoView("all")}
-                >All 2026</button>
+          <div className="expo-section">
+            <div className="expo-header">
+              <div className="sec-title" style={{ marginBottom: 0 }}>Expo Radar</div>
+              <div className="view-tabs">
+                <button className={`view-tab ${expoView === "upcoming" ? "active" : ""}`} onClick={() => setExpoView("upcoming")}>
+                  Upcoming
+                </button>
+                <button className={`view-tab ${expoView === "all" ? "active" : ""}`} onClick={() => setExpoView("all")}>
+                  All 2026
+                </button>
               </div>
             </div>
-            <div className="expo-grid">
-              {(expoView === "upcoming" ? expos : allExpos).map(expo => {
-                const isCompleted = expo.start_date && new Date(expo.start_date) < new Date();
-                const pct = expo.progress_percent ? Number(expo.progress_percent) : null;
-                return (
-                  <div key={expo.id} className="expo-card" style={isCompleted ? { opacity: 0.6 } : {}}>
-                    <div className="expo-header">
-                      <div className="expo-name">
+            <table className="expo-table">
+              <thead>
+                <tr>
+                  <th>Expo</th>
+                  <th>Country</th>
+                  <th>Date</th>
+                  <th className="r">Contracts</th>
+                  <th className="r">M{"\u00B2"} Sold</th>
+                  <th className="r">Revenue</th>
+                  <th className="r">Progress</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayExpos.map(expo => {
+                  const isCompleted = expo.start_date && new Date(expo.start_date) < new Date();
+                  const pct = expo.progress_percent ? Number(expo.progress_percent) : null;
+                  return (
+                    <tr key={expo.id} className={isCompleted ? "expo-completed" : ""}>
+                      <td>
                         {expo.name}
-                        {isCompleted && <span className="completed-badge">COMPLETED</span>}
-                      </div>
-                      <div className="expo-date">{formatDate(expo.start_date)}</div>
-                    </div>
-                    <div className="expo-country">{getFlag(expo.country)} {expo.country || "International"}</div>
-                    <div className="expo-stats">
-                      <div className="stat">
-                        <div className="stat-val">{fmt(expo.contracts)}</div>
-                        <div className="stat-label">Contracts</div>
-                      </div>
-                      <div className="stat">
-                        <div className="stat-val">{fmt(expo.sold_m2)}</div>
-                        <div className="stat-label">Sold M²</div>
-                      </div>
-                      <div className="stat">
-                        <div className="stat-val">{fmtEur(expo.revenue_eur)}</div>
-                        <div className="stat-label">Revenue</div>
-                      </div>
-                    </div>
-                    {pct !== null ? (
-                      <div className="progress-wrap">
-                        <div className="progress-label">
-                          <span>{fmt(expo.sold_m2)} / {fmt(expo.target_m2)} m²</span>
-                          <span className="pct" style={{ color: getProgressColor(pct) }}>{pct}%</span>
-                        </div>
-                        <div className="progress-bar">
-                          <div className="progress-fill" style={{
-                            width: `${Math.min(pct, 100)}%`,
-                            backgroundColor: getProgressColor(pct),
-                          }} />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="no-target">No target set</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
+                        {isCompleted && <span className="badge-done">DONE</span>}
+                      </td>
+                      <td className="muted">{expo.country || "\u2014"}</td>
+                      <td className="mono muted">{formatDate(expo.start_date)}</td>
+                      <td className="mono r">{fmt(expo.contracts)}</td>
+                      <td className="mono r">{fmt(expo.sold_m2)}</td>
+                      <td className="mono r">{fmtEur(expo.revenue_eur)}</td>
+                      <td className="r">
+                        {pct !== null ? (
+                          <div className="prog-cell">
+                            <div className="prog-bar-wrap">
+                              <div className="prog-bar-fill" style={{ width: `${Math.min(pct, 100)}%` }} />
+                            </div>
+                            <span className="prog-pct" style={{ color: getProgressColor(pct) }}>{pct}%</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: "var(--text-secondary)", fontSize: 11, fontStyle: "italic" }}>{"\u2014"}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
 
-        {/* SALES LEADERBOARD — always visible */}
-        <div className="panel">
-          <h3 className="section-title">Sales Leaderboard 2026</h3>
-          <div className="chart-wrap">
-            {top10Agents.length > 0 && <Bar data={agentChartData} options={agentChartOptions} />}
-          </div>
-          <table className="lb-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Agent</th>
-                <th style={{ textAlign: "right" }}>Contracts</th>
-                <th style={{ textAlign: "right" }}>M²</th>
-                <th style={{ textAlign: "right" }}>Revenue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {top10Agents.map((a, i) => (
-                <tr key={a.sales_agent}>
-                  <td className="rank">{i + 1}</td>
-                  <td className="agent-name">{a.sales_agent}</td>
-                  <td className="num">{fmt(a.contracts)}</td>
-                  <td className="num">{fmt(a.total_m2)}</td>
-                  <td className="num">{fmtEur(a.revenue_eur)}</td>
+        {/* SALES LEADERBOARD */}
+        <div className="lb-section">
+          <div className="sec-title">Sales Leaderboard 2026</div>
+          <div className="lb-panel">
+            <div className="lb-chart">
+              {top10Agents.length > 0 && <Bar data={agentChartData} options={agentChartOptions} />}
+            </div>
+            <table className="lb-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Agent</th>
+                  <th className="r">Contracts</th>
+                  <th className="r">M{"\u00B2"}</th>
+                  <th className="r">Revenue</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {top10Agents.map((a, i) => (
+                  <tr key={a.sales_agent}>
+                    <td className="rank">{i + 1}</td>
+                    <td>{a.sales_agent}</td>
+                    <td className="mono r">{fmt(a.contracts)}</td>
+                    <td className="mono r">{fmt(a.total_m2)}</td>
+                    <td className="mono r">{fmtEur(a.revenue_eur)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
+
+      {/* ASK ELIZA — FLOATING */}
+      <button className={`chat-fab ${chatOpen ? "open" : ""}`} onClick={() => setChatOpen(!chatOpen)}>
+        {chatOpen ? "\u00D7" : "\u2726"}
+      </button>
+
+      {chatOpen && (
+        <div className="chat-panel">
+          <div className="chat-head">
+            <div className="chat-head-title">{"\u2726"} Ask ELIZA</div>
+            <button className="chat-head-close" onClick={() => setChatOpen(false)}>{"\u00D7"}</button>
+          </div>
+          <div className="chat-chips">
+            {suggestions.map(s => (
+              <button key={s} className="chat-chip" onClick={() => askEliza(s)}>{s}</button>
+            ))}
+          </div>
+          <div className="chat-messages">
+            {chatHistory.length === 0 && !chatLoading && (
+              <div className="chat-empty">Ask a question or click a suggestion above.</div>
+            )}
+            {chatHistory.map((msg, i) => (
+              <div key={i} className="chat-msg">
+                <div className="chat-q">{msg.question}</div>
+                <div className="chat-a">{renderAnswer(msg.answer)}</div>
+                {msg.data && Array.isArray(msg.data) && msg.data.length > 0 && (
+                  <table className="chat-data-table">
+                    <thead>
+                      <tr>
+                        {Object.keys(msg.data[0]).map(col => (
+                          <th key={col}>{col.replace(/_/g, " ")}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {msg.data.slice(0, 10).map((row, ri) => (
+                        <tr key={ri}>
+                          {Object.values(row).map((val, ci) => (
+                            <td key={ci}>{val != null ? String(val) : "\u2014"}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                <div className="chat-time">
+                  {msg.time.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="chat-thinking">{"\u2726"} ELIZA is thinking\u2026</div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          <div className="chat-input-row">
+            <input
+              className="chat-input"
+              placeholder="Ask anything..."
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") askEliza(chatInput); }}
+              autoFocus
+            />
+            <button
+              className="chat-send"
+              onClick={() => askEliza(chatInput)}
+              disabled={chatLoading || !chatInput.trim()}
+            >SEND</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
