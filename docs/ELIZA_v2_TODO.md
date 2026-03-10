@@ -47,7 +47,7 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 ## PHASE 4 — Attention Engine
 **Hedef:** CEO'nun son zamanlarda incelemediği şeyleri tespit et ve push et.
 
-**Durum:** ⬜ Pending
+**Durum:** ✅ Tamamlandı
 
 ### Görevler
 
@@ -80,7 +80,7 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 ## PHASE 5 — Alert Generator & Morning Brief
 **Hedef:** Sistem CEO'ya geliyor. Proaktif push.
 
-**Durum:** ⬜ Pending
+**Durum:** ✅ Tamamlandı
 
 ### Alert Generator
 
@@ -177,15 +177,18 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 ## PHASE 8 — WhatsApp Interface + Planner Agent
 **Hedef:** WhatsApp primary interface, compound komutlar destekli.
 
-**Durum:** ⬜ Pending
+**Durum:** 🟡 Phase 8a tamamlandı (temel bot), Phase 8b pending (Planner Agent)
 
 ### Temel WhatsApp Bot
 
-- [ ] Twilio WhatsApp API entegrasyonu (`apps/whatsapp-bot`)
-- [ ] Gelen mesaj → Planner Agent → araçları çalıştır → yanıt
-- [ ] Dil otomatik algılama (TR / EN / FR)
-- [ ] Telefon numarası bazlı kimlik doğrulama
-- [ ] CEO için tam erişim, diğerleri kısıtlı
+- [x] Twilio WhatsApp API entegrasyonu (`apps/whatsapp-bot`)
+- [x] Gelen mesaj → AI Query Engine → yanıt
+- [x] Dil otomatik algılama (TR / EN / FR)
+- [x] Telefon numarası bazlı kimlik doğrulama
+- [x] CEO için tam erişim, diğerleri kısıtlı
+- [x] CEO kişiliği (Selam Baba / Hi Dad / Bonjour Papa)
+- [x] Dot-commands: .brief, .risk, .attention, .help
+- [x] Türkçe veri formatlama (tarih, para, yüzde)
 
 ### Planner Agent (Yeni)
 

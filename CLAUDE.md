@@ -128,17 +128,14 @@ Completed:
 - Phase 2: War Room Dashboard (Expo Radar, Sales Leaderboard, Financial KPIs)
 - Phase 3: AI Query Engine (POST /api/ai/query — natural language to SQL)
 - Phase 3b: Risk Engine (velocity model, risk scoring, War Room panel)
-
-Completed:
 - Phase 4: Attention Engine (CEO dikkat takibi)
-
-Completed:
 - Phase 5: Alert Generator + Morning Brief (payment watch, dedup, scheduler, Twilio)
+- Phase 8a: WhatsApp Bot temel (Twilio webhook, auth, AI query, CEO kişiliği)
 
 Pending:
 - Phase 6: Message Generator
 - Phase 7: Risk Engine Expansion + Explainable AI
-- Phase 8: WhatsApp Interface + Planner Agent
+- Phase 8b: WhatsApp Planner Agent + Konuşma Hafızası
 - Phase 9: Memory Layer + Pattern Detection
 - Phase 10: Yeni Veri Kaynakları (Leena EMS, Liffy)
 - Phase 11: Deploy & Production
@@ -522,9 +519,20 @@ Liffy: Bookmarkta mevcut, API entegrasyonu henuz yapilmadi
 Shadow Mode: Year 1 — sadece CEO kullaniyor, ekip haberdar degil
 
 # 25. WhatsApp Bot
-Location: apps/whatsapp-bot
-Status: Phase 8'de kurulacak (Twilio sandbox hazir)
-Twilio sandbox aktif, credentials .env'de mevcut
-Primary interface olacak (dashboard secondary)
-Planner Agent: compound komutlari destekleyecek
-Dil: TR/EN/FR otomatik algilama
+Location: apps/whatsapp-bot (port 3002)
+Status: Phase 8a tamamlandi
+
+Mimari:
+- src/server.js — Express, Twilio webhook POST /webhook, TwiML response
+- src/auth.js — telefon dogrulama (CEO .env, agentlar sales_agents tablosu)
+- src/handler.js — mesaj routing, dil tespiti, CEO kisiligi, veri formatlama
+
+Ozellikler:
+- Twilio sandbox: +14155238886, ngrok ile disariya acilir
+- CEO kisiligi: TR "Selam Baba", EN "Hi Dad", FR "Bonjour Papa"
+- Dil tespiti: TR/EN/FR kelime skorlama, default TR
+- Dot-commands: .brief, .risk, .attention, .help
+- Dogal dil sorulari → queryEngine.run() → Turkce yanit
+- Veri formatlama: tarihler "22 Eylul 2026", para "€562.512", yuzde "%127"
+- Yetkisiz numaralar reddedilir
+- WhatsApp 4000 karakter limiti korunur
