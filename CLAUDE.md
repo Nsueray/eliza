@@ -531,8 +531,12 @@ Ozellikler:
 - Twilio sandbox: +14155238886, ngrok ile disariya acilir
 - CEO kisiligi: TR "Selam Baba", EN "Hi Dad", FR "Bonjour Papa"
 - Dil tespiti: TR/EN/FR kelime skorlama, default TR
+- Yanit dili sorulan dille ayni (TR soru → TR yanit, FR → FR, EN → EN)
 - Dot-commands: .brief, .risk, .attention, .help
-- Dogal dil sorulari → queryEngine.run() → Turkce yanit
-- Veri formatlama: tarihler "22 Eylul 2026", para "€562.512", yuzde "%127"
+- Dogal dil sorulari → queryEngine.run(question, 0, lang) → dile gore yanit
+- Veri formatlama: duz metin, tablo yok, markdown yok
+  Format: "Elif AY — 11 kontrat — 234 m² — €76.715"
+  Tarihler dile gore: TR "22 Eylul 2026", FR "22 septembre 2026", EN "22 September 2026"
+  Para: "€562.512", yuzde: "%127"
 - Yetkisiz numaralar reddedilir
 - WhatsApp 4000 karakter limiti korunur

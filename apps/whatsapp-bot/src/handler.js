@@ -4,19 +4,26 @@ const queryEngine = require('../../../packages/ai/queryEngine.js');
 const { generateBriefing } = require('../../../packages/briefing/index.js');
 const { scan: attentionScan } = require('../../../packages/attention/index.js');
 
-// Turkish month names for date formatting
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
   'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
 ];
+const FR_MONTHS = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+];
+const EN_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 /**
- * Detect language of a message (simple heuristic).
+ * Detect language of a message.
  */
 function detectLang(text) {
   const lower = text.toLowerCase();
   const trWords = ['kaç', 'nasıl', 'nedir', 'ne', 'hangi', 'kim', 'toplam', 'satış', 'fuar', 'göster', 'bana', 'kontrat', 'yıl', 'gelir', 'ülke', 'durumu', 'risk', 'iyi', 'kötü', 'hız', 'hedef', 'gün', 'ver', 'söyle', 'mı', 'mi', 'bu', 'için', 'var', 'olan'];
-  const frWords = ['combien', 'quel', 'quels', 'comment', 'est-ce', 'les', 'des', 'pour', 'dans', 'sont', 'avec', 'cette', 'exposition', 'ventes', 'contrats', 'revenu', 'montre', 'donne'];
+  const frWords = ['combien', 'quel', 'quels', 'comment', 'est-ce', 'les', 'des', 'pour', 'dans', 'sont', 'avec', 'cette', 'exposition', 'ventes', 'contrats', 'revenu', 'montre', 'donne', 'meilleurs', 'agents'];
   const enWords = ['how', 'what', 'which', 'who', 'top', 'best', 'worst', 'total', 'show', 'give', 'list', 'agents', 'revenue', 'contracts', 'sold', 'sales', 'many', 'much', 'this', 'year', 'month', 'risk', 'performance', 'progress'];
 
   const trScore = trWords.filter(w => lower.includes(w)).length;
@@ -27,14 +34,14 @@ function detectLang(text) {
   if (frScore > enScore && frScore > trScore) return 'fr';
   if (enScore > 0) return 'en';
   if (trScore > 0) return 'tr';
-  return 'tr'; // default to Turkish
+  return 'tr';
 }
 
 /**
- * Add CEO personality wrapper to response.
+ * CEO personality wrapper.
  */
 function wrapForCeo(response, lang, isCommand) {
-  if (isCommand) return response; // Don't wrap .brief, .help etc.
+  if (isCommand) return response;
 
   if (lang === 'tr') {
     return `Selam Baba 👋\n\n${response}\n\nBaşka bir şey var mı Baba?`;
@@ -53,26 +60,28 @@ async function handleMessage(text, user) {
   const isCeo = user && user.role === 'ceo';
   const lang = detectLang(trimmed);
 
-  // Dot-commands
   if (trimmed.startsWith('.')) {
     const response = await handleCommand(trimmed, user);
     return isCeo ? wrapForCeo(response, lang, true) : response;
   }
 
-  // Regular question → AI Query Engine
   try {
-    const { answer, data } = await queryEngine.run(trimmed);
+    const { answer, data } = await queryEngine.run(trimmed, 0, lang);
 
     let response = answer || 'Sonuç bulunamadı.';
 
-    // Append formatted data
-    if (data && Array.isArray(data) && data.length > 0 && data.length <= 5) {
-      const table = formatDataForWhatsApp(data);
-      if (table) response += '\n\n' + table;
-    } else if (data && data.length > 5) {
-      response += `\n\n📋 ${data.length} kayıt (ilk 5):`;
-      const table = formatDataForWhatsApp(data.slice(0, 5));
-      if (table) response += '\n' + table;
+    // Append clean data lines (no duplication — only data rows, no table)
+    if (data && Array.isArray(data) && data.length > 0) {
+      const displayRows = data.length > 5 ? data.slice(0, 5) : data;
+      const lines = formatDataLines(displayRows, lang);
+      if (lines) {
+        if (data.length > 5) {
+          const more = { tr: 'kayıt', en: 'records', fr: 'résultats' };
+          response += `\n\n📋 ${data.length} ${more[lang] || more.tr}:\n${lines}`;
+        } else {
+          response += '\n\n' + lines;
+        }
+      }
     }
 
     return isCeo ? wrapForCeo(response, lang, false) : response;
@@ -83,7 +92,7 @@ async function handleMessage(text, user) {
 }
 
 /**
- * Handle dot-commands (.brief, .risk, etc.)
+ * Handle dot-commands.
  */
 async function handleCommand(text, user) {
   const parts = text.split(/\s+/);
@@ -145,113 +154,122 @@ async function handleCommand(text, user) {
   }
 }
 
-// --- Formatting helpers ---
+// --- Formatting ---
 
-/**
- * Format a date value as "22 Eylül 2026".
- */
-function formatTrDate(val) {
+const LABELS = {
+  tr: {
+    name: 'Expo', expo_name: 'Expo', expo: 'Expo', country: 'Ülke',
+    start_date: 'Tarih', contracts: 'Kontrat', contract_count: 'Kontrat',
+    sold_m2: 'm²', total_m2: 'm²', m2: 'm²',
+    revenue_eur: 'Gelir', total_revenue_eur: 'Gelir', revenue: 'Gelir',
+    target_m2: 'Hedef', progress_pct: 'İlerleme', progress_percent: 'İlerleme',
+    sales_agent: 'Agent', company_name: 'Firma',
+    risk_level: 'Risk', risk_score: 'Risk',
+    velocity: 'Hız', velocity_ratio: 'Oran',
+    months_to_event: 'Kalan Ay', exhibitors: 'Katılımcı',
+    editions: 'Edisyon', avg_price_per_m2: 'Ort. Fiyat',
+    month_name: 'Ay', year: 'Yıl', agents: 'Agent', expos: 'Fuar',
+  },
+  en: {
+    name: 'Expo', expo_name: 'Expo', expo: 'Expo', country: 'Country',
+    start_date: 'Date', contracts: 'Contracts', contract_count: 'Contracts',
+    sold_m2: 'm²', total_m2: 'm²', m2: 'm²',
+    revenue_eur: 'Revenue', total_revenue_eur: 'Revenue', revenue: 'Revenue',
+    target_m2: 'Target', progress_pct: 'Progress', progress_percent: 'Progress',
+    sales_agent: 'Agent', company_name: 'Company',
+    risk_level: 'Risk', risk_score: 'Risk',
+    velocity: 'Velocity', velocity_ratio: 'Ratio',
+    months_to_event: 'Months Left', exhibitors: 'Exhibitors',
+    editions: 'Editions', avg_price_per_m2: 'Avg Price',
+    month_name: 'Month', year: 'Year', agents: 'Agents', expos: 'Expos',
+  },
+  fr: {
+    name: 'Expo', expo_name: 'Expo', expo: 'Expo', country: 'Pays',
+    start_date: 'Date', contracts: 'Contrats', contract_count: 'Contrats',
+    sold_m2: 'm²', total_m2: 'm²', m2: 'm²',
+    revenue_eur: 'Revenu', total_revenue_eur: 'Revenu', revenue: 'Revenu',
+    target_m2: 'Objectif', progress_pct: 'Progrès', progress_percent: 'Progrès',
+    sales_agent: 'Agent', company_name: 'Entreprise',
+    risk_level: 'Risque', risk_score: 'Risque',
+    velocity: 'Vitesse', velocity_ratio: 'Ratio',
+    months_to_event: 'Mois restants', exhibitors: 'Exposants',
+    editions: 'Éditions', avg_price_per_m2: 'Prix moyen',
+    month_name: 'Mois', year: 'Année', agents: 'Agents', expos: 'Expos',
+  },
+};
+
+function label(key, lang) {
+  const map = LABELS[lang] || LABELS.tr;
+  return map[key] || key.replace(/_/g, ' ');
+}
+
+function formatDate(val, lang) {
   if (!val) return '—';
   const d = new Date(val);
   if (isNaN(d.getTime())) return String(val);
-  return `${d.getDate()} ${TR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const months = lang === 'fr' ? FR_MONTHS : lang === 'en' ? EN_MONTHS : TR_MONTHS;
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/**
- * Format a number with dot separators: 1685 → "1.685"
- */
 function fmtNum(val) {
   const n = Number(val);
   if (isNaN(n)) return String(val);
   return n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
 }
 
-/**
- * Format a currency value: 562512.41 → "€562.512"
- */
 function fmtEur(val) {
   const n = Number(val);
   if (isNaN(n)) return String(val);
   return '€' + n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
 }
 
-/**
- * Pretty column label: "revenue_eur" → "Gelir"
- */
-const LABEL_MAP = {
-  name: 'Expo', expo_name: 'Expo', expo: 'Expo',
-  country: 'Ülke', start_date: 'Tarih',
-  contracts: 'Kontrat', contract_count: 'Kontrat',
-  sold_m2: 'Satılan m²', total_m2: 'm²', m2: 'm²',
-  revenue_eur: 'Gelir', total_revenue_eur: 'Gelir', revenue: 'Gelir',
-  target_m2: 'Hedef m²',
-  progress_pct: 'İlerleme', progress_percent: 'İlerleme',
-  sales_agent: 'Agent', company_name: 'Firma',
-  risk_level: 'Risk', risk_score: 'Risk Skoru',
-  velocity: 'Hız', velocity_ratio: 'Hız Oranı',
-  velocity_m2_per_month: 'Hız (m²/ay)', required_velocity: 'Gerekli Hız',
-  months_to_event: 'Kalan Ay',
-  exhibitors: 'Katılımcı', editions: 'Edisyon',
-  avg_price_per_m2: 'Ort. m² Fiyatı',
-  month_name: 'Ay', year: 'Yıl',
-  agents: 'Agent', expos: 'Fuar',
-};
-
-function prettyLabel(key) {
-  return LABEL_MAP[key] || key.replace(/_/g, ' ');
-}
-
-/**
- * Detect if a column contains date, currency, m2, or percentage values.
- */
-function formatValue(key, val) {
+function formatVal(key, val, lang) {
   if (val == null) return '—';
-
   const k = key.toLowerCase();
 
-  // Dates
-  if (k.includes('date') || k === 'first_expo' || k === 'last_expo') {
-    return formatTrDate(val);
-  }
-
-  // Currency
-  if (k.includes('revenue') || k.includes('eur') || k === 'total' || k.includes('price') || k.includes('commission')) {
-    return fmtEur(val);
-  }
-
-  // Percentage
-  if (k.includes('percent') || k.includes('pct') || k === 'progress') {
-    return `%${val}`;
-  }
-
-  // m2 fields
-  if (k.includes('m2') || k === 'velocity' || k.includes('velocity')) {
-    return fmtNum(val);
-  }
-
-  // Numeric fields
-  if (k === 'contracts' || k === 'contract_count' || k === 'exhibitors' || k === 'editions' || k === 'agents' || k === 'expos' || k === 'review_count') {
-    return fmtNum(val);
-  }
+  if (k.includes('date') || k === 'first_expo' || k === 'last_expo') return formatDate(val, lang);
+  if (k.includes('revenue') || k.includes('eur') || k === 'total' || k.includes('price') || k.includes('commission')) return fmtEur(val);
+  if (k.includes('percent') || k.includes('pct')) return `%${val}`;
+  if (k.includes('m2') || k.includes('velocity')) return fmtNum(val);
+  if (k === 'contracts' || k === 'contract_count' || k === 'exhibitors' || k === 'editions') return fmtNum(val);
 
   return String(val);
 }
 
 /**
- * Format query data as clean WhatsApp-friendly text.
+ * Build a single-line summary for a data row.
+ * Output: "Elif AY — 11 kontrat — 234 m² — €76.715"
  */
-function formatDataForWhatsApp(rows) {
-  if (!rows || rows.length === 0) return null;
+function rowToLine(row, lang) {
+  const keys = Object.keys(row);
 
-  const keys = Object.keys(rows[0]);
-  const lines = [];
+  // Find the "name" column (first text column)
+  const nameKey = keys.find(k => ['name', 'expo_name', 'expo', 'sales_agent', 'company_name', 'entity_name', 'country', 'month_name'].includes(k));
+  const nameVal = nameKey ? String(row[nameKey]) : null;
 
-  for (const row of rows) {
-    const parts = keys.map(k => `${prettyLabel(k)}: ${formatValue(k, row[k])}`);
-    lines.push(parts.join(' | '));
+  // Build value parts (skip the name column)
+  const parts = [];
+  for (const k of keys) {
+    if (k === nameKey) continue;
+    const v = row[k];
+    if (v == null) continue;
+    const formatted = formatVal(k, v, lang);
+    if (formatted === '—') continue;
+    parts.push(formatted);
   }
 
-  return lines.join('\n\n');
+  if (nameVal) {
+    return `${nameVal} — ${parts.join(' — ')}`;
+  }
+  return parts.join(' — ');
+}
+
+/**
+ * Format data rows as clean plain text lines.
+ */
+function formatDataLines(rows, lang) {
+  if (!rows || rows.length === 0) return null;
+  return rows.map(r => rowToLine(r, lang)).join('\n');
 }
 
 module.exports = { handleMessage };

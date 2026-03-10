@@ -485,29 +485,46 @@ function validateSQL(sql) {
 }
 
 // STEP 4 — Answer Generator
-async function generateAnswer(question, data) {
+async function generateAnswer(question, data, lang) {
+  const langInstruction = {
+    tr: 'TÜRKÇE yanıt ver.',
+    en: 'Answer in ENGLISH.',
+    fr: 'Réponds en FRANÇAIS.',
+  };
+
+  const examples = {
+    tr: [
+      '"Elif\'in 2025\'teki en güçlü pazarı 23 kontratla Nijerya, ardından 22 kontratla Çin."',
+      '"SIEMA 2026 hedefin %127\'sine ulaştı — 1.685 m² hedefe karşı 2.139 m² satıldı."',
+    ],
+    en: [
+      '"Elif\'s top market in 2025 was Nigeria with 23 contracts, followed by China with 22."',
+      '"SIEMA 2026 reached 127% of target — 2,139 m² sold against 1,685 m² target."',
+    ],
+    fr: [
+      '"Le meilleur marché d\'Elif en 2025 était le Nigeria avec 23 contrats, suivi de la Chine avec 22."',
+      '"SIEMA 2026 a atteint 127% de l\'objectif — 2 139 m² vendus sur un objectif de 1 685 m²."',
+    ],
+  };
+
+  const l = lang || 'tr';
+
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: 500,
     messages: [{
       role: 'user',
       content: `Sen ELIZA, Elan Expo CEO'sunun kısa ve öz AI asistanısın.
-HER ZAMAN TÜRKÇE yanıt ver. Soru hangi dilde olursa olsun yanıt Türkçe.
-Maksimum 1-3 kısa cümle.
-Doğrudan sonucu söyle. Başlık, liste, büyük harf, markdown kullanma.
-Veri tablosu ayrıca gösterilecek — tablodaki verileri tekrarlama.
-Sadece ana bulguyu ver.
+${langInstruction[l] || langInstruction.tr}
+Maksimum 1-3 kısa cümle. Doğrudan sonucu söyle.
+Başlık, liste, büyük harf, markdown, tablo KULLANMA.
+Veri listesi ayrıca gösterilecek — verileri cümle içinde tekrarlama.
+Sadece ana bulguyu ve yorumu ver.
 
-Format kuralları:
-- Tarihler: "22 Eylül 2026" formatında
-- Para: "€562.512" formatında (nokta binlik ayracı)
-- Yüzde: "%127" formatında
-- m²: "2.139 m²" formatında
+Format: tarihler "22 Eylül 2026", para "€562.512", yüzde "%127", m² "2.139 m²"
 
-İyi yanıt örnekleri:
-- "Elif'in 2025'teki en güçlü pazarı 23 kontratla Nijerya, ardından 22 kontratla Çin."
-- "Emircan 2026'da 5 fuara satış yaptı, en güçlüsü €11.010 ile Ghana Mega Water."
-- "SIEMA 2026 hedefin %127'sine ulaştı — 1.685 m² hedefe karşı 2.139 m² satıldı."
+Örnekler:
+${examples[l].join('\n')}
 
 Question: ${question}
 Data: ${JSON.stringify(data)}`,
@@ -518,7 +535,7 @@ Data: ${JSON.stringify(data)}`,
 }
 
 // Main entry point
-async function run(question, _depth = 0) {
+async function run(question, _depth = 0, lang) {
   const { intent, entities } = await extractIntent(question);
 
   // Handle compound questions (max depth 1 to prevent recursion)
@@ -533,11 +550,11 @@ async function run(question, _depth = 0) {
         const ent = q.entities || {};
         const label = [ent.agent_name, ent.expo_name, q.intent.replace(/_/g, ' ')].filter(Boolean).join(' — ');
         const contextQ = `${q.intent}: ${Object.entries(ent).filter(([,v]) => v).map(([k,v]) => `${k}=${v}`).join(', ')}`;
-        const answer = await generateAnswer(contextQ, result.rows);
+        const answer = await generateAnswer(contextQ, result.rows, lang);
         return { intent: q.intent, data: result.rows, answer, label };
       }
       // If string, run recursively
-      const r = await run(String(q), 1);
+      const r = await run(String(q), 1, lang);
       return { ...r, label: String(q) };
     }));
     const combinedAnswer = results.map((r, i) => `[${i + 1}] ${r.label}\n${r.answer}`).join('\n\n');
@@ -549,7 +566,7 @@ async function run(question, _depth = 0) {
   const validatedSQL = validateSQL(sql);
   const result = await query(validatedSQL, params);
   const data = result.rows;
-  const answer = await generateAnswer(question, data);
+  const answer = await generateAnswer(question, data, lang);
 
   // Track attention — mark entities as reviewed by CEO
   trackAttention(intent, entities).catch(() => {});
