@@ -9,13 +9,13 @@ Rules:
 ---
 
 ## [ISSUE-001] Duplicate rows in WhatsApp response
-**Status:** OPEN
+**Status:** FIXED (2026-03-10)
 **First seen:** 2026-03-10
 **Description:** handler.js hem Sonnet summary hem raw data rows'u aynı anda WhatsApp'a yazıyor. Her büyük refactor'da tekrar ediyor.
 **Root cause:** queryEngine response formatı ({answer, data}) handler'da ikisi birden render ediliyor.
 **Fix attempted:** 3 kez, her seferinde refactor'da bozuldu.
-**Correct fix:** handler.js'de SADECE answer.text kullan, data/rows'u hiç render etme. Sonnet zaten özetledi.
-**Files:** apps/whatsapp-bot/src/handler.js, packages/ai/queryEngine.js
+**Fix:** handler.js'de data rows rendering tamamen kaldırıldı. Sadece Sonnet answer gösteriliyor. totalRows > 5 ise "... ve X sonuç daha" ekleniyor.
+**Files:** apps/whatsapp-bot/src/handler.js
 
 ---
 

@@ -100,30 +100,23 @@ async function handleMessage(text, user) {
 
     let response = answer || 'Sonuç bulunamadı.';
 
-    // Append clean data lines (no duplication — only data rows, no table)
-    if (data && Array.isArray(data) && data.length > 0) {
-      const displayRows = data.length > 5 ? data.slice(0, 5) : data;
-      const lines = formatDataLines(displayRows, lang);
-      if (lines) {
-        if (data.length > 5) {
-          const remaining = data.length - 5;
-          const dashboardLink = getDashboardLink(intent);
-          const moreHint = dashboardLink
-            ? {
-                tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${dashboardLink}`,
-                en: `... and ${remaining} more results.\nFull list: ${dashboardLink}`,
-                fr: `... et ${remaining} résultats de plus.\nListe complète: ${dashboardLink}`,
-              }
-            : {
-                tr: `... ve ${remaining} sonuç daha.`,
-                en: `... and ${remaining} more results.`,
-                fr: `... et ${remaining} résultats de plus.`,
-              };
-          response += `\n\n${lines}\n\n${moreHint[lang] || moreHint.tr}`;
-        } else {
-          response += '\n\n' + lines;
-        }
-      }
+    // Sonnet already summarizes the data — don't render raw rows.
+    // Only add "more results" hint if data exceeds 5 rows.
+    if (data && Array.isArray(data) && data.length > 5) {
+      const remaining = data.length - 5;
+      const dashboardLink = getDashboardLink(intent);
+      const moreHint = dashboardLink
+        ? {
+            tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${dashboardLink}`,
+            en: `... and ${remaining} more results.\nFull list: ${dashboardLink}`,
+            fr: `... et ${remaining} résultats de plus.\nListe complète: ${dashboardLink}`,
+          }
+        : {
+            tr: `... ve ${remaining} sonuç daha.`,
+            en: `... and ${remaining} more results.`,
+            fr: `... et ${remaining} résultats de plus.`,
+          };
+      response += `\n\n${moreHint[lang] || moreHint.tr}`;
     }
 
     return isCeo ? wrapForCeo(response, lang, false) : response;
