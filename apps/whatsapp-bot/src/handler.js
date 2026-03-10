@@ -64,10 +64,7 @@ function getDashboardLink(intent) {
     expo_agent_breakdown: `${DASHBOARD_BASE}/expos?year=2026`,
     expo_company_list: `${DASHBOARD_BASE}/expos?year=2026`,
     cluster_performance: `${DASHBOARD_BASE}/expos?year=2026`,
-    agent_performance: `${DASHBOARD_BASE}/sales`,
-    top_agents: `${DASHBOARD_BASE}/sales`,
-    agent_country_breakdown: `${DASHBOARD_BASE}/sales`,
-    agent_expo_breakdown: `${DASHBOARD_BASE}/sales`,
+    // agent intents: /sales sayfası henüz yok, link eklenmeyecek
   };
   return INTENT_LINKS[intent] || null;
 }
@@ -272,7 +269,7 @@ const LABELS = {
     risk_level: 'Risk', risk_score: 'Risk',
     velocity: 'Hız', velocity_ratio: 'Oran',
     months_to_event: 'Kalan Ay', exhibitors: 'Katılımcı',
-    editions: 'Edisyon', avg_price_per_m2: 'Ort. Fiyat',
+    editions: 'Edisyon', avg_price_per_m2: '',
     month_name: 'Ay', year: 'Yıl', agents: 'Agent', expos: 'Fuar',
     days_remaining: 'Kalan Gün',
   },
@@ -286,7 +283,7 @@ const LABELS = {
     risk_level: 'Risk', risk_score: 'Risk',
     velocity: 'Velocity', velocity_ratio: 'Ratio',
     months_to_event: 'Months Left', exhibitors: 'Exhibitors',
-    editions: 'Editions', avg_price_per_m2: 'Avg Price',
+    editions: 'Editions', avg_price_per_m2: '',
     month_name: 'Month', year: 'Year', agents: 'Agents', expos: 'Expos',
     days_remaining: 'Days Left',
   },
@@ -300,7 +297,7 @@ const LABELS = {
     risk_level: 'Risque', risk_score: 'Risque',
     velocity: 'Vitesse', velocity_ratio: 'Ratio',
     months_to_event: 'Mois restants', exhibitors: 'Exposants',
-    editions: 'Éditions', avg_price_per_m2: 'Prix moyen',
+    editions: 'Éditions', avg_price_per_m2: '',
     month_name: 'Mois', year: 'Année', agents: 'Agents', expos: 'Expos',
     days_remaining: 'Jours restants',
   },
@@ -308,7 +305,8 @@ const LABELS = {
 
 function label(key, lang) {
   const map = LABELS[lang] || LABELS.tr;
-  return map[key] || key.replace(/_/g, ' ');
+  if (key in map) return map[key];
+  return key.replace(/_/g, ' ');
 }
 
 function formatDate(val, lang) {
@@ -342,6 +340,7 @@ function formatVal(key, val, lang) {
   if (val == null) return '—';
   const k = key.toLowerCase();
 
+  if (k === 'avg_price_per_m2') return fmtEur(val, lang) + '/m²';
   if (k.includes('date') || k === 'first_expo' || k === 'last_expo') return formatDate(val, lang);
   if (k.includes('revenue') || k.includes('eur') || k === 'total' || k.includes('price') || k.includes('commission')) return fmtEur(val, lang);
   if (k.includes('percent') || k.includes('pct')) return `%${val}`;
@@ -362,6 +361,13 @@ function rowToLine(row, lang) {
   const nameKey = keys.find(k => ['name', 'expo_name', 'expo', 'sales_agent', 'company_name', 'entity_name', 'country', 'month_name'].includes(k));
   const nameVal = nameKey ? String(row[nameKey]) : null;
 
+  // Keys that use suffix format: "2.951 m²", "€562.512 gelir", "45 kontrat"
+  const SUFFIX_KEYS = new Set([
+    'm2', 'total_m2', 'sold_m2',
+    'revenue_eur', 'total_revenue_eur', 'revenue',
+    'contracts', 'contract_count',
+  ]);
+
   // Build value parts with labels (skip the name column)
   const parts = [];
   for (const k of keys) {
@@ -371,7 +377,16 @@ function rowToLine(row, lang) {
     const formatted = formatVal(k, v, lang);
     if (formatted === '—') continue;
     const lbl = label(k, lang);
-    parts.push(`${lbl}: ${formatted}`);
+    if (!lbl) {
+      // No label — value already self-descriptive (e.g., "€347/m²")
+      parts.push(formatted);
+    } else if (SUFFIX_KEYS.has(k)) {
+      // Numeric — suffix format: "2.951 m²", "€562.512 gelir"
+      parts.push(`${formatted} ${lbl.toLowerCase()}`);
+    } else {
+      // Default — prefix format: "Ülke: Morocco", "Tarih: 22-Eylül-2026"
+      parts.push(`${lbl}: ${formatted}`);
+    }
   }
 
   if (nameVal) {

@@ -470,34 +470,32 @@ function buildQuery(intent, entities) {
       if (hasExpo) {
         return {
           sql: `SELECT
-            e.name AS expo,
-            ROUND(AVG(c.revenue_eur / NULLIF(c.m2, 0))::numeric, 2) AS avg_price_per_m2,
-            MIN(ROUND((c.revenue_eur / NULLIF(c.m2, 0))::numeric, 2)) AS min_price,
-            MAX(ROUND((c.revenue_eur / NULLIF(c.m2, 0))::numeric, 2)) AS max_price,
-            COUNT(*) AS contracts
+            c.sales_agent,
+            ROUND(AVG(c.revenue_eur / NULLIF(c.m2, 0))::numeric, 0) AS avg_price_per_m2,
+            COALESCE(SUM(c.m2), 0) AS total_m2,
+            COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
           FROM edition_contracts c
           JOIN expos e ON c.expo_id = e.id
           WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
             ${EXCL_AGENT}
             AND e.name ILIKE $1
             AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
-          GROUP BY e.id ORDER BY avg_price_per_m2 DESC LIMIT 20`,
+          GROUP BY c.sales_agent ORDER BY avg_price_per_m2 DESC LIMIT 20`,
           params: [`%${e.expo_name}%`, e.year || null],
         };
       }
       return {
         sql: `SELECT
-          e.name AS expo,
-          ROUND(AVG(c.revenue_eur / NULLIF(c.m2, 0))::numeric, 2) AS avg_price_per_m2,
-          MIN(ROUND((c.revenue_eur / NULLIF(c.m2, 0))::numeric, 2)) AS min_price,
-          MAX(ROUND((c.revenue_eur / NULLIF(c.m2, 0))::numeric, 2)) AS max_price,
-          COUNT(*) AS contracts
+          c.sales_agent,
+          ROUND(AVG(c.revenue_eur / NULLIF(c.m2, 0))::numeric, 0) AS avg_price_per_m2,
+          COALESCE(SUM(c.m2), 0) AS total_m2,
+          COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
         FROM edition_contracts c
         JOIN expos e ON c.expo_id = e.id
         WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
           ${EXCL_AGENT}
           AND ($1::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $1)
-        GROUP BY e.id ORDER BY avg_price_per_m2 DESC LIMIT 20`,
+        GROUP BY c.sales_agent ORDER BY avg_price_per_m2 DESC LIMIT 20`,
         params: [e.year || null],
       };
     }
