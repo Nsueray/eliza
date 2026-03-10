@@ -127,14 +127,19 @@ Completed:
 - Phase 1: Data Infrastructure (PostgreSQL schema, Zoho Sync Engine, Base API)
 - Phase 2: War Room Dashboard (Expo Radar, Sales Leaderboard, Financial KPIs)
 - Phase 3: AI Query Engine (POST /api/ai/query — natural language to SQL)
+- Phase 3b: Risk Engine (velocity model, risk scoring, War Room panel)
 
-Completed:
-- Phase 4: Risk Engine (velocity model, risk scoring, War Room panel)
+In Progress:
+- Phase 4: Attention Engine (CEO dikkat takibi)
 
 Pending:
-- Phase 5: WhatsApp Bot (next)
-- Phase 6: Alerts System
-- Phase 7: Deploy to Render
+- Phase 5: Alert Generator + Morning Brief
+- Phase 6: Message Generator
+- Phase 7: Risk Engine Expansion + Explainable AI
+- Phase 8: WhatsApp Interface + Planner Agent
+- Phase 9: Memory Layer + Pattern Detection
+- Phase 10: Yeni Veri Kaynakları (Leena EMS, Liffy)
+- Phase 11: Deploy & Production
 ---
 # 9. Coding Conventions
 Use modern JavaScript.
@@ -500,3 +505,7 @@ Risk Scoring:
 Risk Levels: 0=SAFE, 1=OK, 2=WATCH, 3+=HIGH
 
 sales_start_date = previous edition end_date (auto-calculated on sync)
+
+# 23. Roadmap
+Active TODO: docs/ELIZA_v2_TODO.md
+Current phase: Phase 5 — Alert Generator & Morning Brief

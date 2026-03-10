@@ -545,7 +545,32 @@ async function run(question, _depth = 0) {
   const data = result.rows;
   const answer = await generateAnswer(question, data);
 
+  // Track attention — mark entities as reviewed by CEO
+  trackAttention(intent, entities).catch(() => {});
+
   return { intent, entities, data, answer };
+}
+
+/**
+ * Update attention_log when CEO queries about an entity.
+ */
+async function trackAttention(intent, entities) {
+  const { markReviewed } = require('../attention/index.js');
+  const e = entities || {};
+
+  if (e.expo_name) {
+    await markReviewed('expo', e.expo_name);
+  }
+  if (e.agent_name) {
+    await markReviewed('agent', e.agent_name);
+  }
+  if (e.country) {
+    await markReviewed('office', e.country);
+  }
+  if (intent === 'expo_list' && e.metric === 'risk') {
+    // CEO checked risk overview — mark all expos as partially reviewed
+    // (individual expo review is more valuable, so we don't mark all)
+  }
 }
 
 module.exports = { run, extractIntent, buildQuery, validateSQL };
