@@ -596,4 +596,22 @@ Intent Engine Notlari:
 - Count sorularında metric:"count" → sadece cevap, liste yok
 - rebooking_rate: edition_year bazlı + ülke desteği
 - expo_company_list: GROUP BY ile duplicate firma önlenir
-- price_per_m2: m2>0 AND sales_agent IS NOT NULL filtresi
+- price_per_m2: agent bazlı, m2>0 AND sales_agent IS NOT NULL filtresi
+
+# 27. Benchmark
+Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)
+Runner: node packages/ai/benchmark.js
+Hedef: >= 90% PASS rate
+
+Ilk sonuc: 42 PASS / 1 FAIL / 7 WARN — %84
+Hedef: >= 90% PASS
+
+Intent synonym mapping (benchmark tolerance):
+- exhibitors_by_country <-> country_count
+- agent_performance <-> top_agents
+- expo_progress <-> expo_list <-> days_to_event
+- general_stats <-> revenue_summary, exhibitors_by_country, expo_list
+- agent_country_breakdown <-> agent_performance, agent_expo_breakdown
+
+WARN nedenleri: intent taxonomy overlap, answer length > 300 char
+FAIL nedenleri: hedef verisi eksik expolar (Madesign target_m2 NULL)

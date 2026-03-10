@@ -321,6 +321,17 @@ Sıradaki: Phase 7 (Risk Engine Expansion)
 
 ---
 
+## Benchmark — AI Query Engine Kalite Testi
+
+- [x] 50 soru benchmark suite oluşturuldu (docs/benchmark/questions.json)
+- [x] Otomatik runner: node packages/ai/benchmark.js
+- [x] Intent synonym mapping (tolerance)
+- [ ] Pass rate %70 → %90 çıkar
+- [ ] Answer length enforcement (max 300 char)
+- [ ] Yeni intents: expo_ranking, agent_pricing, attention_items
+
+---
+
 ## Gelecek (Post-Phase 11)
 
 - [ ] Ülke müdürlerine kademeli erişim açılışı (Year 2)

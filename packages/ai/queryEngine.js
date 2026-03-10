@@ -61,6 +61,11 @@ Q: ödemesi geciken firmalar → {"intent":"payment_status","entities":{}}
 Q: SIEMA ya tekrar katilan firmalar → {"intent":"rebooking_rate","entities":{"expo_name":"SIEMA"}}
 Q: SIEMA 2026 ortalama m2 fiyatı → {"intent":"price_per_m2","entities":{"expo_name":"SIEMA","year":2026}}
 Q: satış fiyatı ortalaması nedir → {"intent":"price_per_m2","entities":{}}
+Q: hangi agent en yüksek m² fiyatı satıyor → {"intent":"price_per_m2","entities":{}}
+Q: m² fiyat ortalaması en yüksek agent kim → {"intent":"price_per_m2","entities":{}}
+Q: en pahalı stand hangi fuarda → {"intent":"price_per_m2","entities":{}}
+Q: hangi expo en ucuz m² fiyatına sahip → {"intent":"price_per_m2","entities":{}}
+Q: which agent sells at highest price per m² → {"intent":"price_per_m2","entities":{}}
 Q: elif bu yıl ay ay ne kadar sattı → {"intent":"monthly_trend","entities":{"agent_name":"Elif","year":"current"}}
 Q: Elan Expo 2026 fuarları → {"intent":"expo_list","entities":{"year":2026}}
 Q: Elan Expo exhibitions 2026 → {"intent":"expo_list","entities":{"year":2026}}
@@ -597,9 +602,12 @@ async function generateAnswer(question, data, lang) {
 
   const l = lang || 'tr';
 
+  // Limit data sent to answer generator to prevent overly long answers
+  const trimmedData = Array.isArray(data) && data.length > 5 ? data.slice(0, 5) : data;
+
   const response = await client.messages.create({
     model: MODEL,
-    max_tokens: 500,
+    max_tokens: 300,
     messages: [{
       role: 'user',
       content: `Sen ELIZA, Elan Expo CEO'sunun kısa ve öz AI asistanısın.
@@ -607,7 +615,7 @@ ${langInstruction[l] || langInstruction.tr}
 Maksimum 1-3 kısa cümle. Doğrudan sonucu söyle.
 Başlık, liste, büyük harf, markdown, tablo KULLANMA.
 Veri listesi ayrıca gösterilecek — verileri cümle içinde tekrarlama.
-Sadece ana bulguyu ve yorumu ver.
+Sadece ana bulguyu ve yorumu ver. Firma/agent isimleri listeleme — max 3 isim yeter.
 
 Format: tarihler "22 Eylül 2026", para "€562.512", yüzde "%127", m² "2.139 m²"
 
@@ -615,7 +623,7 @@ Format: tarihler "22 Eylül 2026", para "€562.512", yüzde "%127", m² "2.139 
 ${examples[l].join('\n')}
 
 Question: ${question}
-Data: ${JSON.stringify(data)}`,
+Data: ${JSON.stringify(trimmedData)}`,
     }],
   });
 

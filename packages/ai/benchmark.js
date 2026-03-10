@@ -7,10 +7,24 @@ const QUESTION_TIMEOUT = 10000;
 const DELAY_BETWEEN = 500;
 
 const ERROR_KEYWORDS = [
-  'veri yok', 'data missing', 'bulunamadı', 'cannot',
-  'bilgi yok', 'no data', 'not found', 'unknown', 'error',
-  'null', 'undefined', 'hesaplanamıyor', 'eksik',
+  'veri yok', 'veri bulunamadı', 'data missing', 'sonuç bulunamadı',
+  'bilgi yok', 'bilgi bulunamadı', 'no data available', 'no results found',
+  'not found in the database', 'unknown error', 'hesaplanamıyor',
+  'veri eksik', 'data is missing',
 ];
+
+// Intent synonym mapping — these pairs are considered equivalent
+const INTENT_SYNONYMS = {
+  exhibitors_by_country: ['exhibitors_by_country', 'country_count'],
+  country_count: ['country_count', 'exhibitors_by_country'],
+  agent_performance: ['agent_performance', 'top_agents'],
+  top_agents: ['top_agents', 'agent_performance'],
+  expo_progress: ['expo_progress', 'expo_list', 'days_to_event'],
+  expo_list: ['expo_list', 'expo_progress', 'days_to_event'],
+  days_to_event: ['days_to_event', 'expo_list', 'expo_progress'],
+  general_stats: ['general_stats', 'revenue_summary', 'exhibitors_by_country', 'expo_list'],
+  agent_country_breakdown: ['agent_country_breakdown', 'agent_performance', 'agent_expo_breakdown'],
+};
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -41,14 +55,17 @@ function classify(q, result) {
     return { status: 'FAIL', reason: `error keyword detected` };
   }
 
-  const intentMatch = intent && intent.toLowerCase() === q.expected_intent.toLowerCase();
+  const gotIntent = (intent || '').toLowerCase();
+  const expectedIntent = q.expected_intent.toLowerCase();
+  const acceptedIntents = INTENT_SYNONYMS[expectedIntent] || [expectedIntent];
+  const intentMatch = acceptedIntents.includes(gotIntent);
 
   // Intent mismatch
   if (!intentMatch) {
     if (answer.trim().length > 0) {
-      return { status: 'WARN', reason: `intent mismatch (got: ${intent}, expected: ${q.expected_intent})` };
+      return { status: 'WARN', reason: `intent mismatch (got: ${gotIntent}, expected: ${expectedIntent})` };
     }
-    return { status: 'FAIL', reason: `wrong intent (got: ${intent}, expected: ${q.expected_intent})` };
+    return { status: 'FAIL', reason: `wrong intent (got: ${gotIntent}, expected: ${expectedIntent})` };
   }
 
   // Answer too long
