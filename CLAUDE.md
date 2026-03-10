@@ -136,6 +136,9 @@ Completed:
 - Phase 5: Alert Generator + Morning Brief (payment watch, dedup, scheduler, Twilio)
 - Phase 8a: WhatsApp Bot temel (Twilio webhook, auth, AI query, CEO kişiliği)
 - Phase 6: Message Generator (4 şablon, 3 dil, .msg komutu, human-in-the-loop)
+- Multi-user system (users + user_permissions, roller: ceo/manager/agent)
+- Admin Panel (localhost:3000/admin)
+- WhatsApp auth: users tablosundan phone lookup
 
 Pending:
 - Phase 7: Risk Engine Expansion + Explainable AI
@@ -168,10 +171,12 @@ Never fail silently.
 # 11. Security
 Credentials must never be stored in code.
 Use environment variables.
-Access control will later support:
-- CEO
-- Country Manager
-- Sales Agent
+Access control implemented:
+- CEO — full access, data_scope: all
+- Manager — team data, data_scope: team
+- Agent — own data, data_scope: own
+- Auth: users tablosundan WhatsApp phone lookup
+- Kullanıcılar: CEO (Nihat Suer AY), Elif AY (manager/team)
 ---
 # 12. What NOT to do
 Claude must not:

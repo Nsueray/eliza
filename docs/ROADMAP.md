@@ -12,14 +12,12 @@
 - Benchmark: 50 soru, %98 pass rate
 - Zoho Sync Scheduler (her 15 dk)
 - KNOWN_ISSUES tracking
+- Multi-user system (users + user_permissions tabloları, roller: ceo/manager/agent)
+- Admin Panel (localhost:3000/admin — kullanıcı CRUD, rol/izin yönetimi)
+- WhatsApp auth: users tablosundan phone lookup (hardcoded .env kaldırıldı)
 
 ## 🔄 Devam Eden
 - Bug fixes (KNOWN_ISSUES.md)
-
-## ✅ Yeni Tamamlanan
-- Multi-user system (users + user_permissions tabloları)
-- Admin Panel (/admin, /admin/users/new, /admin/users/[id])
-- WhatsApp auth: users tablosundan phone lookup
 
 ## ⬜ Siradaki (oncelik sirasi)
 
