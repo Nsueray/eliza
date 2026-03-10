@@ -77,7 +77,12 @@ async function handleMessage(text, user) {
       if (lines) {
         if (data.length > 5) {
           const more = { tr: 'kayıt', en: 'records', fr: 'résultats' };
-          response += `\n\n📋 ${data.length} ${more[lang] || more.tr}:\n${lines}`;
+          const listHint = {
+            tr: 'Tümünü görmek için .list yaz',
+            en: 'Type .list for full results',
+            fr: 'Tapez .list pour tout voir',
+          };
+          response += `\n\n📋 ${data.length} ${more[lang] || more.tr}:\n${lines}\n\n${listHint[lang] || listHint.tr}`;
         } else {
           response += '\n\n' + lines;
         }
@@ -208,18 +213,25 @@ function formatDate(val, lang) {
   const d = new Date(val);
   if (isNaN(d.getTime())) return String(val);
   const months = lang === 'fr' ? FR_MONTHS : lang === 'en' ? EN_MONTHS : TR_MONTHS;
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  const text = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  // Wrap EN/FR dates in parens to prevent WhatsApp auto-linking
+  if (lang === 'en' || lang === 'fr') return `(${text})`;
+  return text;
 }
 
-function fmtNum(val) {
+function fmtNum(val, lang) {
   const n = Number(val);
   if (isNaN(n)) return String(val);
+  if (lang === 'fr') return n.toLocaleString('fr-FR', { maximumFractionDigits: 0 });
+  if (lang === 'en') return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
   return n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
 }
 
-function fmtEur(val) {
+function fmtEur(val, lang) {
   const n = Number(val);
   if (isNaN(n)) return String(val);
+  if (lang === 'fr') return n.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €';
+  if (lang === 'en') return '€' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
   return '€' + n.toLocaleString('de-DE', { maximumFractionDigits: 0 });
 }
 
@@ -228,10 +240,10 @@ function formatVal(key, val, lang) {
   const k = key.toLowerCase();
 
   if (k.includes('date') || k === 'first_expo' || k === 'last_expo') return formatDate(val, lang);
-  if (k.includes('revenue') || k.includes('eur') || k === 'total' || k.includes('price') || k.includes('commission')) return fmtEur(val);
+  if (k.includes('revenue') || k.includes('eur') || k === 'total' || k.includes('price') || k.includes('commission')) return fmtEur(val, lang);
   if (k.includes('percent') || k.includes('pct')) return `%${val}`;
-  if (k.includes('m2') || k.includes('velocity')) return fmtNum(val);
-  if (k === 'contracts' || k === 'contract_count' || k === 'exhibitors' || k === 'editions') return fmtNum(val);
+  if (k.includes('m2') || k.includes('velocity')) return fmtNum(val, lang);
+  if (k === 'contracts' || k === 'contract_count' || k === 'exhibitors' || k === 'editions') return fmtNum(val, lang);
 
   return String(val);
 }
@@ -247,7 +259,7 @@ function rowToLine(row, lang) {
   const nameKey = keys.find(k => ['name', 'expo_name', 'expo', 'sales_agent', 'company_name', 'entity_name', 'country', 'month_name'].includes(k));
   const nameVal = nameKey ? String(row[nameKey]) : null;
 
-  // Build value parts (skip the name column)
+  // Build value parts with labels (skip the name column)
   const parts = [];
   for (const k of keys) {
     if (k === nameKey) continue;
@@ -255,7 +267,8 @@ function rowToLine(row, lang) {
     if (v == null) continue;
     const formatted = formatVal(k, v, lang);
     if (formatted === '—') continue;
-    parts.push(formatted);
+    const lbl = label(k, lang);
+    parts.push(`${lbl}: ${formatted}`);
   }
 
   if (nameVal) {
