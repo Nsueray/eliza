@@ -508,7 +508,7 @@ sales_start_date = previous edition end_date (auto-calculated on sync)
 
 # 23. Roadmap
 Active TODO: docs/ELIZA_v2_TODO.md
-Current phase: Phase 5 — Alert Generator & Morning Brief
+Current phase: Phase 6 — Message Generator
 
 # 24. Infrastructure & Environment
 Repository: https://github.com/Nsueray/eliza (public, main branch)
@@ -520,27 +520,45 @@ Liffy: Bookmarkta mevcut, API entegrasyonu henuz yapilmadi
 Shadow Mode: Year 1 — sadece CEO kullaniyor, ekip haberdar degil
 
 # 25. WhatsApp Bot
-Location: apps/whatsapp-bot (port 3002)
+Location: apps/whatsapp-bot
+Port: 3002
 Status: Phase 8a tamamlandi
+Baslatma: npm run dev:bot (root) veya npm run dev (whatsapp-bot icinden)
+Dev mode: node --watch-path=src --watch-path=../../packages (otomatik restart)
 
 Mimari:
-- src/server.js — Express, Twilio webhook POST /webhook, TwiML response
+- src/server.js — Express, POST /webhook (Twilio), TwiML XML response
 - src/auth.js — telefon dogrulama (CEO .env, agentlar sales_agents tablosu)
 - src/handler.js — mesaj routing, dil tespiti, CEO kisiligi, veri formatlama
+- Dogrudan DB baglantisi: handler → queryEngine.js → packages/db → PostgreSQL
+- HTTP API cagrisi YOK, fetch/axios YOK — tum sorgular dogrudan DB uzerinden
 
-Ozellikler:
-- Twilio sandbox: +14155238886, ngrok ile disariya acilir
-- CEO kisiligi: TR "Selam Baba", EN "Hi Dad", FR "Bonjour Papa"
-- Dil tespiti: TR/EN/FR kelime skorlama, default TR
+Dil Algilama:
+- TR/EN/FR otomatik (kelime skorlama, default TR)
 - Yanit dili sorulan dille ayni (TR soru → TR yanit, FR → FR, EN → EN)
-- Dot-commands: .brief, .risk, .attention, .help
-- Dogal dil sorulari → queryEngine.run(question, 0, lang) → dile gore yanit
-- Veri formatlama: duz metin, tablo yok, markdown yok
-  Format: "SIEMA 2026 — Ülke: France — Tarih: 22-Eylül-2026 — Kontrat: 45 — m²: 1.234 — Gelir: €562.512"
-  Etiketler zorunlu: her deger alaninda "Label: value" formati
-  Tarihler tire ile: "19-Mayıs-2026", "19-May-2026", "19-mai-2026" (auto-link onleme)
-  Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
-  Max 5 satir, fazlasi: "... ve X sonuç daha" + dashboard linki
-  Satir arasi bos satir ile ayrilir (WhatsApp okunabilirlik)
+
+CEO Kisiligi:
+- TR: "Selam Baba 👋" ... "Başka bir şey var mı Baba?"
+- EN: "Hi Dad 👋" ... "Anything else Dad?"
+- FR: "Bonjour Papa 👋" ... "Autre chose Papa?"
+- Sadece CEO numarasindan gelen mesajlarda aktif
+
+Komutlar:
+- .brief — sabah brifingini getir
+- .risk [expo] — risk raporu
+- .attention — dikkat gerektiren konular
+- .help — komut listesi
+
+Veri Formatlama:
+- Duz metin, tablo yok, markdown yok
+- Etiketli: "SIEMA 2026 — Ülke: France — Tarih: 22-Eylül-2026 — Kontrat: 45 — m²: 1.234 — Gelir: €562.512"
+- Tarihler tire ile: "19-Mayıs-2026" (WhatsApp auto-link onleme)
+- Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
+- Max 5 satir, fazlasi: "... ve X sonuç daha" + dashboard linki (localhost:3000/expos)
+- Satir arasi bos satir ile ayrilir
+
+Intent Engine Notlari:
+- "Elan Expo" = sirket adi, expo adi degil (intent prompt'a eklendi)
+- expo_list intent'i year parametresini destekler
 - Yetkisiz numaralar reddedilir
 - WhatsApp 4000 karakter limiti korunur

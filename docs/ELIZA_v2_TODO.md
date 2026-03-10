@@ -12,6 +12,10 @@ Tarih: Mart 2026
 - ✅ Phase 1 — Data Infrastructure (PostgreSQL schema, Zoho Sync)
 - ✅ Phase 2 — Analytics (War Room, Expo Radar, Sales Leaderboard)
 - ✅ Phase 3 — AI Query Engine (POST /api/ai/query)
+- ✅ Phase 3b — Risk Engine (velocity model, risk scoring, War Room panel)
+- ✅ Phase 4 — Attention Engine (CEO dikkat takibi)
+- ✅ Phase 5 — Alert Generator + Morning Brief (payment watch, dedup, scheduler)
+- ✅ Phase 8a — WhatsApp Bot temel (Twilio webhook, auth, AI query, CEO kişiliği)
 
 ---
 
@@ -125,7 +129,7 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 
 ---
 
-## PHASE 6 — Message Generator
+## PHASE 6 — Message Generator ← CURRENT
 **Hedef:** ELIZA, CEO adına hazır mesajlar üretir.
 
 **Durum:** ⬜ Pending
@@ -177,7 +181,7 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 ## PHASE 8 — WhatsApp Interface + Planner Agent
 **Hedef:** WhatsApp primary interface, compound komutlar destekli.
 
-**Durum:** 🟡 Phase 8a tamamlandı (temel bot), Phase 8b pending (Planner Agent)
+**Durum:** ✅ Phase 8a tamamlandı — 🟡 Phase 8b pending (Planner Agent)
 
 ### Temel WhatsApp Bot
 
@@ -302,8 +306,9 @@ Phase 10 (Leena + Liffy)       → bağımlı
 Phase 11 (Deploy)              → 2-3 gün
 ```
 
-**İlk kullanılabilir milestone:** Phase 4 + 5 + 8a tamamlanınca.  
+**İlk kullanılabilir milestone:** Phase 4 + 5 + 8a tamamlandı ✅
 WhatsApp'tan soru sorabilir + sabah brifing alabilirsin.
+Sıradaki: Phase 6 (Message Generator)
 
 ---
 
