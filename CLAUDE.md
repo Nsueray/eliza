@@ -427,3 +427,45 @@ Design:
 | Transferred Out |    40 |
 | Transferred In  |    17 |
 | On Hold         |     6 |
+---
+# 21. AI Query Engine
+
+Location: packages/ai/queryEngine.js
+Endpoint: POST /api/ai/query
+Input: { question: string }
+Output: { question, intent, answer, data }
+
+Architecture:
+1. Intent Extraction (Claude) → { intent, entities }
+2. Query Builder → parameterized SQL
+3. SQL Validator → SELECT only, whitelist tables, LIMIT 200
+4. Answer Generator (Claude) → 1-3 sentence insight, no markdown
+
+Supported intents (18):
+- expo_progress: expo ilerleme durumu
+- agent_performance: agent toplam satış
+- agent_country_breakdown: agent ülke dağılımı
+- agent_expo_breakdown: agent expo dağılımı
+- expo_agent_breakdown: expodaki agent dağılımı
+- expo_company_list: expodaki firma listesi
+- country_count: expodaki ülke sayısı
+- exhibitors_by_country: belirli ülkenin expo varlığı
+- top_agents: en iyi agentlar
+- expo_list: expo listesi (risk filtreli)
+- monthly_trend: ay ay satış trendi
+- cluster_performance: cluster bazlı performans
+- payment_status: ödeme durumu (TODO: Balance1 field)
+- rebooking_rate: tekrar katılım oranı
+- price_per_m2: ortalama m2 fiyatı
+- revenue_summary: yıllık gelir özeti
+- general_stats: genel istatistik
+- compound: birden fazla soru (max 2)
+
+Allowed tables: edition_contracts, fiscal_contracts, expos, contracts
+Forbidden: INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE
+
+Answer format rules:
+- 1-3 sentences maximum
+- No markdown, no headers, no ALL CAPS
+- State key finding only
+- Data table shown separately in UI

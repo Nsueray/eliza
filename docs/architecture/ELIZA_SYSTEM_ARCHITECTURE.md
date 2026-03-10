@@ -1,6 +1,6 @@
 # ELIZA SYSTEM ARCHITECTURE
 
-Version: v1.2
+Version: v2.0
 System Owner: Elan Expo
 System Name: ELIZA (Elan Expo Intelligent Assistant)
 
@@ -270,20 +270,46 @@ expenses
 
 ---
 
-# 6. Analytics Layer
+# 6. AI Query Engine
 
-Metrics are calculated from contracts table.
+Location: packages/ai/queryEngine.js
+Endpoint: POST /api/ai/query
 
-Example query:
+## Architecture
 
-SELECT
-e.name,
-COUNT(c.id) AS contracts,
-SUM(c.m2) AS total_m2,
-SUM(c.revenue_eur) AS revenue_eur
-FROM contracts c
-JOIN expos e ON c.expo_id = e.id
-GROUP BY e.name;
+1. Intent Extraction — Claude classifies question into intent + entities
+2. Query Builder — builds parameterized SQL from intent + entities
+3. SQL Validator — SELECT only, allowed tables, auto LIMIT 200
+4. Data Execution — runs query via packages/db
+5. Answer Generator — Claude produces 1-3 sentence insight
+
+## Supported Intents (18)
+
+| Intent | Description |
+|--------|-------------|
+| expo_progress | Expo target progress |
+| agent_performance | Agent sales totals |
+| agent_country_breakdown | Agent's country distribution |
+| agent_expo_breakdown | Agent's expo distribution |
+| expo_agent_breakdown | Agents within an expo |
+| expo_company_list | Companies at an expo |
+| country_count | Country count at expo |
+| exhibitors_by_country | Country's expo presence |
+| top_agents | Top performing agents |
+| expo_list | Expo list (risk filter) |
+| monthly_trend | Month-by-month sales |
+| cluster_performance | Geographic cluster stats |
+| payment_status | Contract payment info |
+| rebooking_rate | Repeat exhibitor rate |
+| price_per_m2 | Average price per m² |
+| revenue_summary | Revenue by year |
+| general_stats | Overall statistics |
+| compound | Multiple questions (max 2) |
+
+## Security
+
+Allowed tables: expos, contracts, edition_contracts, fiscal_contracts
+Forbidden keywords: INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, CREATE, EXEC
 
 ---
 
@@ -354,7 +380,7 @@ Backend: Node.js + Express
 Database: PostgreSQL
 Frontend: Next.js
 Messaging: Twilio WhatsApp API
-AI: OpenAI or Claude
+AI: Claude (Anthropic)
 
 Repository:
 
@@ -371,26 +397,36 @@ Phase 1 — Data Infrastructure ✔ COMPLETE
 - Zoho Sync Engine
 - Contract + Expo linking
 - Currency normalization
+- Database views (edition_contracts, fiscal_contracts)
 
-Phase 2 — Analytics ✔ COMPLETE
+Phase 2 — War Room Dashboard ✔ COMPLETE
 
-- Expo metrics
-- Sales metrics
-- Revenue metrics
+- Expo Radar with progress tracking
+- Sales Leaderboard
+- Financial KPIs (Edition/Fiscal modes)
+- Ask ELIZA floating chat panel
 
-Phase 3 — War Room ✔ COMPLETE (basic)
+Phase 3 — AI Query Engine ✔ COMPLETE
 
-- dashboard API
-- UI
+- Intent extraction (18 intents)
+- Parameterized query builder
+- SQL validation layer
+- Compound question support
+- Concise answer generation
 
-Phase 4 — AI (next)
+Phase 4 — Risk Engine (next)
 
-- natural language queries
+- Automated expo risk scoring
 
 Phase 5 — Messaging (pending)
 
 - WhatsApp bot
-- expense ingestion
+- Telegram bot
+- Expense ingestion
+
+Phase 6 — Alerts System (pending)
+
+- Automated alerts
 
 ---
 
