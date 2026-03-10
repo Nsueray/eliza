@@ -58,7 +58,7 @@ Technology stack:
 Backend: Node.js + Express  
 Database: PostgreSQL  
 Frontend: Next.js (future phase)  
-Messaging: WhatsApp via Twilio  
+Messaging: WhatsApp via Twilio (sandbox kurulu, production henuz degil)
 AI: Claude or OpenAI
 ---
 # 5. Data Ownership Rule
@@ -129,11 +129,13 @@ Completed:
 - Phase 3: AI Query Engine (POST /api/ai/query — natural language to SQL)
 - Phase 3b: Risk Engine (velocity model, risk scoring, War Room panel)
 
-In Progress:
+Completed:
 - Phase 4: Attention Engine (CEO dikkat takibi)
 
+Completed:
+- Phase 5: Alert Generator + Morning Brief (payment watch, dedup, scheduler, Twilio)
+
 Pending:
-- Phase 5: Alert Generator + Morning Brief
 - Phase 6: Message Generator
 - Phase 7: Risk Engine Expansion + Explainable AI
 - Phase 8: WhatsApp Interface + Planner Agent
@@ -509,3 +511,20 @@ sales_start_date = previous edition end_date (auto-calculated on sync)
 # 23. Roadmap
 Active TODO: docs/ELIZA_v2_TODO.md
 Current phase: Phase 5 — Alert Generator & Morning Brief
+
+# 24. Infrastructure & Environment
+Repository: https://github.com/Nsueray/eliza (public, main branch)
+Local: PostgreSQL localhost:5432/eliza, API port 3001
+Deploy: Once local gelistirme, sonra Render (henuz deploy edilmedi)
+Twilio: Sandbox kurulu, CEO_WHATSAPP .env'de tanimli
+Leena EMS: Bookmarkta mevcut, API entegrasyonu henuz yapilmadi
+Liffy: Bookmarkta mevcut, API entegrasyonu henuz yapilmadi
+Shadow Mode: Year 1 — sadece CEO kullaniyor, ekip haberdar degil
+
+# 25. WhatsApp Bot
+Location: apps/whatsapp-bot
+Status: Phase 8'de kurulacak (Twilio sandbox hazir)
+Twilio sandbox aktif, credentials .env'de mevcut
+Primary interface olacak (dashboard secondary)
+Planner Agent: compound komutlari destekleyecek
+Dil: TR/EN/FR otomatik algilama
