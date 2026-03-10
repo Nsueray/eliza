@@ -54,6 +54,25 @@ function wrapForCeo(response, lang, isCommand) {
 }
 
 /**
+ * Return dashboard link for a given intent, or null if no relevant page exists.
+ */
+function getDashboardLink(intent) {
+  const DASHBOARD_BASE = 'http://localhost:3000';
+  const INTENT_LINKS = {
+    expo_progress: `${DASHBOARD_BASE}/expos?year=2026`,
+    expo_list: `${DASHBOARD_BASE}/expos?year=2026`,
+    expo_agent_breakdown: `${DASHBOARD_BASE}/expos?year=2026`,
+    expo_company_list: `${DASHBOARD_BASE}/expos?year=2026`,
+    cluster_performance: `${DASHBOARD_BASE}/expos?year=2026`,
+    agent_performance: `${DASHBOARD_BASE}/sales`,
+    top_agents: `${DASHBOARD_BASE}/sales`,
+    agent_country_breakdown: `${DASHBOARD_BASE}/sales`,
+    agent_expo_breakdown: `${DASHBOARD_BASE}/sales`,
+  };
+  return INTENT_LINKS[intent] || null;
+}
+
+/**
  * Handle an incoming WhatsApp message.
  */
 async function handleMessage(text, user) {
@@ -80,7 +99,7 @@ async function handleMessage(text, user) {
   }
 
   try {
-    const { answer, data } = await queryEngine.run(trimmed, 0, lang);
+    const { intent, answer, data } = await queryEngine.run(trimmed, 0, lang);
 
     let response = answer || 'Sonuç bulunamadı.';
 
@@ -91,11 +110,18 @@ async function handleMessage(text, user) {
       if (lines) {
         if (data.length > 5) {
           const remaining = data.length - 5;
-          const moreHint = {
-            tr: `... ve ${remaining} sonuç daha.\nTüm liste: http://localhost:3000/expos?year=2026`,
-            en: `... and ${remaining} more results.\nFull list: http://localhost:3000/expos?year=2026`,
-            fr: `... et ${remaining} résultats de plus.\nListe complète: http://localhost:3000/expos?year=2026`,
-          };
+          const dashboardLink = getDashboardLink(intent);
+          const moreHint = dashboardLink
+            ? {
+                tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${dashboardLink}`,
+                en: `... and ${remaining} more results.\nFull list: ${dashboardLink}`,
+                fr: `... et ${remaining} résultats de plus.\nListe complète: ${dashboardLink}`,
+              }
+            : {
+                tr: `... ve ${remaining} sonuç daha.`,
+                en: `... and ${remaining} more results.`,
+                fr: `... et ${remaining} résultats de plus.`,
+              };
           response += `\n\n${lines}\n\n${moreHint[lang] || moreHint.tr}`;
         } else {
           response += '\n\n' + lines;

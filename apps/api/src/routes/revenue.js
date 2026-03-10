@@ -6,11 +6,11 @@ router.get('/summary', async (req, res) => {
   try {
     const result = await query(`
       SELECT
-        COUNT(*) AS total_contracts,
-        COALESCE(ROUND(SUM(m2)::numeric, 1), 0) AS total_m2,
+        COUNT(*) FILTER (WHERE sales_agent != 'ELAN EXPO') AS total_contracts,
+        COALESCE(ROUND(SUM(m2) FILTER (WHERE sales_agent != 'ELAN EXPO')::numeric, 1), 0) AS total_m2,
         COALESCE(ROUND(SUM(revenue_eur)::numeric, 2), 0) AS total_revenue_eur,
         COUNT(DISTINCT expo_id) AS total_expos,
-        COUNT(DISTINCT sales_agent) AS total_agents
+        COUNT(DISTINCT sales_agent) FILTER (WHERE sales_agent != 'ELAN EXPO') AS total_agents
       FROM fiscal_contracts
       WHERE EXTRACT(YEAR FROM contract_date) = 2026
     `);
@@ -35,11 +35,11 @@ router.get('/edition-summary', async (req, res) => {
 
     const result = await query(`
       SELECT
-        COUNT(*) AS total_contracts,
-        COALESCE(ROUND(SUM(m2)::numeric, 1), 0) AS total_m2,
+        COUNT(*) FILTER (WHERE sales_agent != 'ELAN EXPO') AS total_contracts,
+        COALESCE(ROUND(SUM(m2) FILTER (WHERE sales_agent != 'ELAN EXPO')::numeric, 1), 0) AS total_m2,
         COALESCE(ROUND(SUM(revenue_eur)::numeric, 2), 0) AS total_revenue_eur,
         COUNT(DISTINCT expo_id) AS total_expos,
-        COUNT(DISTINCT sales_agent) AS total_agents
+        COUNT(DISTINCT sales_agent) FILTER (WHERE sales_agent != 'ELAN EXPO') AS total_agents
       FROM edition_contracts
       WHERE expo_id IN (
         SELECT id FROM expos

@@ -37,13 +37,13 @@ router.get('/metrics', async (req, res) => {
     const result = await query(`
       SELECT
         e.id, e.name, e.country, e.start_date,
-        COUNT(c.id) AS contracts,
-        COALESCE(SUM(c.m2), 0) AS sold_m2,
+        COUNT(c.id) FILTER (WHERE c.sales_agent != 'ELAN EXPO') AS contracts,
+        COALESCE(SUM(c.m2) FILTER (WHERE c.sales_agent != 'ELAN EXPO'), 0) AS sold_m2,
         COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur,
         e.target_m2,
         CASE
           WHEN e.target_m2 IS NULL OR e.target_m2 = 0 THEN NULL
-          ELSE ROUND((COALESCE(SUM(c.m2), 0) / e.target_m2 * 100)::numeric, 1)
+          ELSE ROUND((COALESCE(SUM(c.m2) FILTER (WHERE c.sales_agent != 'ELAN EXPO'), 0) / e.target_m2 * 100)::numeric, 1)
         END AS progress_percent
       FROM expos e
       LEFT JOIN edition_contracts c ON c.expo_id = e.id
