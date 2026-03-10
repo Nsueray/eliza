@@ -535,10 +535,10 @@ Ozellikler:
 - Dot-commands: .brief, .risk, .attention, .help
 - Dogal dil sorulari → queryEngine.run(question, 0, lang) → dile gore yanit
 - Veri formatlama: duz metin, tablo yok, markdown yok
-  Format: "Elif AY — Kontrat: 11 — m²: 234 — Gelir: €76.715" (etiketli)
-  Tarihler dile gore: TR "22 Eylul 2026", FR "(22 septembre 2026)", EN "(22 September 2026)"
-  EN/FR tarihler parantez icinde (WhatsApp auto-link onleme)
+  Format: "SIEMA 2026 — Ülke: France — Tarih: 22-Eylül-2026 — Kontrat: 45 — m²: 1.234 — Gelir: €562.512"
+  Etiketler zorunlu: her deger alaninda "Label: value" formati
+  Tarihler tire ile: "19-Mayıs-2026", "19-May-2026", "19-mai-2026" (auto-link onleme)
   Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
-  Max 5 satir gosterilir, fazlasi icin ".list yaz" mesaji eklenir
+  Max 5 satir, fazlasi: "... ve X sonuç daha. Tümünü görmek için .list yaz"
 - Yetkisiz numaralar reddedilir
 - WhatsApp 4000 karakter limiti korunur

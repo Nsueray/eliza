@@ -76,13 +76,13 @@ async function handleMessage(text, user) {
       const lines = formatDataLines(displayRows, lang);
       if (lines) {
         if (data.length > 5) {
-          const more = { tr: 'kayıt', en: 'records', fr: 'résultats' };
-          const listHint = {
-            tr: 'Tümünü görmek için .list yaz',
-            en: 'Type .list for full results',
-            fr: 'Tapez .list pour tout voir',
+          const remaining = data.length - 5;
+          const moreHint = {
+            tr: `... ve ${remaining} sonuç daha. Tümünü görmek için .list yaz`,
+            en: `... and ${remaining} more results. Type .list for full results`,
+            fr: `... et ${remaining} résultats de plus. Tapez .list pour tout voir`,
           };
-          response += `\n\n📋 ${data.length} ${more[lang] || more.tr}:\n${lines}\n\n${listHint[lang] || listHint.tr}`;
+          response += `\n\n${lines}\n\n${moreHint[lang] || moreHint.tr}`;
         } else {
           response += '\n\n' + lines;
         }
@@ -213,10 +213,8 @@ function formatDate(val, lang) {
   const d = new Date(val);
   if (isNaN(d.getTime())) return String(val);
   const months = lang === 'fr' ? FR_MONTHS : lang === 'en' ? EN_MONTHS : TR_MONTHS;
-  const text = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-  // Wrap EN/FR dates in parens to prevent WhatsApp auto-linking
-  if (lang === 'en' || lang === 'fr') return `(${text})`;
-  return text;
+  // Use dashes to prevent WhatsApp auto-linking dates
+  return `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear()}`;
 }
 
 function fmtNum(val, lang) {
