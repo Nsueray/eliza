@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:api": "npm run dev --workspace=apps/api"
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:bot": "npm run dev --workspace=apps/whatsapp-bot"
   }
 }
