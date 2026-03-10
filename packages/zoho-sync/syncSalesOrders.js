@@ -109,7 +109,13 @@ async function syncSalesOrders() {
     const result = await query(
       `INSERT INTO contracts (af_number, company_name, country, sales_agent, m2, revenue, contract_date, sales_type, expo_id, currency, exchange_rate, revenue_eur, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-       ON CONFLICT (af_number) DO UPDATE SET expo_id = EXCLUDED.expo_id, currency = EXCLUDED.currency, exchange_rate = EXCLUDED.exchange_rate, revenue_eur = EXCLUDED.revenue_eur, status = EXCLUDED.status`,
+       ON CONFLICT (af_number) DO UPDATE SET
+         company_name = EXCLUDED.company_name, country = EXCLUDED.country,
+         sales_agent = EXCLUDED.sales_agent, m2 = EXCLUDED.m2,
+         revenue = EXCLUDED.revenue, contract_date = EXCLUDED.contract_date,
+         sales_type = EXCLUDED.sales_type, expo_id = EXCLUDED.expo_id,
+         currency = EXCLUDED.currency, exchange_rate = EXCLUDED.exchange_rate,
+         revenue_eur = EXCLUDED.revenue_eur, status = EXCLUDED.status`,
       [
         mapped.af_number,
         mapped.company_name,
@@ -138,7 +144,12 @@ async function syncSalesOrders() {
   console.log(`Expo matching: ${matched} matched, ${unmatched} no match`);
 }
 
-syncSalesOrders().catch((error) => {
-  console.error('Error:', error.message);
-  process.exit(1);
-});
+module.exports = { syncSalesOrders };
+
+// Run directly if called as script
+if (require.main === module) {
+  syncSalesOrders().catch((error) => {
+    console.error('Error:', error.message);
+    process.exit(1);
+  });
+}

@@ -241,6 +241,15 @@ Primary modules for ELIZA sync:
 - Expenses → Expensess → expenses table
 - Expos → Vendors → expos table
 - Sales Agents → Sales_Agents → sales_agents table
+
+## Sync Tracking
+- contracts tablosu: created_at, updated_at (TIMESTAMP DEFAULT NOW())
+- updated_at trigger: her UPDATE'de otomatik guncellenir
+- sync_log tablosu: sync_type, module, started_at, completed_at, records_synced, status, error_message
+- Scheduler: packages/zoho-sync/scheduler.js — node-cron ile her 15 dk incremental sync
+- Baslatma: npm run sync:start (root)
+- Sira: expos sync → contracts sync (contracts expo_id lookup'a bagimli)
+- Migration: packages/db/migrations/004_sync_tracking.sql
 ---
 # 14. Zoho Sales Contracts Field Mapping
 

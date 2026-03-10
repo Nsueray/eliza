@@ -100,7 +100,12 @@ async function syncExpos() {
   console.log(`Total expos in database: ${countResult.rows[0].count}`);
 }
 
-syncExpos().catch((error) => {
-  console.error('Error:', error.message);
-  process.exit(1);
-});
+module.exports = { syncExpos };
+
+// Run directly if called as script
+if (require.main === module) {
+  syncExpos().catch((error) => {
+    console.error('Error:', error.message);
+    process.exit(1);
+  });
+}
