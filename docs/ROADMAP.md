@@ -16,22 +16,15 @@
 ## 🔄 Devam Eden
 - Bug fixes (KNOWN_ISSUES.md)
 
+## ✅ Yeni Tamamlanan
+- Multi-user system (users + user_permissions tabloları)
+- Admin Panel (/admin, /admin/users/new, /admin/users/[id])
+- WhatsApp auth: users tablosundan phone lookup
+
 ## ⬜ Siradaki (oncelik sirasi)
 
-### Once — Multi-user + Deploy
-1. Multi-user system
-   - users tablosu (phone, role, language, permissions)
-   - Roller: CEO / Sales Agent / Country Manager
-   - WhatsApp auth: phone → role → izinler
-   - Sales agent kendi verisini gorur
-
-2. Admin Panel
-   - Next.js'te /admin sayfasi
-   - Kullanici ekle/sil/duzenle
-   - Rol ata, izin ver
-   - Aktif kullanicilari gor
-
-3. Phase 11 — Deploy
+### Once — Deploy
+1. Phase 11 — Deploy
    - Render veya Railway
    - PostgreSQL cloud (Supabase veya Render Postgres)
    - ngrok → gercek domain

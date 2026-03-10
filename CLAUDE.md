@@ -543,7 +543,7 @@ Dev mode: node --watch-path=src --watch-path=../../packages (otomatik restart)
 
 Mimari:
 - src/server.js — Express, POST /webhook (Twilio), TwiML XML response
-- src/auth.js — telefon dogrulama (CEO .env, agentlar sales_agents tablosu)
+- src/auth.js — telefon dogrulama (users tablosu, phone lookup)
 - src/handler.js — mesaj routing, dil tespiti, CEO kisiligi, veri formatlama
 - Dogrudan DB baglantisi: handler → queryEngine.js → packages/db → PostgreSQL
 - HTTP API cagrisi YOK, fetch/axios YOK — tum sorgular dogrudan DB uzerinden
@@ -625,7 +625,43 @@ Intent Engine Notlari:
 "You are ELIZA, CEO assistant for Elan Expo. Max 2 sentences, max 3 rows, no markdown, key insight only."
 Claude must NOT generate SQL — all queries come from templates in buildQuery().
 
-# 27. Benchmark
+# 27. Multi-user System
+Location: packages/db/migrations/005_users.sql
+Tables: users, user_permissions
+API: apps/api/src/routes/users.js
+Admin Panel: apps/dashboard/pages/admin/
+
+Roller: ceo / manager / agent
+- ceo → data_scope: 'all' (override, değiştirilemez)
+- manager → data_scope: default 'team'
+- agent → data_scope: default 'own'
+
+Eşleşme:
+- users.sales_agent_name → contracts.sales_agent
+- users.sales_group → Zoho Sales Group değerleri
+- users.whatsapp_phone → WhatsApp auth (phone lookup)
+
+WhatsApp Auth:
+- Eski: hardcoded CEO_WHATSAPP_NUMBER .env → KALDIRILDI
+- Yeni: users tablosundan phone lookup
+- Deaktive user → "Erişiminiz devre dışı bırakıldı"
+- Kayıtsız numara → "Bu numara ELIZA sistemine kayıtlı değil"
+
+Permission kontrolleri (handler.js):
+- .note/.today → can_take_notes
+- .msg → can_use_message_generator
+- .expense → can_see_expenses
+- data_scope=own → sales_agent_name filtresi
+- data_scope=team → sales_group filtresi
+
+Admin Panel sayfaları:
+- /admin → kullanıcı listesi
+- /admin/users/new → yeni kullanıcı formu
+- /admin/users/[id] → düzenleme formu
+
+War Room: sağ üst köşede "⚙ Admin" linki
+
+# 28. Benchmark
 Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)
 Runner: node packages/ai/benchmark.js
 Hedef: >= 90% PASS rate
@@ -647,5 +683,4 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Open: ISSUE-001 (duplicate rows in WhatsApp response)
-Fixed: ISSUE-002..008
+Fixed: ISSUE-001..008, ISSUE-009 (CEO hardcoded auth → users tablosu)

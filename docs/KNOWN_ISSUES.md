@@ -73,3 +73,12 @@ Rules:
 **First seen:** 2026-03-10
 **Description:** agent_performance SQL'de expo_name entity kullanılmıyordu
 **Fix:** expo_name varsa JOIN expos + e.name ILIKE filtresi eklendi
+
+---
+
+## [ISSUE-009] CEO auth hardcoded in .env
+**Status:** FIXED (2026-03-11)
+**First seen:** 2026-03-11
+**Description:** CEO telefon numarası .env'de CEO_WHATSAPP_NUMBER olarak hardcoded. Multi-user system'e geçişte kaldırıldı.
+**Fix:** auth.js users tablosundan phone lookup yapacak şekilde yeniden yazıldı. Tüm kullanıcılar users tablosundan yönetiliyor.
+**Files:** apps/whatsapp-bot/src/auth.js

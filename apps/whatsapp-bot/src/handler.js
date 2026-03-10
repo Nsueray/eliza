@@ -167,9 +167,24 @@ async function handleCommand(text, user) {
       }
     }
 
+    case '.note':
+    case '.today': {
+      if (user && user.permissions && !user.permissions.can_take_notes) {
+        return 'Bu özelliğe erişiminiz yok.';
+      }
+      return `Not özelliği henüz aktif değil. (Phase 9)`;
+    }
+
+    case '.expense': {
+      if (user && user.permissions && !user.permissions.can_see_expenses) {
+        return 'Bu özelliğe erişiminiz yok.';
+      }
+      return `Gider kayıt özelliği henüz aktif değil.`;
+    }
+
     case '.msg': {
-      if (!user || user.role !== 'ceo') {
-        return 'Bu komut sadece CEO tarafından kullanılabilir.';
+      if (user && user.permissions && !user.permissions.can_use_message_generator) {
+        return 'Bu özelliğe erişiminiz yok.';
       }
       // .msg [kişi] [konu]
       const recipientName = parts[1];

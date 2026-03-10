@@ -32,6 +32,11 @@ app.post('/webhook', async (req, res) => {
     return sendTwiML(res, 'Bu numara ELIZA sistemine kayıtlı değil. Erişim reddedildi.');
   }
 
+  if (user.blocked) {
+    console.log(`Deactivated user: ${from}`);
+    return sendTwiML(res, 'Erişiminiz devre dışı bırakıldı.');
+  }
+
   console.log(`Authenticated: ${user.name} (${user.role})`);
 
   if (!body.trim()) {
