@@ -447,7 +447,7 @@ Architecture:
 3. SQL Validator → SELECT only, whitelist tables, LIMIT 200
 4. Answer Generator (Claude) → 1-3 sentence insight, no markdown
 
-Supported intents (18):
+Supported intents (19):
 - expo_progress: expo ilerleme durumu
 - agent_performance: agent toplam satış
 - agent_country_breakdown: agent ülke dağılımı
@@ -464,6 +464,7 @@ Supported intents (18):
 - rebooking_rate: tekrar katılım oranı
 - price_per_m2: ortalama m2 fiyatı
 - revenue_summary: yıllık gelir özeti
+- days_to_event: etkinliğe kaç gün kaldı
 - general_stats: genel istatistik
 - compound: birden fazla soru (max 2)
 
@@ -552,7 +553,7 @@ Komutlar:
 Veri Formatlama:
 - Duz metin, tablo yok, markdown yok
 - Etiketli: "SIEMA 2026 — Ülke: France — Tarih: 22-Eylül-2026 — Kontrat: 45 — m²: 1.234 — Gelir: €562.512"
-- Tarihler tire ile: "19-Mayıs-2026" (WhatsApp auto-link onleme)
+- Tarihler: TR "19-Mayıs-2026", EN "May 19 2026", FR "19-mai-2026"
 - Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
 - Max 5 satir, fazlasi: "... ve X sonuç daha" + dashboard linki (localhost:3000/expos)
 - Satir arasi bos satir ile ayrilir
@@ -587,3 +588,8 @@ Intent Engine Notlari:
 - expo_list intent'i year parametresini destekler
 - Yetkisiz numaralar reddedilir
 - WhatsApp 4000 karakter limiti korunur
+- days_to_event: "kaç gün kaldı" / "how many days" / "combien de jours"
+- Count sorularında metric:"count" → sadece cevap, liste yok
+- rebooking_rate: edition_year bazlı + ülke desteği
+- expo_company_list: GROUP BY ile duplicate firma önlenir
+- price_per_m2: m2>0 AND sales_agent IS NOT NULL filtresi

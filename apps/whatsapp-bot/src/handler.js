@@ -14,8 +14,8 @@ const FR_MONTHS = [
   'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
 ];
 const EN_MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
 /**
@@ -248,6 +248,7 @@ const LABELS = {
     months_to_event: 'Kalan Ay', exhibitors: 'Katılımcı',
     editions: 'Edisyon', avg_price_per_m2: 'Ort. Fiyat',
     month_name: 'Ay', year: 'Yıl', agents: 'Agent', expos: 'Fuar',
+    days_remaining: 'Kalan Gün',
   },
   en: {
     name: 'Expo', expo_name: 'Expo', expo: 'Expo', country: 'Country',
@@ -261,6 +262,7 @@ const LABELS = {
     months_to_event: 'Months Left', exhibitors: 'Exhibitors',
     editions: 'Editions', avg_price_per_m2: 'Avg Price',
     month_name: 'Month', year: 'Year', agents: 'Agents', expos: 'Expos',
+    days_remaining: 'Days Left',
   },
   fr: {
     name: 'Expo', expo_name: 'Expo', expo: 'Expo', country: 'Pays',
@@ -274,6 +276,7 @@ const LABELS = {
     months_to_event: 'Mois restants', exhibitors: 'Exposants',
     editions: 'Éditions', avg_price_per_m2: 'Prix moyen',
     month_name: 'Mois', year: 'Année', agents: 'Agents', expos: 'Expos',
+    days_remaining: 'Jours restants',
   },
 };
 
@@ -287,7 +290,9 @@ function formatDate(val, lang) {
   const d = new Date(val);
   if (isNaN(d.getTime())) return String(val);
   const months = lang === 'fr' ? FR_MONTHS : lang === 'en' ? EN_MONTHS : TR_MONTHS;
-  // Use dashes to prevent WhatsApp auto-linking dates
+  // English: "Sep 22 2026" (short month prevents auto-linking)
+  if (lang === 'en') return `${months[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}`;
+  // TR/FR: dashes to prevent WhatsApp auto-linking
   return `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear()}`;
 }
 

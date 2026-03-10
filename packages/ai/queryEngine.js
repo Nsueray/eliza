@@ -22,7 +22,7 @@ Database schema:
 
 Extract intent and entities from the question. Return ONLY valid JSON:
 {
-  "intent": "one of [expo_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown, expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance, payment_status, rebooking_rate, price_per_m2, country_count, exhibitors_by_country, top_agents, revenue_summary, expo_list, company_search, general_stats]",
+  "intent": "one of [expo_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown, expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance, payment_status, rebooking_rate, price_per_m2, country_count, exhibitors_by_country, top_agents, revenue_summary, expo_list, company_search, days_to_event, general_stats]",
   "entities": {
     "expo_name": "string or null",
     "agent_name": "string or null",
@@ -57,6 +57,18 @@ Q: satış fiyatı ortalaması nedir → {"intent":"price_per_m2","entities":{}}
 Q: elif bu yıl ay ay ne kadar sattı → {"intent":"monthly_trend","entities":{"agent_name":"Elif","year":"current"}}
 Q: Elan Expo 2026 fuarları → {"intent":"expo_list","entities":{"year":2026}}
 Q: Elan Expo exhibitions 2026 → {"intent":"expo_list","entities":{"year":2026}}
+Q: SIEMA'ya kaç gün kaldı → {"intent":"days_to_event","entities":{"expo_name":"SIEMA"}}
+Q: how many days until Mega Clima → {"intent":"days_to_event","entities":{"expo_name":"Mega Clima"}}
+Q: combien de jours avant SIEMA → {"intent":"days_to_event","entities":{"expo_name":"SIEMA"}}
+Q: en yakın fuar ne zaman → {"intent":"days_to_event","entities":{}}
+Q: next expo date → {"intent":"days_to_event","entities":{}}
+
+IMPORTANT COUNT RULE: When the question asks "how many" / "kaç tane" / "combien" and expects a NUMBER answer (not a list), set metric to "count" in entities.
+Examples:
+Q: kaç tane expo var → {"intent":"expo_list","entities":{"metric":"count"}}
+Q: how many contracts in SIEMA → {"intent":"expo_progress","entities":{"expo_name":"SIEMA","metric":"count"}}
+Q: combien d'agents → {"intent":"general_stats","entities":{"metric":"count"}}
+Q: SIEMA'da kaç ülke var → {"intent":"country_count","entities":{"expo_name":"SIEMA","metric":"count"}}
 
 If the question contains multiple distinct questions (connected by "ve", "and", "also", "ayrıca", "+"), set intent to "compound" and list sub-questions:
 Q: elif ulke breakdown ve emircan expo breakdown → {"intent":"compound","entities":{"questions":["elif ulke breakdown","emircan expo breakdown"]}}
@@ -98,7 +110,7 @@ async function extractIntent(question) {
     'expo_agent_breakdown', 'expo_company_list', 'monthly_trend', 'cluster_performance',
     'payment_status', 'rebooking_rate', 'price_per_m2', 'country_count',
     'exhibitors_by_country', 'top_agents', 'revenue_summary', 'expo_list',
-    'company_search', 'general_stats', 'compound',
+    'company_search', 'days_to_event', 'general_stats', 'compound',
   ];
   if (!parsed.intent || !validIntents.includes(parsed.intent)) {
     parsed.intent = 'general_stats';
@@ -286,13 +298,16 @@ function buildQuery(intent, entities) {
 
     case 'expo_company_list':
       return {
-        sql: `SELECT c.company_name, c.country, c.sales_agent,
-          c.m2, ROUND(c.revenue_eur::numeric,2) AS revenue_eur
+        sql: `SELECT c.company_name, c.country,
+          COUNT(*) AS contracts,
+          COALESCE(SUM(c.m2),0) AS total_m2,
+          COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS revenue_eur
         FROM edition_contracts c
         JOIN expos e ON c.expo_id = e.id
         WHERE e.name ILIKE $1
           AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
-        ORDER BY c.revenue_eur DESC LIMIT 100`,
+        GROUP BY c.company_name, c.country
+        ORDER BY revenue_eur DESC LIMIT 100`,
         params: [`%${e.expo_name || ''}%`, e.year || null],
       };
 
@@ -388,7 +403,24 @@ function buildQuery(intent, entities) {
 
     case 'rebooking_rate': {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
+      const hasCountry = e.country && e.country.length > 0;
       if (hasExpo) {
+        return {
+          sql: `SELECT c.company_name, COUNT(DISTINCT e.edition_year) AS editions,
+            MIN(e.start_date) AS first_expo,
+            MAX(e.start_date) AS last_expo,
+            COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS total_revenue
+          FROM contracts c
+          JOIN expos e ON c.expo_id = e.id
+          WHERE c.status IN ('Valid', 'Transferred In')
+            AND e.name ILIKE $1
+          GROUP BY c.company_name
+          HAVING COUNT(DISTINCT e.edition_year) > 1
+          ORDER BY editions DESC, total_revenue DESC LIMIT 30`,
+          params: [`%${e.expo_name}%`],
+        };
+      }
+      if (hasCountry) {
         return {
           sql: `SELECT c.company_name, COUNT(DISTINCT e.id) AS editions,
             MIN(e.start_date) AS first_expo,
@@ -396,12 +428,12 @@ function buildQuery(intent, entities) {
             COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS total_revenue
           FROM contracts c
           JOIN expos e ON c.expo_id = e.id
-          WHERE c.status = 'Valid'
-            AND e.name ILIKE $1
+          WHERE c.status IN ('Valid', 'Transferred In')
+            AND e.country ILIKE $1
           GROUP BY c.company_name
           HAVING COUNT(DISTINCT e.id) > 1
           ORDER BY editions DESC, total_revenue DESC LIMIT 30`,
-          params: [`%${e.expo_name}%`],
+          params: [`%${e.country}%`],
         };
       }
       return {
@@ -411,7 +443,7 @@ function buildQuery(intent, entities) {
           COALESCE(ROUND(SUM(c.revenue_eur)::numeric,2),0) AS total_revenue
         FROM contracts c
         JOIN expos e ON c.expo_id = e.id
-        WHERE c.status = 'Valid'
+        WHERE c.status IN ('Valid', 'Transferred In')
         GROUP BY c.company_name
         HAVING COUNT(DISTINCT e.id) > 1
         ORDER BY editions DESC, total_revenue DESC LIMIT 30`,
@@ -431,7 +463,7 @@ function buildQuery(intent, entities) {
             COUNT(*) AS contracts
           FROM edition_contracts c
           JOIN expos e ON c.expo_id = e.id
-          WHERE c.m2 > 0 AND c.revenue_eur > 0
+          WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
             AND e.name ILIKE $1
             AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
           GROUP BY e.id ORDER BY avg_price_per_m2 DESC LIMIT 20`,
@@ -447,10 +479,33 @@ function buildQuery(intent, entities) {
           COUNT(*) AS contracts
         FROM edition_contracts c
         JOIN expos e ON c.expo_id = e.id
-        WHERE c.m2 > 0 AND c.revenue_eur > 0
+        WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
           AND ($1::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $1)
         GROUP BY e.id ORDER BY avg_price_per_m2 DESC LIMIT 20`,
         params: [e.year || null],
+      };
+    }
+
+    case 'days_to_event': {
+      const hasExpo = e.expo_name && e.expo_name.length > 0;
+      if (hasExpo) {
+        return {
+          sql: `SELECT name, country, start_date,
+            (start_date - CURRENT_DATE) AS days_remaining
+          FROM expos
+          WHERE name ILIKE $1
+            AND start_date > CURRENT_DATE
+          ORDER BY start_date ASC LIMIT 1`,
+          params: [`%${e.expo_name}%`],
+        };
+      }
+      return {
+        sql: `SELECT name, country, start_date,
+          (start_date - CURRENT_DATE) AS days_remaining
+        FROM expos
+        WHERE start_date > CURRENT_DATE
+        ORDER BY start_date ASC LIMIT 5`,
+        params: [],
       };
     }
 
@@ -584,12 +639,14 @@ async function run(question, _depth = 0, lang) {
   const validatedSQL = validateSQL(sql);
   const result = await query(validatedSQL, params);
   const data = result.rows;
+  const isCountQuery = entities?.metric === 'count';
   const answer = await generateAnswer(question, data, lang);
 
   // Track attention — mark entities as reviewed by CEO
   trackAttention(intent, entities).catch(() => {});
 
-  return { intent, entities, data, answer };
+  // Count queries: return only answer text, no data list
+  return { intent, entities, data: isCountQuery ? [] : data, answer };
 }
 
 /**
