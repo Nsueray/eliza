@@ -71,6 +71,7 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
   - [ ] Office: son 30 günde incelenmemişse → flag
   - [ ] Agent: son 21 günde satış yoksa + sorgulanmadıysa → flag
   - [ ] Rebooking: önceki edisyon katılımcısı, yeni kontrat yoksa → flag
+- [ ] Threshold güncelle: expo 21 gün, office 30 gün, agent 30 gün
 - [ ] `GET /api/attention/items` endpoint → flagged items listesi
 - [ ] Öncelik sıralaması: Critical > Warning > Info
 
@@ -91,6 +92,7 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 - [ ] `packages/alerts` modülü genişlet
 - [ ] Alert severity seviyeleri: `info` / `warning` / `critical`
 - [ ] Alert deduplication: aynı alert 24 saatte bir kez gönderilir
+- [ ] Critical alertler 24 saat throttle'ı bypass etsin (anında iletilsin)
 - [ ] Alert fatigue önleme: günde max 5 push alert
 - [ ] Alert kaynakları:
   - [ ] Risk Engine → HIGH risk expo
@@ -169,6 +171,9 @@ Memory Layer    → Notlar, örüntüler, davranış hafızası
 - [ ] Payment Watch sinyali → risk skoruna ekle
 - [ ] Attention gap sinyali → uzun süredir incelenmeyen expo risk puanı artar
 - [ ] Rebooking missing → risk artışı
+- [ ] Unpaid contracts sinyali → risk skoruna ekle
+- [ ] `Balance1` field Zoho'dan çek → ödenmemiş tutar
+- [ ] Kritik eşik: ödenmemiş kontrat €30K üzeri → HIGH risk
 - [ ] `GET /api/expos/risk` response'una `explanation` alanı ekle
 - [ ] Risk Engine sonuçlarını War Room'da açıklama ile göster
 
@@ -209,6 +214,7 @@ Compound komutları destekler:
   - `get_briefing` → Morning Brief özeti
 - [ ] Max 3 araç tek komutta
 - [ ] Planner önce planı gösterir, CEO onayla derse çalıştırır (kritik eylemler için)
+- [ ] Rate limit: max 1 mesaj/saniye (Twilio sandbox limiti)
 
 ### Konuşma Hafızası
 
@@ -309,6 +315,16 @@ Phase 11 (Deploy)              → 2-3 gün
 **İlk kullanılabilir milestone:** Phase 4 + 5 + 8a tamamlandı ✅
 WhatsApp'tan soru sorabilir + sabah brifing alabilirsin.
 Sıradaki: Phase 6 (Message Generator)
+
+---
+
+## Gelecek (Post-Phase 11)
+
+- [ ] Ülke müdürlerine kademeli erişim açılışı (Year 2)
+- [ ] Exhibitor self-service portal
+- [ ] Otomatik rebooking kampanya motoru
+- [ ] Predictive analytics: gelecek edisyon satış tahmini
+- [ ] Multi-tenant: birden fazla şirket desteği
 
 ---
 
