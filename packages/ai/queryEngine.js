@@ -667,7 +667,9 @@ async function generateAnswer(question, data, lang) {
   const langName = langMap[l] || langMap.tr;
 
   // Limit data sent to answer generator to prevent overly long answers
+  const totalRows = Array.isArray(data) ? data.length : 0;
   const trimmedData = Array.isArray(data) && data.length > 5 ? data.slice(0, 5) : data;
+  const totalNote = totalRows > 5 ? `\nTotal rows: ${totalRows} (showing first 5)` : '';
 
   const response = await client.messages.create({
     model: ANSWER_MODEL,
@@ -679,11 +681,12 @@ Rules:
 - List max 3 rows only
 - No markdown, no headers, no tables, no ALL CAPS
 - Focus on key business insight only
+- When "Total rows" is provided, use that number as the real count (not the number of shown rows)
 - Language: ${langName}
 Format: dates "22 Eylül 2026", money "€562.512", percent "%127", area "2.139 m²"`,
     messages: [{
       role: 'user',
-      content: `Question: ${question}\nData: ${JSON.stringify(trimmedData)}`,
+      content: `Question: ${question}\nData: ${JSON.stringify(trimmedData)}${totalNote}`,
     }],
   });
 
