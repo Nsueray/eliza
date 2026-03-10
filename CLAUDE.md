@@ -128,13 +128,13 @@ Completed:
 - Phase 2: War Room Dashboard (Expo Radar, Sales Leaderboard, Financial KPIs)
 - Phase 3: AI Query Engine (POST /api/ai/query — natural language to SQL)
 
-In Progress:
-- Phase 4: Risk Engine (automated expo risk scoring)
+Completed:
+- Phase 4: Risk Engine (velocity model, risk scoring, War Room panel)
 
 Pending:
-- Phase 5: WhatsApp Bot
-- Phase 6: Telegram Bot
-- Phase 7: Alerts System
+- Phase 5: WhatsApp Bot (next)
+- Phase 6: Alerts System
+- Phase 7: Deploy to Render
 ---
 # 9. Coding Conventions
 Use modern JavaScript.
@@ -384,10 +384,11 @@ Charts:
 - Sales Leaderboard: horizontal bar chart (top 10) — always visible
 
 Design:
-- Dark theme: #0a0e1a background
-- Accent: #00D4FF cyan
-- Fonts: Space Mono (numbers), Outfit (labels)
+- Dark theme: #080B10 background, #0E1318 surface
+- Accent: #C8A97A gold
+- Fonts: DM Mono (numbers/headers), DM Sans (labels)
 - Animated KPI counters on load
+- Risk Radar panel with hover tooltips
 ---
 # 16. Reporting Logic
 
@@ -461,7 +462,7 @@ Supported intents (18):
 - general_stats: genel istatistik
 - compound: birden fazla soru (max 2)
 
-Allowed tables: edition_contracts, fiscal_contracts, expos, contracts
+Allowed tables: edition_contracts, fiscal_contracts, expos, contracts, expo_metrics
 Forbidden: INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE
 
 Answer format rules:
@@ -469,3 +470,33 @@ Answer format rules:
 - No markdown, no headers, no ALL CAPS
 - State key finding only
 - Data table shown separately in UI
+---
+# 22. Risk Engine
+
+Location: packages/ai/riskEngine.js
+Endpoint: GET /api/expos/risk
+Table: expo_metrics
+
+Risk Model:
+- progress_percent = sold_m2 / target_m2 * 100
+- months_to_event = (start_date - today) / 30
+- months_passed = today - sales_start_date (fallback: 12 - months_to_event)
+- velocity = sold_m2 / months_passed (m²/month current pace)
+- required_velocity = (target_m2 - sold_m2) / months_to_event (m²/month needed)
+- velocity_ratio = velocity / required_velocity
+  - > 1.2 → on track
+  - 0.8–1.2 → OK
+  - 0.5–0.8 → watch
+  - < 0.5 → critical
+
+Risk Scoring:
+- velocity_ratio < 0.5 → +3
+- velocity_ratio 0.5–0.8 → +2
+- velocity_ratio 0.8–1.2 → +1
+- country_count < 3 → +1
+- agent_count < 2 → +1
+- progress < 20% AND months_to_event < 6 → +2
+
+Risk Levels: 0=SAFE, 1=OK, 2=WATCH, 3+=HIGH
+
+sales_start_date = previous edition end_date (auto-calculated on sync)

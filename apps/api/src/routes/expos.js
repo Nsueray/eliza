@@ -1,6 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../../../../packages/db/index.js');
+const { calculateMetrics } = require('../../../../packages/ai/riskEngine.js');
+
+router.get('/risk', async (req, res) => {
+  try {
+    await calculateMetrics();
+    const result = await query(`
+      SELECT expo_name, start_date, months_to_event,
+        sold_m2, target_m2, progress_percent,
+        velocity_m2_per_month, required_velocity, velocity_ratio,
+        country_count, agent_count, risk_score, risk_level
+      FROM expo_metrics
+      ORDER BY risk_score DESC, months_to_event ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/metrics', async (req, res) => {
   try {

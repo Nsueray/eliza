@@ -82,6 +82,13 @@ export default function WarRoom() {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef(null);
 
+  // Risk Radar state
+  const [riskData, setRiskData] = useState([]);
+  const [showAllRisk, setShowAllRisk] = useState(false);
+  const [riskTooltip, setRiskTooltip] = useState(null);
+  const [riskTipPos, setRiskTipPos] = useState({ x: 0, y: 0 });
+  const [vrTip, setVrTip] = useState(false);
+
   const suggestions = [
     "Which expos are at risk?",
     "Top sales agents this month",
@@ -132,6 +139,7 @@ export default function WarRoom() {
     fetch(`${API}/expos/metrics`).then(r => r.json()).then(setExpos);
     fetch(`${API}/expos/metrics?year=2026`).then(r => r.json()).then(setAllExpos);
     fetch(`${API}/sales/leaderboard`).then(r => r.json()).then(setLeaderboard);
+    fetch(`${API}/expos/risk`).then(r => r.json()).then(setRiskData).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -142,6 +150,14 @@ export default function WarRoom() {
   }, [expoView]);
 
   const summary = mode === "edition" ? editionSummary : fiscalSummary;
+  const displayRisk = showAllRisk ? riskData : riskData.filter(r => r.risk_level === "HIGH" || r.risk_level === "WATCH");
+
+  function getRiskColor(level) {
+    if (level === "HIGH") return "var(--danger)";
+    if (level === "WATCH") return "var(--warning)";
+    if (level === "OK") return "var(--text-secondary)";
+    return "var(--success)";
+  }
   const top10Agents = leaderboard.slice(0, 10);
   const displayExpos = expoView === "upcoming" ? expos : allExpos;
 
@@ -320,6 +336,117 @@ export default function WarRoom() {
           font-size: 30px;
           color: var(--text-primary);
           font-weight: 500;
+        }
+
+        /* RISK RADAR */
+        .risk-section { margin-bottom: 40px; }
+        .risk-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+        .risk-toggle {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 4px 12px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          border-radius: 3px;
+          transition: all 0.2s;
+        }
+        .risk-toggle:hover {
+          border-color: var(--accent);
+          color: var(--accent);
+        }
+        .risk-toggle.active {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: rgba(200,169,122,0.08);
+        }
+        .risk-badge {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          font-weight: 500;
+          letter-spacing: 1px;
+          padding: 3px 8px;
+          border-radius: 3px;
+          display: inline-block;
+        }
+        .risk-empty {
+          padding: 24px;
+          text-align: center;
+          color: var(--text-secondary);
+          font-size: 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+        }
+        .risk-tooltip {
+          position: fixed;
+          background: #1a2332;
+          border: 1px solid #1E2A35;
+          border-radius: 4px;
+          padding: 12px 16px;
+          font-family: "DM Mono", monospace;
+          font-size: 12px;
+          color: var(--text-primary);
+          white-space: nowrap;
+          z-index: 9999;
+          pointer-events: none;
+        }
+        .risk-tooltip-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 20px;
+          line-height: 1.8;
+        }
+        .risk-tooltip-label {
+          color: var(--text-secondary);
+        }
+        .risk-tooltip-val {
+          color: var(--text-primary);
+          text-align: right;
+        }
+        .vr-help {
+          display: inline-block;
+          width: 14px;
+          height: 14px;
+          line-height: 14px;
+          text-align: center;
+          font-size: 9px;
+          color: var(--text-secondary);
+          border: 1px solid var(--border);
+          border-radius: 50%;
+          margin-left: 4px;
+          cursor: help;
+          vertical-align: middle;
+          position: relative;
+        }
+        .vr-help:hover { color: var(--accent); border-color: var(--accent); }
+        .vr-tip {
+          position: absolute;
+          right: 0;
+          top: 20px;
+          width: 260px;
+          background: #1a2332;
+          border: 1px solid #1E2A35;
+          border-radius: 4px;
+          padding: 10px 14px;
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+          font-weight: 400;
+          letter-spacing: 0;
+          text-transform: none;
+          color: var(--text-primary);
+          white-space: normal;
+          line-height: 1.6;
+          z-index: 9999;
+          pointer-events: none;
         }
 
         /* EXPO TABLE */
@@ -732,10 +859,125 @@ export default function WarRoom() {
             <div className="kpi-val"><AnimatedNumber value={summary.total_contracts} /></div>
           </div>
           <div className="kpi">
-            <div className="kpi-label">Sold M\u00B2</div>
+            <div className="kpi-label">Sold M²</div>
             <div className="kpi-val"><AnimatedNumber value={summary.total_m2} /></div>
           </div>
         </div>
+
+        {/* RISK RADAR */}
+        {mode === "edition" && riskData.length > 0 && (
+          <div className="risk-section">
+            <div className="risk-header">
+              <div className="sec-title" style={{ marginBottom: 0 }}>Risk Radar</div>
+              <button
+                className={`risk-toggle ${showAllRisk ? "active" : ""}`}
+                onClick={() => setShowAllRisk(!showAllRisk)}
+              >
+                {showAllRisk ? "High Risk Only" : "Show All"}
+              </button>
+            </div>
+            {displayRisk.length > 0 ? (
+              <table className="expo-table">
+                <thead>
+                  <tr>
+                    <th>Expo</th>
+                    <th className="r">Months Left</th>
+                    <th className="r">Progress</th>
+                    <th className="r" style={{ position: "relative" }}>
+                      Velocity Ratio
+                      <span
+                        className="vr-help"
+                        onMouseEnter={() => setVrTip(true)}
+                        onMouseLeave={() => setVrTip(false)}
+                      >
+                        ?
+                        {vrTip && (
+                          <span className="vr-tip">
+                            Velocity Ratio = current sales pace / required pace to hit target.
+                            {" >"}1.0 means on track, {"<"}0.5 means critical.
+                          </span>
+                        )}
+                      </span>
+                    </th>
+                    <th className="r">Risk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayRisk.map(r => (
+                    <tr
+                      key={r.expo_name}
+                      onMouseEnter={(ev) => { setRiskTooltip(r.expo_name); setRiskTipPos({ x: ev.clientX + 16, y: ev.clientY - 10 }); }}
+                      onMouseMove={(ev) => setRiskTipPos({ x: ev.clientX + 16, y: ev.clientY - 10 })}
+                      onMouseLeave={() => setRiskTooltip(null)}
+                    >
+                      <td>{r.expo_name}</td>
+                      <td className="mono r">{r.months_to_event}</td>
+                      <td className="r">
+                        {r.progress_percent !== null ? (
+                          <div className="prog-cell">
+                            <div className="prog-bar-wrap">
+                              <div className="prog-bar-fill" style={{ width: `${Math.min(Number(r.progress_percent), 100)}%` }} />
+                            </div>
+                            <span className="prog-pct" style={{ color: getProgressColor(Number(r.progress_percent)) }}>
+                              {r.progress_percent}%
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="muted">{"\u2014"}</span>
+                        )}
+                      </td>
+                      <td className="mono r" style={{ color: r.velocity_ratio !== null && r.velocity_ratio < 0.8 ? "var(--danger)" : "var(--text-primary)" }}>
+                        {r.velocity_ratio !== null ? r.velocity_ratio : "\u2014"}
+                      </td>
+                      <td className="r">
+                        <span
+                          className="risk-badge"
+                          style={{
+                            color: getRiskColor(r.risk_level),
+                            background: `${getRiskColor(r.risk_level)}15`,
+                            border: `1px solid ${getRiskColor(r.risk_level)}40`,
+                          }}
+                        >
+                          {r.risk_level}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="risk-empty">No high-risk expos detected.</div>
+            )}
+            {riskTooltip && (() => {
+              const r = riskData.find(d => d.expo_name === riskTooltip);
+              if (!r) return null;
+              return (
+                <div className="risk-tooltip" style={{ left: riskTipPos.x, top: riskTipPos.y }}>
+                  <div className="risk-tooltip-row">
+                    <span className="risk-tooltip-label">Velocity</span>
+                    <span className="risk-tooltip-val">{fmt(r.velocity_m2_per_month)} m²/month</span>
+                  </div>
+                  <div className="risk-tooltip-row">
+                    <span className="risk-tooltip-label">Required</span>
+                    <span className="risk-tooltip-val">{fmt(r.required_velocity)} m²/month</span>
+                  </div>
+                  <div className="risk-tooltip-row">
+                    <span className="risk-tooltip-label">Countries</span>
+                    <span className="risk-tooltip-val">{r.country_count}</span>
+                  </div>
+                  <div className="risk-tooltip-row">
+                    <span className="risk-tooltip-label">Agents</span>
+                    <span className="risk-tooltip-val">{r.agent_count}</span>
+                  </div>
+                  <div className="risk-tooltip-row">
+                    <span className="risk-tooltip-label">Target m²</span>
+                    <span className="risk-tooltip-val">{fmt(r.target_m2)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* EXPO RADAR */}
         {mode === "edition" && (

@@ -6,7 +6,7 @@ const { query } = require('../db/index.js');
 const client = new Anthropic();
 const MODEL = process.env.AI_MODEL || 'claude-haiku-4-5-20251001';
 
-const ALLOWED_TABLES = ['expos', 'contracts', 'edition_contracts', 'fiscal_contracts'];
+const ALLOWED_TABLES = ['expos', 'contracts', 'edition_contracts', 'fiscal_contracts', 'expo_metrics'];
 const FORBIDDEN_KEYWORDS = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE', 'EXEC'];
 
 const INTENT_PROMPT = `You are an intent extractor for ELIZA, a business intelligence system for an exhibition company.
@@ -231,15 +231,12 @@ function buildQuery(intent, entities) {
     case 'expo_list':
       if (e.metric === 'risk') {
         return {
-          sql: `SELECT e.name, e.country, e.start_date, e.target_m2,
-            COALESCE(SUM(c.m2),0) AS sold_m2,
-            CASE WHEN e.target_m2 > 0 THEN ROUND((COALESCE(SUM(c.m2),0)/e.target_m2*100)::numeric,1) ELSE NULL END AS progress_pct
-          FROM expos e
-          LEFT JOIN edition_contracts c ON c.expo_id = e.id
-          WHERE e.start_date >= CURRENT_DATE AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'
-          GROUP BY e.id
-          HAVING e.target_m2 > 0 AND COALESCE(SUM(c.m2),0) < e.target_m2 * 0.6
-          ORDER BY progress_pct ASC LIMIT 10`,
+          sql: `SELECT expo_name, start_date, months_to_event,
+            sold_m2, target_m2, progress_percent,
+            velocity_m2_per_month AS velocity, required_velocity,
+            velocity_ratio, risk_score, risk_level
+          FROM expo_metrics
+          ORDER BY risk_score DESC, months_to_event ASC LIMIT 20`,
           params: [],
         };
       }
