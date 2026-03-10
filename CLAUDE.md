@@ -521,7 +521,8 @@ Risk Levels: 0=SAFE, 1=OK, 2=WATCH, 3+=HIGH
 sales_start_date = previous edition end_date (auto-calculated on sync)
 
 # 23. Roadmap
-Active TODO: docs/ELIZA_v2_TODO.md
+Ana roadmap dosyası: docs/ROADMAP.md
+Feature map: docs/ELIZA_FEATURE_MAP.md
 Current phase: Phase 7 — Risk Engine Expansion
 
 # 24. Infrastructure & Environment

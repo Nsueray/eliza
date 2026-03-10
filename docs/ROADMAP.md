@@ -1,0 +1,63 @@
+# ELIZA — Roadmap & Yapilacaklar
+
+## ✅ Tamamlanan
+- Phase 1: PostgreSQL schema, Zoho sync
+- Phase 2: War Room Dashboard (port 3000)
+- Phase 3: AI Query Engine + Intent Router
+- Phase 3b: Risk Engine
+- Phase 4: Attention Engine
+- Phase 5: Alert Generator + Morning Brief
+- Phase 6: Message Generator (TR/EN/FR)
+- Phase 8a: WhatsApp Bot (Twilio)
+- Benchmark: 50 soru, %98 pass rate
+- Zoho Sync Scheduler (her 15 dk)
+- KNOWN_ISSUES tracking
+
+## 🔄 Devam Eden
+- Bug fixes (KNOWN_ISSUES.md)
+
+## ⬜ Siradaki (oncelik sirasi)
+
+### Once — Multi-user + Deploy
+1. Multi-user system
+   - users tablosu (phone, role, language, permissions)
+   - Roller: CEO / Sales Agent / Country Manager
+   - WhatsApp auth: phone → role → izinler
+   - Sales agent kendi verisini gorur
+
+2. Admin Panel
+   - Next.js'te /admin sayfasi
+   - Kullanici ekle/sil/duzenle
+   - Rol ata, izin ver
+   - Aktif kullanicilari gor
+
+3. Phase 11 — Deploy
+   - Render veya Railway
+   - PostgreSQL cloud (Supabase veya Render Postgres)
+   - ngrok → gercek domain
+   - Twilio sandbox → verified business number
+   - Environment variables production'a tasi
+
+### Sonra — Feature Expansion
+4. Office Performance (Sales Group bazli sorgular)
+5. Expo Velocity Comparison (2025 vs 2026 karsilastirma)
+6. Exhibitor Relationship Tracking (Atha Makina durumu)
+7. Phase 7: Risk Engine Expansion (unpaid contracts signal)
+8. Phase 9: Memory Layer (pattern detection)
+9. .expense komutu (WhatsApp'tan gider kaydi)
+10. .week komutu (haftalik ozet)
+
+### Gelecek (Post-Deploy)
+- Telegram bot
+- Leena EMS entegrasyonu
+- Liffy leads entegrasyonu
+- Planner Agent
+- Strategy Engine
+- Event Bus mimarisi
+
+## Known Issues
+→ docs/KNOWN_ISSUES.md
+
+## Benchmark
+→ node packages/ai/benchmark.js
+→ Hedef: >= 90% PASS
