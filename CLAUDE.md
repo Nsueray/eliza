@@ -377,6 +377,7 @@ Running on: http://localhost:3000
 
 Pages:
 - / → War Room main dashboard
+- /expos?year=2026 → Expo Directory (sortable, filterable, mobile-friendly)
 
 API endpoints used:
 - GET /api/revenue/summary → fiscal KPIs
@@ -539,6 +540,7 @@ Ozellikler:
   Etiketler zorunlu: her deger alaninda "Label: value" formati
   Tarihler tire ile: "19-Mayıs-2026", "19-May-2026", "19-mai-2026" (auto-link onleme)
   Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
-  Max 5 satir, fazlasi: "... ve X sonuç daha. Tümünü görmek için .list yaz"
+  Max 5 satir, fazlasi: "... ve X sonuç daha" + dashboard linki
+  Satir arasi bos satir ile ayrilir (WhatsApp okunabilirlik)
 - Yetkisiz numaralar reddedilir
 - WhatsApp 4000 karakter limiti korunur

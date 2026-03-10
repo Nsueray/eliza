@@ -78,9 +78,9 @@ async function handleMessage(text, user) {
         if (data.length > 5) {
           const remaining = data.length - 5;
           const moreHint = {
-            tr: `... ve ${remaining} sonuç daha. Tümünü görmek için .list yaz`,
-            en: `... and ${remaining} more results. Type .list for full results`,
-            fr: `... et ${remaining} résultats de plus. Tapez .list pour tout voir`,
+            tr: `... ve ${remaining} sonuç daha.\nTüm liste: http://localhost:3000/expos?year=2026`,
+            en: `... and ${remaining} more results.\nFull list: http://localhost:3000/expos?year=2026`,
+            fr: `... et ${remaining} résultats de plus.\nListe complète: http://localhost:3000/expos?year=2026`,
           };
           response += `\n\n${lines}\n\n${moreHint[lang] || moreHint.tr}`;
         } else {
@@ -280,7 +280,7 @@ function rowToLine(row, lang) {
  */
 function formatDataLines(rows, lang) {
   if (!rows || rows.length === 0) return null;
-  return rows.map(r => rowToLine(r, lang)).join('\n');
+  return rows.map(r => rowToLine(r, lang)).join('\n\n');
 }
 
 module.exports = { handleMessage };

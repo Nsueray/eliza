@@ -825,6 +825,7 @@ export default function WarRoom() {
             <div className="hdr-sub">War Room</div>
           </div>
           <div className="hdr-right">
+            <a href="/expos?year=2026" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none', marginBottom: 8, display: 'block' }}>Expo Directory {"\u2192"}</a>
             <div className="hdr-clock">{clock}</div>
             <div className="hdr-date">{dateStr}</div>
           </div>
