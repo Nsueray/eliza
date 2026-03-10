@@ -1,0 +1,452 @@
+[
+  {
+    "id": 1,
+    "category": "Company Overview",
+    "question": "How many exhibitions does Elan Expo organize in 2026?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["20", "2026"],
+    "language": "en",
+    "future_intent": false
+  },
+  {
+    "id": 2,
+    "category": "Company Overview",
+    "question": "Which countries are we active in this year?",
+    "expected_intent": "general_stats",
+    "expected_keywords": ["country"],
+    "language": "en",
+    "future_intent": false
+  },
+  {
+    "id": 3,
+    "category": "Company Overview",
+    "question": "Total m² sold so far for 2026?",
+    "expected_intent": "revenue_summary",
+    "expected_keywords": ["m²", "2026"],
+    "language": "en",
+    "future_intent": false
+  },
+  {
+    "id": 4,
+    "category": "Company Overview",
+    "question": "Total revenue so far for 2026?",
+    "expected_intent": "revenue_summary",
+    "expected_keywords": ["revenue", "2026"],
+    "language": "en",
+    "future_intent": false
+  },
+  {
+    "id": 5,
+    "category": "Company Overview",
+    "question": "How many contracts signed this year?",
+    "expected_intent": "general_stats",
+    "expected_keywords": ["contract"],
+    "language": "en",
+    "future_intent": false
+  },
+  {
+    "id": 6,
+    "category": "Expo Progress",
+    "question": "SIEMA 2026 kaç metrekare oldu?",
+    "expected_intent": "expo_progress",
+    "expected_keywords": ["SIEMA", "m²"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 7,
+    "category": "Expo Progress",
+    "question": "Mega Clima Nigeria 2026 ne durumda?",
+    "expected_intent": "expo_progress",
+    "expected_keywords": ["Mega Clima", "Nigeria"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 8,
+    "category": "Expo Progress",
+    "question": "Hedefine en yakın expo hangisi?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["hedef"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 9,
+    "category": "Expo Progress",
+    "question": "Hedefinden en uzak expo hangisi?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["hedef"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 10,
+    "category": "Expo Progress",
+    "question": "En hızlı büyüyen expo hangisi?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["expo"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 11,
+    "category": "Scheduling",
+    "question": "En yakın fuar hangisi?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["fuar"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 12,
+    "category": "Scheduling",
+    "question": "En yakın fuara kaç gün kaldı?",
+    "expected_intent": "days_to_event",
+    "expected_keywords": ["gün"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 13,
+    "category": "Scheduling",
+    "question": "Bu ay hangi fuarlar var?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["fuar"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 14,
+    "category": "Scheduling",
+    "question": "Önümüzdeki 3 ayda kaç fuar var?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["fuar"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 15,
+    "category": "Scheduling",
+    "question": "Bu yıl en son fuar hangisi?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["fuar"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 16,
+    "category": "Risk",
+    "question": "Which expos are currently at risk?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["risk"],
+    "language": "en",
+    "future_intent": false
+  },
+  {
+    "id": 17,
+    "category": "Risk",
+    "question": "SIEMA risk durumu nedir?",
+    "expected_intent": "expo_progress",
+    "expected_keywords": ["SIEMA", "risk"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 18,
+    "category": "Risk",
+    "question": "Madesign hedefe ulaşacak mı?",
+    "expected_intent": "expo_progress",
+    "expected_keywords": ["Madesign"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 19,
+    "category": "Risk",
+    "question": "Velocity en düşük expo hangisi?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["velocity"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 20,
+    "category": "Risk",
+    "question": "Hangi fuar en yavaş satıyor?",
+    "expected_intent": "expo_list",
+    "expected_keywords": ["fuar"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 21,
+    "category": "Agent Performance",
+    "question": "2025 yılında en çok satış yapan kişi kim?",
+    "expected_intent": "top_agents",
+    "expected_keywords": ["2025"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 22,
+    "category": "Agent Performance",
+    "question": "2026'da en iyi satışçı kim?",
+    "expected_intent": "top_agents",
+    "expected_keywords": ["2026"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 23,
+    "category": "Agent Performance",
+    "question": "Elif bu yıl ne kadar sattı?",
+    "expected_intent": "agent_performance",
+    "expected_keywords": ["Elif"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 24,
+    "category": "Agent Performance",
+    "question": "Meriem bu yıl ne kadar sattı?",
+    "expected_intent": "agent_performance",
+    "expected_keywords": ["Meriem"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 25,
+    "category": "Agent Performance",
+    "question": "Son 30 günde satış yapan agentlar kimler?",
+    "expected_intent": "top_agents",
+    "expected_keywords": ["agent"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 26,
+    "category": "Agent Performance",
+    "question": "Son 60 günde satış yapmayan agent var mı?",
+    "expected_intent": "top_agents",
+    "expected_keywords": ["agent"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 27,
+    "category": "Agent Performance",
+    "question": "En aktif satışçı kim?",
+    "expected_intent": "top_agents",
+    "expected_keywords": ["satış"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 28,
+    "category": "Agent Performance",
+    "question": "En çok kontrat yapan agent kim?",
+    "expected_intent": "top_agents",
+    "expected_keywords": ["kontrat"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 29,
+    "category": "Agent Performance",
+    "question": "Hangi agent en yüksek m² fiyatı satıyor?",
+    "expected_intent": "price_per_m2",
+    "expected_keywords": ["m²", "fiyat"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 30,
+    "category": "Agent Performance",
+    "question": "Hangi agent en çok farklı ülkeden müşteri getiriyor?",
+    "expected_intent": "agent_country_breakdown",
+    "expected_keywords": ["ülke"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 31,
+    "category": "Geography",
+    "question": "En çok exhibitor hangi ülkeden geliyor?",
+    "expected_intent": "country_count",
+    "expected_keywords": ["ülke"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 32,
+    "category": "Geography",
+    "question": "Türkiye'den kaç firma katılıyor?",
+    "expected_intent": "exhibitors_by_country",
+    "expected_keywords": ["Türkiye"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 33,
+    "category": "Geography",
+    "question": "Çin'den gelen firmalar hangi fuarlarda?",
+    "expected_intent": "exhibitors_by_country",
+    "expected_keywords": ["Çin"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 34,
+    "category": "Geography",
+    "question": "Nijerya fuarlarında kaç farklı ülke var?",
+    "expected_intent": "country_count",
+    "expected_keywords": ["Nijerya", "ülke"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 35,
+    "category": "Geography",
+    "question": "Hangi fuar en uluslararası?",
+    "expected_intent": "country_count",
+    "expected_keywords": ["fuar"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 36,
+    "category": "Rebooking",
+    "question": "SIEMA 2026'ya 2025'ten rebook eden firmalar hangileri?",
+    "expected_intent": "rebooking_rate",
+    "expected_keywords": ["SIEMA", "rebook"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 37,
+    "category": "Rebooking",
+    "question": "Mega Clima Nigeria'ya en çok rebook eden firmalar hangileri?",
+    "expected_intent": "rebooking_rate",
+    "expected_keywords": ["Mega Clima", "rebook"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 38,
+    "category": "Rebooking",
+    "question": "Hangi firmalar her edisyona katılıyor?",
+    "expected_intent": "rebooking_rate",
+    "expected_keywords": ["edisyon"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 39,
+    "category": "Rebooking",
+    "question": "Bu yıl rebooking yapmayan önemli firmalar var mı?",
+    "expected_intent": "rebooking_rate",
+    "expected_keywords": ["rebooking"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 40,
+    "category": "Rebooking",
+    "question": "En sadık exhibitorlarımız kimler?",
+    "expected_intent": "rebooking_rate",
+    "expected_keywords": ["exhibitor"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 41,
+    "category": "Pricing",
+    "question": "2025'te m² fiyat ortalaması en yüksek agent kim?",
+    "expected_intent": "price_per_m2",
+    "expected_keywords": ["m²", "fiyat", "2025"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 42,
+    "category": "Pricing",
+    "question": "Hangi expo en yüksek m² fiyatına sahip?",
+    "expected_intent": "price_per_m2",
+    "expected_keywords": ["m²", "fiyat"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 43,
+    "category": "Pricing",
+    "question": "En pahalı stand hangi fuarda?",
+    "expected_intent": "price_per_m2",
+    "expected_keywords": ["pahalı"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 44,
+    "category": "Pricing",
+    "question": "Hangi expo en ucuz m² fiyatına sahip?",
+    "expected_intent": "price_per_m2",
+    "expected_keywords": ["ucuz", "m²"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 45,
+    "category": "General Stats",
+    "question": "Ortalama stand büyüklüğü nedir?",
+    "expected_intent": "general_stats",
+    "expected_keywords": ["ortalama", "stand"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 46,
+    "category": "Attention",
+    "question": "What requires my attention today?",
+    "expected_intent": "general_stats",
+    "expected_keywords": ["attention"],
+    "language": "en",
+    "future_intent": false
+  },
+  {
+    "id": 47,
+    "category": "Attention",
+    "question": "Hangi expo uzun süredir incelenmedi?",
+    "expected_intent": "general_stats",
+    "expected_keywords": ["expo"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 48,
+    "category": "Financial",
+    "question": "Ödeme riski olan kontratlar var mı?",
+    "expected_intent": "payment_status",
+    "expected_keywords": ["ödeme"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 49,
+    "category": "Team",
+    "question": "Hangi ofis performans olarak geride?",
+    "expected_intent": "general_stats",
+    "expected_keywords": ["ofis", "performans"],
+    "language": "tr",
+    "future_intent": false
+  },
+  {
+    "id": 50,
+    "category": "Daily Briefing",
+    "question": "Bugün benim için en önemli 3 konu ne?",
+    "expected_intent": "general_stats",
+    "expected_keywords": ["önemli"],
+    "language": "tr",
+    "future_intent": false
+  }
+]
