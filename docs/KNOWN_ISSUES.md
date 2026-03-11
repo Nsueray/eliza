@@ -82,3 +82,13 @@ Rules:
 **Description:** CEO telefon numarası .env'de CEO_WHATSAPP_NUMBER olarak hardcoded. Multi-user system'e geçişte kaldırıldı.
 **Fix:** auth.js users tablosundan phone lookup yapacak şekilde yeniden yazıldı. Tüm kullanıcılar users tablosundan yönetiliyor.
 **Files:** apps/whatsapp-bot/src/auth.js
+
+---
+
+## [ISSUE-010] message_logs table missing in production
+**Status:** FIXED (2026-03-11)
+**First seen:** 2026-03-11
+**Description:** message_logs tablosu production Render PostgreSQL'de yoktu. WhatsApp bot hata veriyordu: "relation message_logs does not exist"
+**Root cause:** Migration dosyası (006_message_logs.sql) hiç oluşturulmamıştı. Tablo muhtemelen local'de elle CREATE TABLE ile yapılmış, production'a taşınmamıştı.
+**Fix:** packages/db/migrations/006_message_logs.sql oluşturuldu. tables_used TEXT[] (array) olarak tanımlandı.
+**Files:** packages/db/migrations/006_message_logs.sql

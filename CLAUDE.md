@@ -610,6 +610,7 @@ Bağlam entegrasyonu:
 
 # 26b. Message Logging System
 Table: message_logs
+Migration: packages/db/migrations/006_message_logs.sql
 API: GET /api/logs (paginated), GET /api/logs/summary
 Admin: /admin/logs
 
@@ -721,4 +722,5 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..008, ISSUE-009 (CEO hardcoded auth → users tablosu)
+Fixed: ISSUE-001..009
+ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
