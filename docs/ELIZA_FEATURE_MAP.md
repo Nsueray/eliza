@@ -23,10 +23,17 @@ Haiku (fallback) → SQL Templates → PostgreSQL → Sonnet → Response
 .help — komutlar
 
 ## AI Pipeline
-Question → router.js (0 API) → Haiku intent (fallback) →
-SQL template → PostgreSQL → Sonnet answer → WhatsApp
+Question → conversationMemory (rewrite) → router.js (0 API) → Haiku intent (fallback) →
+SQL template → applyScope (user filter) → PostgreSQL → Sonnet answer → WhatsApp
 Rule: Claude never generates SQL
 Logging: every message logged with tokens, duration, intent to message_logs
+
+## Conversation Memory (Phase 12)
+- Module: packages/ai/conversationMemory.js
+- History: last 5 messages within 2 hours from message_logs
+- Rewrite: follow-up questions → self-contained via Haiku
+- Commands (.brief, .help) skip rewrite
+- Original question logged, rewritten question sent to engine
 
 ## Models
 Intent: claude-haiku-4-5-20251001
@@ -42,6 +49,12 @@ Answer: claude-sonnet-4-6
 CEO — full access (data_scope: all)
 Manager — team data (data_scope: team)
 Agent — own data (data_scope: own)
+
+## Data Scope Enforcement (implemented)
+- queryEngine.js applyScope() — post-processing SQL injection
+- CEO: no filter, Manager: team filter, Agent: own filter
+- visible_years: restricts which years of data user can see
+- Parameterized queries — no string concatenation
 
 ## Personality Engine
 - Module: packages/ai/personalityEngine.js

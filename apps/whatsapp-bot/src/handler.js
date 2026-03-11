@@ -6,6 +6,7 @@ const { scan: attentionScan } = require('../../../packages/attention/index.js');
 const { generateMessage, getPendingDraft, approveDraft, cancelDraft, expireOldDrafts } = require('../../../packages/messages/index.js');
 const { query: dbQuery } = require('../../../packages/db/index.js');
 const { generateGreeting, generateClosing } = require('../../../packages/ai/personalityEngine.js');
+const { getHistory, rewriteQuestion } = require('../../../packages/ai/conversationMemory.js');
 
 /**
  * Log a message exchange to message_logs table.
@@ -169,8 +170,27 @@ async function handleMessage(text, user) {
 
   try {
     const startTime = Date.now();
-    const { intent, answer, data, _usage } = await queryEngine.run(trimmed, 0, lang);
+
+    // Conversation memory: rewrite follow-up questions to be self-contained
+    let rewriteUsage = { input_tokens: 0, output_tokens: 0, model: 'none' };
+    let questionForEngine = trimmed;
+    try {
+      const history = await getHistory(user?.whatsapp_phone || user?.phone_number);
+      const rewriteResult = await rewriteQuestion(trimmed, history);
+      questionForEngine = rewriteResult.question;
+      rewriteUsage = rewriteResult._usage;
+    } catch (rewriteErr) {
+      console.error('Rewrite error (using original):', rewriteErr.message);
+    }
+
+    const { intent, answer, data, _usage } = await queryEngine.run(questionForEngine, 0, lang, user);
     const durationMs = Date.now() - startTime;
+
+    // Add rewrite tokens to usage
+    if (_usage && rewriteUsage.input_tokens > 0) {
+      _usage.total_input = (_usage.total_input || 0) + rewriteUsage.input_tokens;
+      _usage.total_output = (_usage.total_output || 0) + rewriteUsage.output_tokens;
+    }
 
     let response = answer || 'Sonuç bulunamadı.';
 

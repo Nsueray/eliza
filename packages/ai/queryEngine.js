@@ -688,6 +688,83 @@ function buildQuery(intent, entities) {
   }
 }
 
+// STEP 2b — Scope Enforcement (post-processing)
+// Injects WHERE clauses based on user's data_scope and visible_years.
+// Rules:
+//   - user null/undefined → no filter (backward compat)
+//   - data_scope=all → no filter (CEO)
+//   - data_scope=own → sales_agent = user.sales_agent_name
+//   - data_scope=team → sales_agent IN (subquery by sales_group)
+//   - visible_years → EXTRACT(YEAR FROM date_col) = ANY(years)
+
+const NO_SCOPE_INTENTS = new Set(['days_to_event']);
+const NO_AGENT_FILTER_INTENTS = new Set(['expo_list']);
+
+function applyScope(sql, params, intent, user) {
+  if (!user) return { sql, params };
+
+  const scope = user.permissions?.data_scope || 'own';
+  // CEO: no filter at all
+  if (scope === 'all') return { sql, params };
+
+  if (NO_SCOPE_INTENTS.has(intent)) return { sql, params };
+
+  // expo_metrics view has no sales_agent column
+  if (/expo_metrics/i.test(sql)) return { sql, params };
+
+  let newParams = [...params];
+  const conditions = [];
+
+  // Detect SQL column alias patterns
+  const hasAliasC = /\bc\.\w+/i.test(sql);
+  const salesAgentCol = hasAliasC ? 'c.sales_agent' : 'sales_agent';
+  const contractDateCol = hasAliasC ? 'c.contract_date' : 'contract_date';
+  const hasAliasE = /\be\.\w+/i.test(sql);
+  const startDateCol = hasAliasE ? 'e.start_date' : 'start_date';
+
+  // Agent/team scope filter
+  if (!NO_AGENT_FILTER_INTENTS.has(intent)) {
+    const hasSalesAgentTable = /fiscal_contracts|edition_contracts|contracts\b/i.test(sql);
+    if (hasSalesAgentTable) {
+      if (scope === 'own' && user.sales_agent_name) {
+        const idx = newParams.length + 1;
+        conditions.push(`${salesAgentCol} = $${idx}`);
+        newParams.push(user.sales_agent_name);
+      } else if (scope === 'team' && user.sales_group) {
+        const idx = newParams.length + 1;
+        conditions.push(`${salesAgentCol} IN (SELECT sa.name FROM sales_agents sa WHERE sa.sales_group = $${idx})`);
+        newParams.push(user.sales_group);
+      }
+    }
+  }
+
+  // Visible years filter
+  const visibleYears = user.permissions?.visible_years;
+  if (visibleYears && Array.isArray(visibleYears) && visibleYears.length > 0) {
+    const idx = newParams.length + 1;
+    if (/contract_date/i.test(sql)) {
+      conditions.push(`EXTRACT(YEAR FROM ${contractDateCol})::int = ANY($${idx}::int[])`);
+      newParams.push(visibleYears);
+    } else if (/start_date/i.test(sql)) {
+      conditions.push(`EXTRACT(YEAR FROM ${startDateCol})::int = ANY($${idx}::int[])`);
+      newParams.push(visibleYears);
+    }
+  }
+
+  if (conditions.length === 0) return { sql, params };
+
+  // Inject before GROUP BY / ORDER BY / HAVING / LIMIT
+  const scopeClause = ' AND ' + conditions.join(' AND ');
+  const injectionMatch = sql.match(/\b(GROUP BY|ORDER BY|HAVING|LIMIT)\b/i);
+
+  if (injectionMatch) {
+    const idx = injectionMatch.index;
+    return { sql: sql.slice(0, idx) + scopeClause + ' ' + sql.slice(idx), params: newParams };
+  }
+
+  return { sql: sql.replace(/;?\s*$/, scopeClause), params: newParams };
+}
+
 // STEP 3 — SQL Validator
 function validateSQL(sql) {
   const upper = sql.toUpperCase().trim();
@@ -751,7 +828,7 @@ Format: dates "22 Eylül 2026", money "€562.512", percent "%127", area "2.139 
 }
 
 // Main entry point
-async function run(question, _depth = 0, lang) {
+async function run(question, _depth = 0, lang, user) {
   const intentResult = await extractIntent(question);
   const intentUsage = intentResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
   delete intentResult._usage;
@@ -763,9 +840,10 @@ async function run(question, _depth = 0, lang) {
     const results = await Promise.all(subItems.map(async (q) => {
       // If LLM returned structured {intent, entities}, use them directly
       if (typeof q === 'object' && q.intent) {
-        const { sql, params } = buildQuery(q.intent, q.entities || {});
-        const validatedSQL = validateSQL(sql);
-        const result = await query(validatedSQL, params);
+        const built = buildQuery(q.intent, q.entities || {});
+        const scoped = applyScope(built.sql, built.params, q.intent, user);
+        const validatedSQL = validateSQL(scoped.sql);
+        const result = await query(validatedSQL, scoped.params);
         const ent = q.entities || {};
         const label = [ent.agent_name, ent.expo_name, q.intent.replace(/_/g, ' ')].filter(Boolean).join(' — ');
         const contextQ = `${q.intent}: ${Object.entries(ent).filter(([,v]) => v).map(([k,v]) => `${k}=${v}`).join(', ')}`;
@@ -773,7 +851,7 @@ async function run(question, _depth = 0, lang) {
         return { intent: q.intent, data: result.rows, answer: answerResult.text, label };
       }
       // If string, run recursively
-      const r = await run(String(q), 1, lang);
+      const r = await run(String(q), 1, lang, user);
       return { ...r, label: String(q) };
     }));
     const combinedAnswer = results.map((r, i) => `[${i + 1}] ${r.label}\n${r.answer}`).join('\n\n');
@@ -781,9 +859,10 @@ async function run(question, _depth = 0, lang) {
     return { intent: 'compound', entities, data: combinedData, answer: combinedAnswer };
   }
 
-  const { sql, params } = buildQuery(intent, entities);
-  const validatedSQL = validateSQL(sql);
-  const result = await query(validatedSQL, params);
+  const built = buildQuery(intent, entities);
+  const scoped = applyScope(built.sql, built.params, intent, user);
+  const validatedSQL = validateSQL(scoped.sql);
+  const result = await query(validatedSQL, scoped.params);
   const data = result.rows;
   const isCountQuery = entities?.metric === 'count';
   const answerResult = await generateAnswer(question, data, lang);
@@ -830,4 +909,4 @@ async function trackAttention(intent, entities) {
   }
 }
 
-module.exports = { run, extractIntent, buildQuery, validateSQL };
+module.exports = { run, extractIntent, buildQuery, validateSQL, applyScope };

@@ -140,13 +140,21 @@ Completed:
 - Admin Panel (localhost:3000/admin)
 - WhatsApp auth: users tablosundan phone lookup
 - Phase 11: Deploy (Render — 3 servis + PostgreSQL cloud)
+- Data Scope Enforcement (user-level access control in queryEngine)
+- Personality Engine (nicknames, time-aware greetings)
+- Language Detection fix (accent-insensitive + word boundary)
+- Phase 12a+12b: Conversation Memory + Question Rewrite
+
+In Progress:
+- Phase 12c: CEO Notes with semantic recall
 
 Pending:
-- Phase 7: Risk Engine Expansion + Explainable AI
-- Phase 8b: WhatsApp Planner Agent + Konuşma Hafızası
-- Phase 9: Memory Layer + Pattern Detection
-- Phase 10: Yeni Veri Kaynakları (Leena EMS, Liffy)
-- Phase 11: Deploy & Production
+- Phase 13: Answer Quality (enhanced Sonnet prompt, explainability)
+- Phase 14: Hybrid Text-to-SQL (fallback for unknown intents)
+- Phase 15: Learning & Feedback (CEO corrections, preference memory)
+- Phase 16: Proactive Attention & Alerts (auto morning brief, threshold alerts)
+- Phase 17: Action Layer Integration
+- Phase 18: Organizational Memory
 ---
 # 9. Coding Conventions
 Use modern JavaScript.
@@ -529,7 +537,7 @@ sales_start_date = previous edition end_date (auto-calculated on sync)
 # 23. Roadmap
 Ana roadmap dosyası: docs/ROADMAP.md
 Feature map: docs/ELIZA_FEATURE_MAP.md
-Current phase: Phase 7 — Risk Engine Expansion
+Current phase: Phase 12 — Conversation Memory + Question Rewrite
 
 # 24. Infrastructure & Environment
 Repository: https://github.com/Nsueray/eliza (public, main branch)
@@ -698,8 +706,31 @@ Permission kontrolleri (handler.js):
 - .note/.today → can_take_notes
 - .msg → can_use_message_generator
 - .expense → can_see_expenses
-- data_scope=own → sales_agent_name filtresi
-- data_scope=team → sales_group filtresi
+
+## Data Scope Enforcement (queryEngine.js)
+Location: packages/ai/queryEngine.js → applyScope()
+Flow: buildQuery() → applyScope(sql, params, intent, user) → validateSQL()
+
+Scope rules:
+- user null/undefined → no filter (backward compat — API route)
+- data_scope=all → no filter (CEO)
+- data_scope=own → sales_agent = user.sales_agent_name
+- data_scope=team → sales_agent IN (subquery by sales_group)
+- visible_years → EXTRACT(YEAR FROM date_col) = ANY(years)
+
+Intent categories:
+- NO_SCOPE: days_to_event (pure expo dates)
+- NO_AGENT_FILTER: expo_list (everyone sees expo calendar, year filter only)
+- FULL_FILTER: all other intents (agent + year filter)
+- expo_metrics queries: no filter (no sales_agent column)
+
+SQL injection:
+- Post-processing: detects column aliases (c.sales_agent vs sales_agent)
+- Injection point: before GROUP BY/ORDER BY/HAVING/LIMIT
+- All values parameterized ($N placeholders)
+- Compound intents: user passed to recursive calls
+
+Handler integration: queryEngine.run(trimmed, 0, lang, user)
 
 Admin Panel sayfaları:
 - /admin → kullanıcı listesi
@@ -734,3 +765,29 @@ Fixed: ISSUE-001..013
 ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
 ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu → final response loglanıyor
 ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi
+
+# 29. Conversation Memory (Phase 12)
+Location: packages/ai/conversationMemory.js
+
+## 12a: Conversation History
+- getHistory(userPhone) → message_logs tablosundan son 5 mesaj (2 saat içinde)
+- is_command=false filtresi (komutlar dahil değil)
+- Chronological order (oldest first)
+- Return: [{role: 'user', content}, {role: 'assistant', content}]
+
+## 12b: Question Rewrite
+- rewriteQuestion(currentQuestion, history) → Haiku ile follow-up soru → bağımsız soru
+- History < 2 mesaj → rewrite yapılmaz (original döner)
+- Hata durumunda sessizce original question kullanılır
+- _usage bilgisi döndürülür (token tracking)
+- Response truncation: 300 char max per history entry (prompt boyutunu küçük tut)
+
+Handler integration (handler.js):
+- Komutlar (.brief, .help vb.) rewrite'dan geçmez
+- getHistory → rewriteQuestion → questionForEngine
+- queryEngine.run(questionForEngine, 0, lang, user)
+- logMessage'da message_text = orijinal trimmed (rewritten değil)
+- Rewrite tokenları _usage.total_input/output'a eklenir
+
+# currentDate
+Today's date is 2026-03-12.

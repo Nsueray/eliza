@@ -1,58 +1,68 @@
-# ELIZA — Roadmap & Yapilacaklar
+# ELIZA — Roadmap
 
-## ✅ Tamamlanan
-- Phase 1: PostgreSQL schema, Zoho sync
-- Phase 2: War Room Dashboard (port 3000)
-- Phase 3: AI Query Engine + Intent Router
-- Phase 3b: Risk Engine
+## Completed
+- Phase 1: Data Infrastructure (PostgreSQL, Zoho Sync)
+- Phase 2: War Room Dashboard
+- Phase 3: AI Query Engine (19 intents, %98 benchmark)
+- Phase 3b: Risk Engine (velocity model)
 - Phase 4: Attention Engine
 - Phase 5: Alert Generator + Morning Brief
-- Phase 6: Message Generator (TR/EN/FR)
-- Phase 8a: WhatsApp Bot (Twilio)
-- Benchmark: 50 soru, %98 pass rate
-- Zoho Sync Scheduler (her 15 dk)
-- KNOWN_ISSUES tracking
-- Multi-user system (users + user_permissions tabloları, roller: ceo/manager/agent)
-- Admin Panel (localhost:3000/admin — kullanıcı CRUD, rol/izin yönetimi)
-- WhatsApp auth: users tablosundan phone lookup (hardcoded .env kaldırıldı)
-- Phase 11: Deploy (Render — 3 servis + PostgreSQL cloud)
-- Message Logging System (message_logs tablosu, token tracking, /admin/logs)
+- Phase 6: Message Generator (4 templates, 3 languages, .msg command)
+- Phase 8a: WhatsApp Bot (Twilio, auth, personality)
+- Phase 11: Deploy (Render — 3 services + PostgreSQL)
+- Multi-user system (roles: ceo/manager/agent, data scope enforcement)
+- Admin Panel (/admin — user CRUD, permissions)
+- Message Logging (/admin/logs — tokens, duration, intent tracking)
+- Personality Engine (nicknames, time-aware greetings)
+- Data Scope Enforcement (user-level access control in queryEngine)
+- Language Detection fix (accent-insensitive)
 
 ## Production URLs
-- Dashboard: https://eliza.elanfairs.com (custom domain, eliza-dashboard.onrender.com)
+- Dashboard: https://eliza.elanfairs.com
 - API: https://eliza-api-8tkr.onrender.com
 - Bot: https://eliza-bot-r1vx.onrender.com
+- WhatsApp: +1 810-255-5377
 
-## 🔄 Devam Eden
-- Bug fixes (KNOWN_ISSUES.md)
+## In Progress
+- Phase 12: Conversation Memory + Question Rewrite
 
-## ⬜ Siradaki (oncelik sirasi)
+## Next Phases
 
-### Once — Production Stabilization
-1. Twilio sandbox → verified business number
-2. Zoho sync production'da test
-3. WhatsApp webhook URL güncelle (Bot URL)
+### Phase 12: Conversation Memory (CRITICAL)
+- 12a: Conversation history from message_logs (last 5 messages within 2 hours)
+- 12b: Question rewrite via Haiku (follow-up → full question → normal pipeline)
+- 12c: CEO Notes with semantic recall (.note command + entity matching)
 
-### Sonra — Feature Expansion
-4. Office Performance (Sales Group bazli sorgular)
-5. Expo Velocity Comparison (2025 vs 2026 karsilastirma)
-6. Exhibitor Relationship Tracking (Atha Makina durumu)
-7. Phase 7: Risk Engine Expansion (unpaid contracts signal)
-8. Phase 9: Memory Layer (pattern detection)
-9. .expense komutu (WhatsApp'tan gider kaydi)
-10. .week komutu (haftalik ozet)
+### Phase 13: Answer Quality
+- Enhanced Sonnet system prompt (key insight first, max 400 chars, action suggestions)
+- Language validation
+- Explainability for risk answers (velocity comparison)
 
-### Gelecek (Post-Deploy)
-- Telegram bot
-- Leena EMS entegrasyonu
-- Liffy leads entegrasyonu
-- Planner Agent
-- Strategy Engine
-- Event Bus mimarisi
+### Phase 14: Hybrid Text-to-SQL
+- Fallback for unknown intents (router → template → LLM SQL)
+- Semantic layer in prompt (business definitions)
+- Safety: EXPLAIN cost, join limit 5, statement_timeout 3s, confidence scoring
+
+### Phase 15: Learning & Feedback
+- CEO corrections via WhatsApp (.correct command)
+- Preference memory (default year, entity preferences)
+- Popular query analytics from message_logs
+
+### Phase 16: Proactive Attention & Alerts
+- Auto morning brief at 07:00
+- Threshold alerts (velocity drop, inactive agent, cancellation trends)
+- Attention reminders (unreviewed offices/expos)
+
+### Phase 17: Action Layer Integration
+- Alert → suggest action → CEO approval → execute
+- Connect Message Generator to Attention Engine
+
+### Phase 18: Organizational Memory (Future)
+- Exhibitor patterns, office history, CEO decisions
+- Full relationship tracking
+
+## Benchmark
+→ node packages/ai/benchmark.js (target: >= 90% PASS)
 
 ## Known Issues
 → docs/KNOWN_ISSUES.md
-
-## Benchmark
-→ node packages/ai/benchmark.js
-→ Hedef: >= 90% PASS
