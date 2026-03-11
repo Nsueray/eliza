@@ -8,6 +8,8 @@
   "scripts": {
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:bot": "npm run dev --workspace=apps/whatsapp-bot",
-    "sync:start": "node packages/zoho-sync/scheduler.js"
+    "sync:start": "node packages/zoho-sync/scheduler.js",
+    "build:bot": "npm install --prefix apps/whatsapp-bot && npm install --prefix packages/db && npm install --prefix packages/ai && npm install --prefix packages/alerts && npm install --prefix packages/attention && npm install --prefix packages/briefing && npm install --prefix packages/messages && npm install --prefix packages/zoho-sync",
+    "start:bot": "node apps/whatsapp-bot/src/server.js"
   }
 }
