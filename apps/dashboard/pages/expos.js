@@ -2,7 +2,7 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 
-const API = "http://localhost:3001/api";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
 function fmt(n) {
   return Number(n || 0).toLocaleString("de-DE", { minimumFractionDigits: 0 });

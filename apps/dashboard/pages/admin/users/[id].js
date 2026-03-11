@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { UserForm } from "./new";
 
-const API = "http://localhost:3001/api";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
 export default function EditUser() {
   const router = useRouter();

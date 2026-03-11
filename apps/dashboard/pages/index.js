@@ -13,7 +13,7 @@ import { Bar } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const API = "http://localhost:3001/api";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
 function fmt(n) {
   return Number(n || 0).toLocaleString("de-DE", { minimumFractionDigits: 0 });

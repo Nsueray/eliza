@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 
-const API = "http://localhost:3001/api";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
 const LANG_LABELS = { tr: "Türkçe", en: "English", fr: "Français" };
 const ROLE_LABELS = { ceo: "CEO", manager: "Manager", agent: "Agent" };
