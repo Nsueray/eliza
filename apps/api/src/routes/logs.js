@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { query } = require('../../../packages/db/index.js');
+const { query } = require('../../../../packages/db/index.js');
 
 // GET /api/logs — paginated message logs
 router.get('/', async (req, res) => {
