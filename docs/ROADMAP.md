@@ -18,7 +18,7 @@
 - Phase 11: Deploy (Render — 3 servis + PostgreSQL cloud)
 
 ## Production URLs
-- Dashboard: https://eliza-dashboard.onrender.com
+- Dashboard: https://eliza.elanfairs.com (custom domain, eliza-dashboard.onrender.com)
 - API: https://eliza-api-8tkr.onrender.com
 - Bot: https://eliza-bot-r1vx.onrender.com
 

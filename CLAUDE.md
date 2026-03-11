@@ -535,7 +535,8 @@ Current phase: Phase 7 — Risk Engine Expansion
 Repository: https://github.com/Nsueray/eliza (public, main branch)
 Local: PostgreSQL localhost:5432/eliza, API port 3001
 Production (Render):
-  Dashboard: https://eliza-dashboard.onrender.com
+  Dashboard: https://eliza.elanfairs.com (custom domain, eliza-dashboard.onrender.com)
+  Domain: eliza.elanfairs.com (elanfairs.com — GoDaddy)
   API: https://eliza-api-8tkr.onrender.com
   Bot: https://eliza-bot-r1vx.onrender.com
   Database: Render PostgreSQL (eliza_73du)
