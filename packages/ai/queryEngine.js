@@ -264,6 +264,23 @@ function buildQuery(intent, entities) {
     }
 
     case 'top_agents': {
+      // Support this_week / last_week period
+      if (e.period === 'this_week' || e.period === 'last_week') {
+        const dateFilter = e.period === 'this_week'
+          ? `contract_date >= DATE_TRUNC('week', CURRENT_DATE) AND contract_date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '7 days'`
+          : `contract_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days' AND contract_date < DATE_TRUNC('week', CURRENT_DATE)`;
+        return {
+          sql: `SELECT sales_agent, COUNT(*) AS contracts,
+            COALESCE(SUM(m2),0) AS total_m2,
+            COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM fiscal_contracts
+          WHERE ${dateFilter}
+            AND sales_agent IS NOT NULL
+            ${EXCL_AGENT_FC}
+          GROUP BY sales_agent ORDER BY revenue_eur DESC LIMIT 10`,
+          params: [],
+        };
+      }
       // Support relative_days: "son 30 günde agent" → last 30 days filter
       if (e.relative_days) {
         return {
@@ -314,6 +331,32 @@ function buildQuery(intent, entities) {
             COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
           FROM edition_contracts
           WHERE DATE(contract_date) = CURRENT_DATE - 1`,
+          params: [],
+        };
+      }
+      // "bu hafta" / "this week"
+      if (e.period === 'this_week') {
+        return {
+          sql: `SELECT
+            COUNT(*) AS contracts,
+            COALESCE(SUM(m2),0) AS total_m2,
+            COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM edition_contracts
+          WHERE contract_date >= DATE_TRUNC('week', CURRENT_DATE)
+            AND contract_date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '7 days'`,
+          params: [],
+        };
+      }
+      // "geçen hafta" / "last week"
+      if (e.period === 'last_week') {
+        return {
+          sql: `SELECT
+            COUNT(*) AS contracts,
+            COALESCE(SUM(m2),0) AS total_m2,
+            COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
+          FROM edition_contracts
+          WHERE contract_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days'
+            AND contract_date < DATE_TRUNC('week', CURRENT_DATE)`,
           params: [],
         };
       }

@@ -243,6 +243,18 @@ const RULES = [
       ['yesterday', 'kontrat'],
       ['yesterday', 'gelir'],
       ['yesterday', 'satis'],
+      ['this week', 'contract'],
+      ['this week', 'revenue'],
+      ['this week', 'sales'],
+      ['this week', 'kontrat'],
+      ['this week', 'gelir'],
+      ['this week', 'satis'],
+      ['last week', 'contract'],
+      ['last week', 'revenue'],
+      ['last week', 'sales'],
+      ['last week', 'kontrat'],
+      ['last week', 'gelir'],
+      ['last week', 'satis'],
       ['son 2 yil'],
       ['son iki yil'],
       ['last 2 year'],
@@ -326,10 +338,10 @@ function extractEntities(norm, original) {
     entities.relative_days = parseInt(relDaysMatch[1]);
   }
   if (norm.includes('this week') || norm.includes('cette semaine')) {
-    entities.relative_days = 7;
+    entities.period = 'this_week';
   }
   if (norm.includes('last week') || norm.includes('semaine derniere')) {
-    entities.relative_days = 14;
+    entities.period = 'last_week';
   }
   if (norm.includes('last month') || norm.includes('mois dernier')) {
     entities.relative_month = 'last';
