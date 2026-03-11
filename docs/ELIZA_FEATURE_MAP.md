@@ -43,6 +43,14 @@ CEO — full access (data_scope: all)
 Manager — team data (data_scope: team)
 Agent — own data (data_scope: own)
 
+## Personality Engine
+- Module: packages/ai/personalityEngine.js
+- Nicknames: users.nicknames (comma-separated), managed via Admin Panel
+- Greetings: time-aware (morning/afternoon/evening), random nickname
+- Closings: different nickname than greeting, random variation
+- Applied to all users (not just CEO)
+- TR/EN/FR support
+
 ## Key Business Rules
 - ELAN EXPO: revenue dahil, count/m2/ranking haric
 - Max 5 rows WhatsApp, dashboard link

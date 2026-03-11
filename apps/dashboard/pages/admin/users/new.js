@@ -17,7 +17,7 @@ export default function NewUser() {
   const [error, setError] = useState(null);
 
   const [form, setForm] = useState({
-    name: "", email: "", whatsapp_phone: "", language: "tr",
+    name: "", email: "", whatsapp_phone: "", language: "tr", nicknames: "",
     role: "agent", office: "", sales_group: "", sales_agent_name: "", is_manager: false,
     data_scope: "own", visible_years: [2025, 2026],
     can_see_expenses: false, can_take_notes: false, can_use_message_generator: false, can_see_financials: false,
@@ -167,6 +167,11 @@ export function UserForm({ form, set, toggleYear, config }) {
             <select style={inputStyle} value={form.language} onChange={e => set("language", e.target.value)}>
               {config.languages.map(l => <option key={l} value={l}>{LANG_LABELS[l] || l}</option>)}
             </select>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={labelStyle}>Nicknames</label>
+            <input style={inputStyle} value={form.nicknames} onChange={e => set("nicknames", e.target.value)} placeholder="baba,babacım,patron" />
+            <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>Comma-separated. Used for personalized greetings.</div>
           </div>
         </div>
       </div>

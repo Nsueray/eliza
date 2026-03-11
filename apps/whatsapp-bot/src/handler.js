@@ -5,6 +5,7 @@ const { generateBriefing } = require('../../../packages/briefing/index.js');
 const { scan: attentionScan } = require('../../../packages/attention/index.js');
 const { generateMessage, getPendingDraft, approveDraft, cancelDraft, expireOldDrafts } = require('../../../packages/messages/index.js');
 const { query: dbQuery } = require('../../../packages/db/index.js');
+const { generateGreeting, generateClosing } = require('../../../packages/ai/personalityEngine.js');
 
 /**
  * Log a message exchange to message_logs table.
@@ -74,18 +75,14 @@ function detectLang(text) {
 }
 
 /**
- * CEO personality wrapper.
+ * Personality wrapper — applies to all users.
  */
-function wrapForCeo(response, lang, isCommand) {
+function wrapWithPersonality(response, user, lang, isCommand) {
   if (isCommand) return response;
 
-  if (lang === 'tr') {
-    return `Selam Baba 👋\n\n${response}\n\nBaşka bir şey var mı Baba?`;
-  } else if (lang === 'fr') {
-    return `Bonjour Papa 👋\n\n${response}\n\nAutre chose Papa?`;
-  } else {
-    return `Hi Dad 👋\n\n${response}\n\nAnything else Dad?`;
-  }
+  const { text: greeting, usedNickname } = generateGreeting(user, lang);
+  const closing = generateClosing(user, lang, usedNickname);
+  return `${greeting}\n\n${response}\n\n${closing}`;
 }
 
 /**
@@ -117,11 +114,11 @@ async function handleMessage(text, user) {
     const lower = trimmed.toLowerCase();
     if (lower === 'gönder' || lower === 'send' || lower === 'envoyer') {
       const response = await handleApproval(true);
-      return wrapForCeo(response, lang, true);
+      return wrapWithPersonality(response, user, lang, true);
     }
     if (lower === 'iptal' || lower === 'cancel' || lower === 'annuler') {
       const response = await handleApproval(false);
-      return wrapForCeo(response, lang, true);
+      return wrapWithPersonality(response, user, lang, true);
     }
   }
 
@@ -129,7 +126,7 @@ async function handleMessage(text, user) {
     const startTime = Date.now();
     const response = await handleCommand(trimmed, user);
     const durationMs = Date.now() - startTime;
-    const finalResponse = isCeo ? wrapForCeo(response, lang, true) : response;
+    const finalResponse = wrapWithPersonality(response, user, lang, true);
     logMessage({
       user_phone: user?.whatsapp_phone || user?.phone_number || null,
       user_name: user?.name || null,
@@ -169,9 +166,9 @@ async function handleMessage(text, user) {
       response += `\n\n${moreHint[lang] || moreHint.tr}`;
     }
 
-    const finalResponse = isCeo ? wrapForCeo(response, lang, false) : response;
+    const finalResponse = wrapWithPersonality(response, user, lang, false);
 
-    // Log the final response (after wrapForCeo)
+    // Log the final response (after personality wrap)
     logMessage({
       user_phone: user?.whatsapp_phone || user?.phone_number || null,
       user_name: user?.name || null,

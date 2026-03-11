@@ -563,11 +563,16 @@ Dil Algilama:
 - TR/EN/FR otomatik (kelime skorlama, default TR)
 - Yanit dili sorulan dille ayni (TR soru → TR yanit, FR → FR, EN → EN)
 
-CEO Kisiligi:
-- TR: "Selam Baba 👋" ... "Başka bir şey var mı Baba?"
-- EN: "Hi Dad 👋" ... "Anything else Dad?"
-- FR: "Bonjour Papa 👋" ... "Autre chose Papa?"
-- Sadece CEO numarasindan gelen mesajlarda aktif
+Personality Engine:
+- Location: packages/ai/personalityEngine.js
+- users.nicknames: virgülle ayrılmış takma adlar (ör: "baba,babacım,babiş,patron")
+- Migration: packages/db/migrations/007_nicknames.sql
+- generateGreeting(user, lang) → rastgele nickname + saat bazlı selamlama
+- generateClosing(user, lang, excludeNickname) → farklı nickname ile kapanış
+- Greeting ve closing'de farklı nickname kullanılır
+- Tüm kullanıcılar için aktif (sadece CEO değil)
+- Nickname yoksa → user.name'in ilk kelimesi kullanılır
+- handler.js: wrapWithPersonality() fonksiyonu (eski wrapForCeo kaldırıldı)
 
 Komutlar:
 - .brief — sabah brifingini getir
@@ -631,7 +636,7 @@ Token tracking:
 - Haiku fallback → gercek token usage
 - Sonnet answer → gercek token usage
 - handler.js: logMessage() her mesaj/komut icin DB'ye yazar (basarili ve hatali)
-- response_text: wrapForCeo sonrası final response loglanır (CEO kişiliği dahil)
+- response_text: wrapWithPersonality sonrası final response loglanır (kişilik dahil)
 
 Admin Logs sayfasi (/admin/logs):
 - Ozet tab: toplam mesaj, token, kullanici/intent dagilimi, model kullanimi

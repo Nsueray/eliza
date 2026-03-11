@@ -15,7 +15,7 @@ export default function EditUser() {
   const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
-    name: "", email: "", whatsapp_phone: "", language: "tr",
+    name: "", email: "", whatsapp_phone: "", language: "tr", nicknames: "",
     role: "agent", office: "", sales_group: "", sales_agent_name: "", is_manager: false,
     data_scope: "own", visible_years: [2025, 2026],
     can_see_expenses: false, can_take_notes: false, can_use_message_generator: false, can_see_financials: false,
@@ -36,6 +36,7 @@ export default function EditUser() {
           email: user.email || "",
           whatsapp_phone: user.whatsapp_phone || "",
           language: user.language || "tr",
+          nicknames: user.nicknames || "",
           role: user.role || "agent",
           office: user.office || "",
           sales_group: user.sales_group || "",
