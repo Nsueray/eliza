@@ -16,6 +16,7 @@
 - Admin Panel (localhost:3000/admin — kullanıcı CRUD, rol/izin yönetimi)
 - WhatsApp auth: users tablosundan phone lookup (hardcoded .env kaldırıldı)
 - Phase 11: Deploy (Render — 3 servis + PostgreSQL cloud)
+- Message Logging System (message_logs tablosu, token tracking, /admin/logs)
 
 ## Production URLs
 - Dashboard: https://eliza.elanfairs.com (custom domain, eliza-dashboard.onrender.com)

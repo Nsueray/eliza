@@ -555,7 +555,7 @@ Dev mode: node --watch-path=src --watch-path=../../packages (otomatik restart)
 Mimari:
 - src/server.js — Express, POST /webhook (Twilio), TwiML XML response
 - src/auth.js — telefon dogrulama (users tablosu, phone lookup)
-- src/handler.js — mesaj routing, dil tespiti, CEO kisiligi, veri formatlama
+- src/handler.js — mesaj routing, dil tespiti, CEO kisiligi, veri formatlama, message logging
 - Dogrudan DB baglantisi: handler → queryEngine.js → packages/db → PostgreSQL
 - HTTP API cagrisi YOK, fetch/axios YOK — tum sorgular dogrudan DB uzerinden
 
@@ -607,6 +607,33 @@ WhatsApp komutu:
 Bağlam entegrasyonu:
 - expo_metrics + edition_contracts verisiyle kişiselleştirilmiş mesaj
 - Gerçek progress%, m², hedef verisi mesaja dahil edilir
+
+# 26b. Message Logging System
+Table: message_logs
+API: GET /api/logs (paginated), GET /api/logs/summary
+Admin: /admin/logs
+
+message_logs tablosu:
+- user_phone, user_name, user_role
+- message_text, response_text
+- intent (AI sorgulari icin intent adi, komutlar icin "command:.brief" vb.)
+- input_tokens, output_tokens, total_tokens
+- model_intent (router/haiku), model_answer (sonnet)
+- duration_ms
+- is_command (boolean)
+- error (hata varsa)
+- created_at
+
+Token tracking:
+- queryEngine.js: extractIntent() ve generateAnswer() _usage objesi dondurur
+- Router match → input/output: 0, model: 'router'
+- Haiku fallback → gercek token usage
+- Sonnet answer → gercek token usage
+- handler.js: logMessage() her mesaj/komut icin DB'ye yazar (basarili ve hatali)
+
+Admin Logs sayfasi (/admin/logs):
+- Ozet tab: toplam mesaj, token, kullanici/intent dagilimi, model kullanimi
+- Mesajlar tab: expandable rows, tam mesaj/cevap, pagination
 
 Intent Engine Notlari:
 - "Elan Expo" = sirket adi, expo adi degil (intent prompt'a eklendi)

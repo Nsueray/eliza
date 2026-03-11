@@ -220,6 +220,32 @@ created_at
 
 ---
 
+### message_logs
+
+Complete message exchange logs with token tracking.
+
+Fields:
+
+id
+user_phone
+user_name
+user_role
+message_text
+response_text
+intent
+tables_used
+input_tokens
+output_tokens
+total_tokens
+model_intent
+model_answer
+duration_ms
+is_command
+error
+created_at
+
+---
+
 # 5. War Room Dashboard
 
 Main panels:
@@ -283,7 +309,10 @@ Endpoint: POST /api/ai/query
 4. Data Execution — runs query via packages/db
 5. Answer Generator — Claude produces 1-3 sentence insight
 
-## Supported Intents (18)
+Token tracking: extractIntent() and generateAnswer() return _usage objects.
+All messages logged to message_logs table via handler.js logMessage().
+
+## Supported Intents (19 + compound)
 
 | Intent | Description |
 |--------|-------------|
@@ -303,6 +332,7 @@ Endpoint: POST /api/ai/query
 | rebooking_rate | Repeat exhibitor rate |
 | price_per_m2 | Average price per m² |
 | revenue_summary | Revenue by year |
+| days_to_event | Days until expo start |
 | general_stats | Overall statistics |
 | compound | Multiple questions (max 2) |
 
@@ -414,19 +444,44 @@ Phase 3 — AI Query Engine ✔ COMPLETE
 - Compound question support
 - Concise answer generation
 
-Phase 4 — Risk Engine (next)
+Phase 3b — Risk Engine ✔ COMPLETE
 
-- Automated expo risk scoring
+- Velocity model, risk scoring, War Room panel
 
-Phase 5 — Messaging (pending)
+Phase 4 — Attention Engine ✔ COMPLETE
 
-- WhatsApp bot
-- Telegram bot
-- Expense ingestion
+- CEO dikkat takibi, attention_log
 
-Phase 6 — Alerts System (pending)
+Phase 5 — Alert Generator + Morning Brief ✔ COMPLETE
 
-- Automated alerts
+- Payment watch, dedup, scheduler, Twilio
+
+Phase 6 — Message Generator ✔ COMPLETE
+
+- 4 şablon, 3 dil, .msg komutu, human-in-the-loop
+
+Phase 8a — WhatsApp Bot ✔ COMPLETE
+
+- Twilio webhook, auth, AI query, CEO kişiliği
+
+Multi-user System ✔ COMPLETE
+
+- users + user_permissions, roller: ceo/manager/agent
+- Admin Panel (/admin)
+
+Message Logging System ✔ COMPLETE
+
+- message_logs tablosu, token tracking, /admin/logs
+
+Phase 11 — Deploy ✔ COMPLETE
+
+- Render (3 servis + PostgreSQL cloud)
+- Custom domain: eliza.elanfairs.com
+
+Phase 7 — Risk Engine Expansion (pending)
+Phase 8b — WhatsApp Planner Agent (pending)
+Phase 9 — Memory Layer (pending)
+Phase 10 — Yeni Veri Kaynakları (pending)
 
 ---
 

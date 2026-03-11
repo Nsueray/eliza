@@ -26,15 +26,22 @@ Haiku (fallback) → SQL Templates → PostgreSQL → Sonnet → Response
 Question → router.js (0 API) → Haiku intent (fallback) →
 SQL template → PostgreSQL → Sonnet answer → WhatsApp
 Rule: Claude never generates SQL
+Logging: every message logged with tokens, duration, intent to message_logs
 
 ## Models
 Intent: claude-haiku-4-5-20251001
 Answer: claude-sonnet-4-6
 
-## User Roles (planned)
-CEO — full access
-Country Manager — country data
-Sales Agent — own data only
+## Message Logging
+- Table: message_logs (user, message, response, intent, tokens, duration, model, error)
+- Token tracking: router (0 token) / Haiku (intent) / Sonnet (answer)
+- API: GET /api/logs, GET /api/logs/summary
+- Admin: /admin/logs (ozet + mesaj listesi)
+
+## User Roles (implemented)
+CEO — full access (data_scope: all)
+Manager — team data (data_scope: team)
+Agent — own data (data_scope: own)
 
 ## Key Business Rules
 - ELAN EXPO: revenue dahil, count/m2/ranking haric
