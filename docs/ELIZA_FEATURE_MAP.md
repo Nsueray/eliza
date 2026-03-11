@@ -64,8 +64,14 @@ Agent — own data (data_scope: own)
 - Applied to all users (not just CEO)
 - TR/EN/FR support
 
+## Language Detection
+- TR/EN/FR automatic (word-level scoring, default TR)
+- Accent-insensitive: ç→c, ş→s, ü→u, ı→i, ö→o, ğ→g
+- Word boundary match (not substring) — prevents false positives
+
 ## Key Business Rules
 - ELAN EXPO: revenue dahil, count/m2/ranking haric
 - Max 5 rows WhatsApp, dashboard link
 - Tarih format: 19-Mayis-2026 (no auto-link)
 - Dil: TR/EN/FR otomatik algilama
+- Month without year → defaults to current year

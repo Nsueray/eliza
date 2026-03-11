@@ -303,11 +303,15 @@ Endpoint: POST /api/ai/query
 
 ## Architecture
 
-1. Intent Extraction — Claude classifies question into intent + entities
-2. Query Builder — builds parameterized SQL from intent + entities
-3. SQL Validator — SELECT only, allowed tables, auto LIMIT 200
-4. Data Execution — runs query via packages/db
-5. Answer Generator — Claude produces 1-3 sentence insight
+0. Conversation Memory — getHistory (last 5 msgs/2hrs) → rewriteQuestion via Haiku (follow-up → self-contained)
+1. Intent Extraction — Router (keyword, 0 API) → Haiku fallback → intent + entities
+2. Entity Defaults — month without year → default to current year
+3. Query Builder — builds parameterized SQL from intent + entities
+4. Scope Enforcement — applyScope(sql, params, intent, user) → data_scope + visible_years filtering
+5. SQL Validator — SELECT only, allowed tables, auto LIMIT 200
+6. Data Execution — runs query via packages/db
+7. Answer Generator — Sonnet produces 1-3 sentence insight
+8. Personality Engine — time-aware greeting + closing with nicknames
 
 Token tracking: extractIntent() and generateAnswer() return _usage objects.
 All messages logged to message_logs table via handler.js logMessage().
@@ -478,10 +482,25 @@ Phase 11 — Deploy ✔ COMPLETE
 - Render (3 servis + PostgreSQL cloud)
 - Custom domain: eliza.elanfairs.com
 
-Phase 7 — Risk Engine Expansion (pending)
-Phase 8b — WhatsApp Planner Agent (pending)
-Phase 9 — Memory Layer (pending)
-Phase 10 — Yeni Veri Kaynakları (pending)
+Personality Engine ✔ COMPLETE
+
+- Nicknames, time-aware greetings/closings, all users
+
+Data Scope Enforcement ✔ COMPLETE
+
+- applyScope() in queryEngine, user-level filtering
+
+Language Detection Fix ✔ COMPLETE
+
+- Accent-insensitive, word boundary matching
+
+Phase 12a+12b — Conversation Memory ✔ COMPLETE
+
+- getHistory, rewriteQuestion via Haiku, entity carry-forward
+
+Phase 12c — CEO Notes (pending)
+Phase 13 — Answer Quality (pending)
+Phase 14 — Hybrid Text-to-SQL (pending)
 
 ---
 

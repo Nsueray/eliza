@@ -699,6 +699,8 @@ Eşleşme:
 WhatsApp Auth:
 - Eski: hardcoded CEO_WHATSAPP_NUMBER .env → KALDIRILDI
 - Yeni: users tablosundan phone lookup
+- auth.js döndürdüğü obje: user.phone (user.whatsapp_phone DEĞİL)
+- handler.js'te user.phone || user.whatsapp_phone kullanılır (logMessage + getHistory)
 - Deaktive user → "Erişiminiz devre dışı bırakıldı"
 - Kayıtsız numara → "Bu numara ELIZA sistemine kayıtlı değil"
 
@@ -761,11 +763,12 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..014
-ISSUE-014: "bu ay" sorgularında year filtresi eksikti → month varsa year=currentYear default
+Fixed: ISSUE-001..015
 ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
 ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu → final response loglanıyor
 ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi
+ISSUE-014: "bu ay" sorgularında year filtresi eksikti → month varsa year=currentYear default
+ISSUE-015: handler.js user.whatsapp_phone kullanıyordu ama auth.js user.phone döndürüyor → phone field mismatch düzeltildi
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js
@@ -792,6 +795,12 @@ Handler integration (handler.js):
 - queryEngine.run(questionForEngine, 0, lang, user)
 - logMessage'da message_text = orijinal trimmed (rewritten değil)
 - Rewrite tokenları _usage.total_input/output'a eklenir
+- Phone field: user.phone kullanılır (auth.js'ten), user.whatsapp_phone DEĞİL
+
+Debug logları (production, geçici):
+- [MEMORY] getHistory phone: +905..., found: N messages
+- [REWRITE] skipped — history length: 0
+- [REWRITE] input: "..." → output: "..." (history: N entries)
 
 # currentDate
 Today's date is 2026-03-12.

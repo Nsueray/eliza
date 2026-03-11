@@ -16,6 +16,7 @@
 - Personality Engine (nicknames, time-aware greetings)
 - Data Scope Enforcement (user-level access control in queryEngine)
 - Language Detection fix (accent-insensitive)
+- Phase 12a+12b: Conversation Memory + Question Rewrite (Haiku)
 
 ## Production URLs
 - Dashboard: https://eliza.elanfairs.com
@@ -24,7 +25,7 @@
 - WhatsApp: +1 810-255-5377
 
 ## In Progress
-- Phase 12: Conversation Memory + Question Rewrite
+- Phase 12c: CEO Notes with semantic recall
 
 ## Next Phases
 

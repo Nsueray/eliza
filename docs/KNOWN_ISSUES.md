@@ -132,3 +132,13 @@ Rules:
 **Root cause:** Router/Haiku month entity çıkarıyor (month=3) ama year entity set etmiyor. SQL'de `($2::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $2)` year=NULL olunca tüm yılları döndürüyor.
 **Fix:** queryEngine.js run() fonksiyonunda: entities.month var ve entities.year yok → year = currentYear olarak default set edildi. Tüm intent'ler için geçerli.
 **Files:** packages/ai/queryEngine.js
+
+---
+
+## [ISSUE-015] Phone field mismatch — conversation memory never fires
+**Status:** FIXED (2026-03-12)
+**First seen:** 2026-03-12
+**Description:** Conversation memory (getHistory + rewriteQuestion) production'da hiç çalışmıyordu. Follow-up sorular hep orijinal haliyle engine'e gidiyordu.
+**Root cause:** auth.js `user.phone` döndürüyor ama handler.js `user.whatsapp_phone` kullanıyordu → undefined → logMessage `user_phone=null` kaydediyordu → getHistory(null) hep boş dönüyordu → rewrite hiç tetiklenmiyordu.
+**Fix:** handler.js'te 4 yerde `user?.whatsapp_phone || user?.phone_number` → `user?.phone || user?.whatsapp_phone` olarak düzeltildi.
+**Files:** apps/whatsapp-bot/src/handler.js
