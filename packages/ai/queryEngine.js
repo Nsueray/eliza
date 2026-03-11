@@ -94,6 +94,7 @@ async function extractIntent(question) {
   // Try keyword router first (0 API calls)
   const routed = route(question);
   if (routed) {
+    routed._usage = { input_tokens: 0, output_tokens: 0, model: 'router' };
     return routed;
   }
 
@@ -107,16 +108,22 @@ async function extractIntent(question) {
     }],
   });
 
+  const intentUsage = {
+    input_tokens: response.usage?.input_tokens || 0,
+    output_tokens: response.usage?.output_tokens || 0,
+    model: INTENT_MODEL,
+  };
+
   const text = response.content[0].text.trim();
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    return { intent: 'general_stats', entities: {} };
+    return { intent: 'general_stats', entities: {}, _usage: intentUsage };
   }
   let parsed;
   try {
     parsed = JSON.parse(jsonMatch[0]);
   } catch {
-    return { intent: 'general_stats', entities: {} };
+    return { intent: 'general_stats', entities: {}, _usage: intentUsage };
   }
 
   // Resolve "current" month/year
@@ -138,6 +145,7 @@ async function extractIntent(question) {
     parsed.intent = 'general_stats';
   }
 
+  parsed._usage = intentUsage;
   return parsed;
 }
 
@@ -733,12 +741,21 @@ Format: dates "22 Eylül 2026", money "€562.512", percent "%127", area "2.139 
     }],
   });
 
-  return response.content[0].text.trim();
+  const answerText = response.content[0].text.trim();
+  const answerUsage = {
+    input_tokens: response.usage?.input_tokens || 0,
+    output_tokens: response.usage?.output_tokens || 0,
+    model: ANSWER_MODEL,
+  };
+  return { text: answerText, _usage: answerUsage };
 }
 
 // Main entry point
 async function run(question, _depth = 0, lang) {
-  const { intent, entities } = await extractIntent(question);
+  const intentResult = await extractIntent(question);
+  const intentUsage = intentResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
+  delete intentResult._usage;
+  const { intent, entities } = intentResult;
 
   // Handle compound questions (max depth 1 to prevent recursion)
   if (intent === 'compound' && entities?.questions && _depth === 0) {
@@ -752,8 +769,8 @@ async function run(question, _depth = 0, lang) {
         const ent = q.entities || {};
         const label = [ent.agent_name, ent.expo_name, q.intent.replace(/_/g, ' ')].filter(Boolean).join(' — ');
         const contextQ = `${q.intent}: ${Object.entries(ent).filter(([,v]) => v).map(([k,v]) => `${k}=${v}`).join(', ')}`;
-        const answer = await generateAnswer(contextQ, result.rows, lang);
-        return { intent: q.intent, data: result.rows, answer, label };
+        const answerResult = await generateAnswer(contextQ, result.rows, lang);
+        return { intent: q.intent, data: result.rows, answer: answerResult.text, label };
       }
       // If string, run recursively
       const r = await run(String(q), 1, lang);
@@ -769,13 +786,26 @@ async function run(question, _depth = 0, lang) {
   const result = await query(validatedSQL, params);
   const data = result.rows;
   const isCountQuery = entities?.metric === 'count';
-  const answer = await generateAnswer(question, data, lang);
+  const answerResult = await generateAnswer(question, data, lang);
+  const answerUsage = answerResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
 
   // Track attention — mark entities as reviewed by CEO
   trackAttention(intent, entities).catch(() => {});
 
+  // Build usage summary for logging
+  const _usage = {
+    intent_input: intentUsage.input_tokens,
+    intent_output: intentUsage.output_tokens,
+    intent_model: intentUsage.model,
+    answer_input: answerUsage.input_tokens,
+    answer_output: answerUsage.output_tokens,
+    answer_model: answerUsage.model,
+    total_input: intentUsage.input_tokens + answerUsage.input_tokens,
+    total_output: intentUsage.output_tokens + answerUsage.output_tokens,
+  };
+
   // Count queries: return only answer text, no data list
-  return { intent, entities, data: isCountQuery ? [] : data, answer };
+  return { intent, entities, data: isCountQuery ? [] : data, answer: answerResult.text, _usage };
 }
 
 /**

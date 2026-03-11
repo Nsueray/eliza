@@ -65,6 +65,9 @@ export default function AdminPanel() {
             <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Admin Panel</div>
           </div>
           <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <Link href="/admin/logs" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent)", textDecoration: "none", fontWeight: 500 }}>
+              Logs →
+            </Link>
             <Link href="/" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "var(--text-secondary)", textDecoration: "none" }}>
               War Room →
             </Link>

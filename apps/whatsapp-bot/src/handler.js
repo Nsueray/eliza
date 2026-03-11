@@ -4,6 +4,41 @@ const queryEngine = require('../../../packages/ai/queryEngine.js');
 const { generateBriefing } = require('../../../packages/briefing/index.js');
 const { scan: attentionScan } = require('../../../packages/attention/index.js');
 const { generateMessage, getPendingDraft, approveDraft, cancelDraft, expireOldDrafts } = require('../../../packages/messages/index.js');
+const { query: dbQuery } = require('../../../packages/db/index.js');
+
+/**
+ * Log a message exchange to message_logs table.
+ */
+async function logMessage(params) {
+  try {
+    await dbQuery(
+      `INSERT INTO message_logs
+        (user_phone, user_name, user_role, message_text, response_text,
+         intent, tables_used, input_tokens, output_tokens, total_tokens,
+         model_intent, model_answer, duration_ms, is_command, error)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [
+        params.user_phone || null,
+        params.user_name || null,
+        params.user_role || null,
+        params.message_text || null,
+        params.response_text || null,
+        params.intent || null,
+        params.tables_used || null,
+        params.input_tokens || 0,
+        params.output_tokens || 0,
+        (params.input_tokens || 0) + (params.output_tokens || 0),
+        params.model_intent || null,
+        params.model_answer || null,
+        params.duration_ms || null,
+        params.is_command || false,
+        params.error || null,
+      ]
+    );
+  } catch (err) {
+    console.error('Failed to log message:', err.message);
+  }
+}
 
 const TR_MONTHS = [
   'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
@@ -91,14 +126,44 @@ async function handleMessage(text, user) {
   }
 
   if (trimmed.startsWith('.')) {
+    const startTime = Date.now();
     const response = await handleCommand(trimmed, user);
+    const durationMs = Date.now() - startTime;
+    logMessage({
+      user_phone: user?.whatsapp_phone || user?.phone_number || null,
+      user_name: user?.name || null,
+      user_role: user?.role || null,
+      message_text: trimmed,
+      response_text: response,
+      intent: 'command:' + trimmed.split(/\s+/)[0],
+      is_command: true,
+      duration_ms: durationMs,
+    });
     return isCeo ? wrapForCeo(response, lang, true) : response;
   }
 
   try {
-    const { intent, answer, data } = await queryEngine.run(trimmed, 0, lang);
+    const startTime = Date.now();
+    const { intent, answer, data, _usage } = await queryEngine.run(trimmed, 0, lang);
+    const durationMs = Date.now() - startTime;
 
     let response = answer || 'Sonuç bulunamadı.';
+
+    // Log the message exchange
+    logMessage({
+      user_phone: user?.whatsapp_phone || user?.phone_number || null,
+      user_name: user?.name || null,
+      user_role: user?.role || null,
+      message_text: trimmed,
+      response_text: response,
+      intent,
+      input_tokens: _usage?.total_input || 0,
+      output_tokens: _usage?.total_output || 0,
+      model_intent: _usage?.intent_model || null,
+      model_answer: _usage?.answer_model || null,
+      duration_ms: durationMs,
+      is_command: false,
+    });
 
     // Sonnet already summarizes the data — don't render raw rows.
     // Only add "more results" hint if data exceeds 5 rows.
@@ -122,6 +187,16 @@ async function handleMessage(text, user) {
     return isCeo ? wrapForCeo(response, lang, false) : response;
   } catch (err) {
     console.error('Query error:', err.message);
+    logMessage({
+      user_phone: user?.whatsapp_phone || user?.phone_number || null,
+      user_name: user?.name || null,
+      user_role: user?.role || null,
+      message_text: trimmed,
+      response_text: null,
+      intent: null,
+      is_command: false,
+      error: err.message,
+    });
     return 'Sorgu işlenirken hata oluştu. Lütfen tekrar deneyin.';
   }
 }
