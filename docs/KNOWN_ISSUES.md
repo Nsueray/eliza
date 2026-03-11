@@ -110,3 +110,15 @@ Rules:
 **Description:** Admin panel, logs, user forms tüm UI metinleri Türkçe idi. Dashboard dili İngilizce olmalı.
 **Fix:** Tüm admin sayfalarındaki (logs.js, index.js, users/new.js, users/[id].js) Türkçe metinler İngilizce'ye çevrildi.
 **Files:** apps/dashboard/pages/admin/logs.js, apps/dashboard/pages/admin/index.js, apps/dashboard/pages/admin/users/new.js, apps/dashboard/pages/admin/users/[id].js
+
+---
+
+## [ISSUE-013] Language detection returns French for accent-less Turkish
+**Status:** FIXED (2026-03-11)
+**First seen:** 2026-03-11
+**Description:** "Madesign 2026 kac m2" → Fransızca cevap. İki root cause:
+1. detectLang trWords listesinde "kaç" var ama accent-less "kac" yok — TR skor 0
+2. `lower.includes("des")` → "madesign" içinde "des" bulunuyor — FR skor 1 (false positive)
+**Root cause:** detectLang'da (a) accent normalization yoktu, (b) substring match kullanılıyordu (word boundary yerine)
+**Fix:** (1) router.js ile aynı ACCENT_MAP kullanarak input normalize edildi (ç→c, ş→s, ü→u, ı→i, ö→o, ğ→g), (2) trWords accent-normalized hale getirildi, (3) `lower.includes(w)` → `words.includes(w)` (word boundary match)
+**Files:** apps/whatsapp-bot/src/handler.js

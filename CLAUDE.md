@@ -561,6 +561,8 @@ Mimari:
 
 Dil Algilama:
 - TR/EN/FR otomatik (kelime skorlama, default TR)
+- Accent normalization: ç→c, ş→s, ü→u, ı→i, ö→o, ğ→g (input ve keyword'ler)
+- Word boundary match (substring değil) — "madesign" içinde "des" artık eşleşmez
 - Yanit dili sorulan dille ayni (TR soru → TR yanit, FR → FR, EN → EN)
 
 Personality Engine:
@@ -728,7 +730,7 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..012
+Fixed: ISSUE-001..013
 ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
 ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu → final response loglanıyor
 ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi

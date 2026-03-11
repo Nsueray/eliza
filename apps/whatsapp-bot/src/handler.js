@@ -55,17 +55,44 @@ const EN_MONTHS = [
 ];
 
 /**
+ * Normalize accented characters for language detection.
+ */
+const LANG_ACCENT_MAP = {
+  'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+  'ç': 'c', 'ć': 'c',
+  'ü': 'u', 'ù': 'u', 'û': 'u',
+  'ı': 'i', 'î': 'i', 'ï': 'i',
+  'ş': 's', 'ś': 's',
+  'ğ': 'g',
+  'ö': 'o', 'ô': 'o',
+  'â': 'a', 'à': 'a',
+};
+
+function normalizeLang(text) {
+  let result = text.toLowerCase();
+  for (const [accented, plain] of Object.entries(LANG_ACCENT_MAP)) {
+    result = result.replaceAll(accented, plain);
+  }
+  return result;
+}
+
+/**
  * Detect language of a message.
+ * Uses accent-normalized word boundary matching to avoid false positives.
  */
 function detectLang(text) {
-  const lower = text.toLowerCase();
-  const trWords = ['kaç', 'nasıl', 'nedir', 'ne', 'hangi', 'kim', 'toplam', 'satış', 'fuar', 'göster', 'bana', 'kontrat', 'yıl', 'gelir', 'ülke', 'durumu', 'risk', 'iyi', 'kötü', 'hız', 'hedef', 'gün', 'ver', 'söyle', 'mı', 'mi', 'bu', 'için', 'var', 'olan'];
-  const frWords = ['combien', 'quel', 'quels', 'comment', 'est-ce', 'les', 'des', 'pour', 'dans', 'sont', 'avec', 'cette', 'exposition', 'ventes', 'contrats', 'revenu', 'montre', 'donne', 'meilleurs', 'agents'];
+  const normalized = normalizeLang(text);
+  const words = normalized.split(/\s+/);
+
+  // All keywords are accent-normalized (ç→c, ş→s, ü→u, ı→i, ö→o, ğ→g)
+  const trWords = ['kac', 'nasil', 'nedir', 'ne', 'hangi', 'kim', 'toplam', 'satis', 'fuar', 'goster', 'bana', 'kontrat', 'yil', 'gelir', 'ulke', 'durumu', 'risk', 'iyi', 'kotu', 'hiz', 'hedef', 'gun', 'ver', 'soyle', 'mi', 'bu', 'icin', 'var', 'olan', 'kacinci', 'kadar', 'tane', 'sonuc', 'firma', 'agent'];
+  const frWords = ['combien', 'quel', 'quels', 'comment', 'les', 'des', 'pour', 'dans', 'sont', 'avec', 'cette', 'exposition', 'ventes', 'contrats', 'revenu', 'montre', 'donne', 'meilleurs', 'jours', 'avant'];
   const enWords = ['how', 'what', 'which', 'who', 'top', 'best', 'worst', 'total', 'show', 'give', 'list', 'agents', 'revenue', 'contracts', 'sold', 'sales', 'many', 'much', 'this', 'year', 'month', 'risk', 'performance', 'progress'];
 
-  const trScore = trWords.filter(w => lower.includes(w)).length;
-  const frScore = frWords.filter(w => lower.includes(w)).length;
-  const enScore = enWords.filter(w => lower.includes(w)).length;
+  // Word boundary match — each input word checked against keyword lists
+  const trScore = trWords.filter(w => words.includes(w)).length;
+  const frScore = frWords.filter(w => words.includes(w)).length;
+  const enScore = enWords.filter(w => words.includes(w)).length;
 
   if (trScore > enScore && trScore > frScore) return 'tr';
   if (frScore > enScore && frScore > trScore) return 'fr';
