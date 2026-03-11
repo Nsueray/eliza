@@ -781,6 +781,9 @@ Location: packages/ai/conversationMemory.js
 - Hata durumunda sessizce original question kullanılır
 - _usage bilgisi döndürülür (token tracking)
 - Response truncation: 300 char max per history entry (prompt boyutunu küçük tut)
+- Prompt: Entity carry-forward odaklı (expo adı, agent adı, ülke, metrik)
+- Bilinen agent isimleri: Elif, Meriem, Emircan, Joanna, Amaka, Damilola, Sinerji, Anka
+- History formatı: "User: soru\nAssistant: cevap" (hem soru hem cevap gider)
 
 Handler integration (handler.js):
 - Komutlar (.brief, .help vb.) rewrite'dan geçmez
