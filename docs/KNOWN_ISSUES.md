@@ -92,3 +92,21 @@ Rules:
 **Root cause:** Migration dosyası (006_message_logs.sql) hiç oluşturulmamıştı. Tablo muhtemelen local'de elle CREATE TABLE ile yapılmış, production'a taşınmamıştı.
 **Fix:** packages/db/migrations/006_message_logs.sql oluşturuldu. tables_used TEXT[] (array) olarak tanımlandı.
 **Files:** packages/db/migrations/006_message_logs.sql
+
+---
+
+## [ISSUE-011] response_text logged before wrapForCeo
+**Status:** FIXED (2026-03-11)
+**First seen:** 2026-03-11
+**Description:** logMessage() handler.js'te wrapForCeo çağrısından önce çalışıyordu. response_text olarak raw AI answer loglanıyordu, CEO kişiliği (Selam Baba / Hi Dad) ve "more results" hint'i dahil edilmiyordu.
+**Fix:** logMessage çağrısı wrapForCeo ve moreHint eklendikten sonraya taşındı. Artık final response loglanıyor.
+**Files:** apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-012] Dashboard admin pages in Turkish
+**Status:** FIXED (2026-03-11)
+**First seen:** 2026-03-11
+**Description:** Admin panel, logs, user forms tüm UI metinleri Türkçe idi. Dashboard dili İngilizce olmalı.
+**Fix:** Tüm admin sayfalarındaki (logs.js, index.js, users/new.js, users/[id].js) Türkçe metinler İngilizce'ye çevrildi.
+**Files:** apps/dashboard/pages/admin/logs.js, apps/dashboard/pages/admin/index.js, apps/dashboard/pages/admin/users/new.js, apps/dashboard/pages/admin/users/[id].js

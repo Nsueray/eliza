@@ -631,6 +631,7 @@ Token tracking:
 - Haiku fallback → gercek token usage
 - Sonnet answer → gercek token usage
 - handler.js: logMessage() her mesaj/komut icin DB'ye yazar (basarili ve hatali)
+- response_text: wrapForCeo sonrası final response loglanır (CEO kişiliği dahil)
 
 Admin Logs sayfasi (/admin/logs):
 - Ozet tab: toplam mesaj, token, kullanici/intent dagilimi, model kullanimi
@@ -722,5 +723,7 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..009
+Fixed: ISSUE-001..012
 ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
+ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu → final response loglanıyor
+ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi

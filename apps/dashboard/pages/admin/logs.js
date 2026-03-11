@@ -6,13 +6,13 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api
 
 function fmtNum(n) {
   if (n == null) return "—";
-  return Number(n).toLocaleString("tr-TR");
+  return Number(n).toLocaleString("en-US");
 }
 
 function fmtDate(d) {
   if (!d) return "—";
   const dt = new Date(d);
-  return dt.toLocaleString("tr-TR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return dt.toLocaleString("en-US", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function truncate(str, max = 60) {
@@ -24,11 +24,11 @@ function truncate(str, max = 60) {
 function SummaryCards({ data }) {
   if (!data) return null;
   const cards = [
-    { label: "Toplam Mesaj", value: fmtNum(data.total_messages), icon: "💬" },
-    { label: "Aktif Kullanıcı", value: fmtNum(data.unique_users), icon: "👤" },
-    { label: "Toplam Token", value: fmtNum(data.total_tokens), icon: "🔤" },
-    { label: "Ort. Süre", value: data.avg_duration_ms ? `${fmtNum(data.avg_duration_ms)}ms` : "—", icon: "⏱️" },
-    { label: "Hata", value: fmtNum(data.error_count), icon: "⚠️" },
+    { label: "Total Messages", value: fmtNum(data.total_messages), icon: "💬" },
+    { label: "Active Users", value: fmtNum(data.unique_users), icon: "👤" },
+    { label: "Total Tokens", value: fmtNum(data.total_tokens), icon: "🔤" },
+    { label: "Avg. Duration", value: data.avg_duration_ms ? `${fmtNum(data.avg_duration_ms)}ms` : "—", icon: "⏱️" },
+    { label: "Errors", value: fmtNum(data.error_count), icon: "⚠️" },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 32 }}>
@@ -51,12 +51,12 @@ function UserTable({ data }) {
   return (
     <div style={{ marginBottom: 32 }}>
       <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
-        Kullanıcı Bazlı
+        By User
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
         <thead>
           <tr>
-            {["Kullanıcı", "Rol", "Mesaj", "Token", "Ort. Süre"].map(h => (
+            {["User", "Role", "Messages", "Tokens", "Avg. Duration"].map(h => (
               <th key={h} style={{
                 fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)",
                 letterSpacing: 1.5, textTransform: "uppercase", textAlign: "left",
@@ -97,12 +97,12 @@ function IntentTable({ data }) {
   return (
     <div style={{ marginBottom: 32 }}>
       <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
-        Intent / Sorgu Dağılımı
+        Intent Distribution
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
         <thead>
           <tr>
-            {["Intent", "Adet", "Token"].map(h => (
+            {["Intent", "Count", "Tokens"].map(h => (
               <th key={h} style={{
                 fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)",
                 letterSpacing: 1.5, textTransform: "uppercase", textAlign: "left",
@@ -170,13 +170,13 @@ function LogRow({ log, expanded, onToggle }) {
           <td colSpan={7} style={{ padding: "16px 24px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div>
-                <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', letterSpacing: 1, marginBottom: 6 }}>MESAJ</div>
+                <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', letterSpacing: 1, marginBottom: 6 }}>MESSAGE</div>
                 <div style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>
                   {log.message_text || "—"}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', letterSpacing: 1, marginBottom: 6 }}>CEVAP</div>
+                <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', letterSpacing: 1, marginBottom: 6 }}>RESPONSE</div>
                 <div style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>
                   {log.response_text || "—"}
                 </div>
@@ -187,7 +187,7 @@ function LogRow({ log, expanded, onToggle }) {
               <span>Answer: {log.model_answer || "—"}</span>
               <span>Input: {fmtNum(log.input_tokens)}</span>
               <span>Output: {fmtNum(log.output_tokens)}</span>
-              {log.error && <span style={{ color: "var(--danger)" }}>Hata: {log.error}</span>}
+              {log.error && <span style={{ color: "var(--danger)" }}>Error: {log.error}</span>}
             </div>
           </td>
         </tr>
@@ -258,8 +258,8 @@ export default function LogsPage() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
           {[
-            { key: "summary", label: "Özet" },
-            { key: "messages", label: "Mesajlar" },
+            { key: "summary", label: "Summary" },
+            { key: "messages", label: "Messages" },
           ].map(t => (
             <button
               key={t.key}
@@ -288,7 +288,7 @@ export default function LogsPage() {
             {summary.byModel && summary.byModel.length > 0 && (
               <div style={{ marginBottom: 32 }}>
                 <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
-                  Model Kullanımı
+                  Model Usage
                 </div>
                 <div style={{ display: "flex", gap: 16 }}>
                   {summary.byModel.map((m, i) => (
@@ -297,7 +297,7 @@ export default function LogsPage() {
                     }}>
                       <div style={{ fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)", marginBottom: 4 }}>{m.model}</div>
                       <div style={{ fontSize: 18, fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>{fmtNum(m.tokens)} token</div>
-                      <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{fmtNum(m.calls)} çağrı</div>
+                      <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{fmtNum(m.calls)} calls</div>
                     </div>
                   ))}
                 </div>
@@ -310,13 +310,13 @@ export default function LogsPage() {
         {tab === "messages" && (
           <>
             {loading ? (
-              <div style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}>Yükleniyor...</div>
+              <div style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}>Loading...</div>
             ) : (
               <>
                 <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
                   <thead>
                     <tr>
-                      {["Tarih", "Kullanıcı", "Mesaj", "Intent", "Token", "Süre", ""].map(h => (
+                      {["Date", "User", "Message", "Intent", "Tokens", "Duration", ""].map(h => (
                         <th key={h} style={{
                           fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)",
                           letterSpacing: 1.5, textTransform: "uppercase", textAlign: "left",

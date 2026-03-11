@@ -75,7 +75,7 @@ export default function EditUser() {
   }
 
   async function save() {
-    if (!form.name.trim()) { setError("Ad zorunlu"); return; }
+    if (!form.name.trim()) { setError("Name is required"); return; }
     setSaving(true);
     setError(null);
     try {
@@ -86,7 +86,7 @@ export default function EditUser() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Güncelleme başarısız");
+        throw new Error(data.error || "Update failed");
       }
       router.push("/admin");
     } catch (err) {
@@ -96,16 +96,16 @@ export default function EditUser() {
   }
 
   async function deactivate() {
-    if (!confirm("Bu kullanıcıyı deaktive etmek istediğinize emin misiniz?")) return;
+    if (!confirm("Are you sure you want to deactivate this user?")) return;
     const res = await fetch(`${API}/users/${id}`, { method: "DELETE" });
     if (res.ok) router.push("/admin");
   }
 
-  if (loading || !config) return <div style={{ padding: 48, color: "#5A7080", background: "#080B10", minHeight: "100vh" }}>Yükleniyor...</div>;
+  if (loading || !config) return <div style={{ padding: 48, color: "#5A7080", background: "#080B10", minHeight: "100vh" }}>Loading...</div>;
 
   return (
     <>
-      <Head><title>ELIZA | Kullanıcı Düzenle</title></Head>
+      <Head><title>ELIZA | Edit User</title></Head>
       <style jsx global>{`
         :root {
           --bg: #080B10; --surface: #0E1318; --surface-2: #141B22;
@@ -123,10 +123,10 @@ export default function EditUser() {
             <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 28, fontWeight: 500, letterSpacing: 6 }}>
               ELIZA<span style={{ color: "var(--accent)" }}>.</span>
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Kullanıcı Düzenle — {form.name}</div>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Edit User — {form.name}</div>
           </div>
           <Link href="/admin" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "var(--text-secondary)", textDecoration: "none" }}>
-            ← Geri
+            ← Back
           </Link>
         </div>
 
@@ -145,7 +145,7 @@ export default function EditUser() {
               padding: "12px 32px", background: "var(--accent)", color: "var(--bg)", border: "none",
               borderRadius: 4, cursor: "pointer", fontWeight: 500, opacity: saving ? 0.5 : 1,
             }}>
-              {saving ? "Kaydediliyor..." : "Güncelle"}
+              {saving ? "Saving..." : "Update"}
             </button>
             <Link href="/admin" style={{
               fontFamily: '"DM Mono", monospace', fontSize: 12, letterSpacing: 1, textTransform: "uppercase",
@@ -153,7 +153,7 @@ export default function EditUser() {
               border: "1px solid var(--border)", borderRadius: 4, textDecoration: "none",
               display: "flex", alignItems: "center",
             }}>
-              İptal
+              Cancel
             </Link>
           </div>
           {form.is_active && (
@@ -162,7 +162,7 @@ export default function EditUser() {
               padding: "12px 32px", background: "rgba(192,57,43,0.1)", color: "var(--danger)",
               border: "1px solid rgba(192,57,43,0.3)", borderRadius: 4, cursor: "pointer",
             }}>
-              Deaktive Et
+              Deactivate
             </button>
           )}
         </div>

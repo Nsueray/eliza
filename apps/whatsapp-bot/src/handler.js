@@ -129,17 +129,18 @@ async function handleMessage(text, user) {
     const startTime = Date.now();
     const response = await handleCommand(trimmed, user);
     const durationMs = Date.now() - startTime;
+    const finalResponse = isCeo ? wrapForCeo(response, lang, true) : response;
     logMessage({
       user_phone: user?.whatsapp_phone || user?.phone_number || null,
       user_name: user?.name || null,
       user_role: user?.role || null,
       message_text: trimmed,
-      response_text: response,
+      response_text: finalResponse,
       intent: 'command:' + trimmed.split(/\s+/)[0],
       is_command: true,
       duration_ms: durationMs,
     });
-    return isCeo ? wrapForCeo(response, lang, true) : response;
+    return finalResponse;
   }
 
   try {
@@ -148,22 +149,6 @@ async function handleMessage(text, user) {
     const durationMs = Date.now() - startTime;
 
     let response = answer || 'Sonuç bulunamadı.';
-
-    // Log the message exchange
-    logMessage({
-      user_phone: user?.whatsapp_phone || user?.phone_number || null,
-      user_name: user?.name || null,
-      user_role: user?.role || null,
-      message_text: trimmed,
-      response_text: response,
-      intent,
-      input_tokens: _usage?.total_input || 0,
-      output_tokens: _usage?.total_output || 0,
-      model_intent: _usage?.intent_model || null,
-      model_answer: _usage?.answer_model || null,
-      duration_ms: durationMs,
-      is_command: false,
-    });
 
     // Sonnet already summarizes the data — don't render raw rows.
     // Only add "more results" hint if data exceeds 5 rows.
@@ -184,7 +169,25 @@ async function handleMessage(text, user) {
       response += `\n\n${moreHint[lang] || moreHint.tr}`;
     }
 
-    return isCeo ? wrapForCeo(response, lang, false) : response;
+    const finalResponse = isCeo ? wrapForCeo(response, lang, false) : response;
+
+    // Log the final response (after wrapForCeo)
+    logMessage({
+      user_phone: user?.whatsapp_phone || user?.phone_number || null,
+      user_name: user?.name || null,
+      user_role: user?.role || null,
+      message_text: trimmed,
+      response_text: finalResponse,
+      intent,
+      input_tokens: _usage?.total_input || 0,
+      output_tokens: _usage?.total_output || 0,
+      model_intent: _usage?.intent_model || null,
+      model_answer: _usage?.answer_model || null,
+      duration_ms: durationMs,
+      is_command: false,
+    });
+
+    return finalResponse;
   } catch (err) {
     console.error('Query error:', err.message);
     logMessage({

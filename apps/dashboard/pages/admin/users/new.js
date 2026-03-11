@@ -48,7 +48,7 @@ export default function NewUser() {
   }
 
   async function save() {
-    if (!form.name.trim()) { setError("Ad zorunlu"); return; }
+    if (!form.name.trim()) { setError("Name is required"); return; }
     setSaving(true);
     setError(null);
     try {
@@ -59,7 +59,7 @@ export default function NewUser() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Kayıt başarısız");
+        throw new Error(data.error || "Save failed");
       }
       router.push("/admin");
     } catch (err) {
@@ -68,11 +68,11 @@ export default function NewUser() {
     }
   }
 
-  if (!config) return <div style={{ padding: 48, color: "#5A7080", background: "#080B10", minHeight: "100vh" }}>Yükleniyor...</div>;
+  if (!config) return <div style={{ padding: 48, color: "#5A7080", background: "#080B10", minHeight: "100vh" }}>Loading...</div>;
 
   return (
     <>
-      <Head><title>ELIZA | Yeni Kullanıcı</title></Head>
+      <Head><title>ELIZA | New User</title></Head>
       <style jsx global>{`
         :root {
           --bg: #080B10; --surface: #0E1318; --surface-2: #141B22;
@@ -90,10 +90,10 @@ export default function NewUser() {
             <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 28, fontWeight: 500, letterSpacing: 6 }}>
               ELIZA<span style={{ color: "var(--accent)" }}>.</span>
             </div>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Yeni Kullanıcı</div>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>New User</div>
           </div>
           <Link href="/admin" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "var(--text-secondary)", textDecoration: "none" }}>
-            ← Geri
+            ← Back
           </Link>
         </div>
 
@@ -111,14 +111,14 @@ export default function NewUser() {
             padding: "12px 32px", background: "var(--accent)", color: "var(--bg)", border: "none",
             borderRadius: 4, cursor: "pointer", fontWeight: 500, opacity: saving ? 0.5 : 1,
           }}>
-            {saving ? "Kaydediliyor..." : "Kaydet"}
+            {saving ? "Saving..." : "Save"}
           </button>
           <Link href="/admin" style={{
             fontFamily: '"DM Mono", monospace', fontSize: 12, letterSpacing: 1, textTransform: "uppercase",
             padding: "12px 32px", background: "transparent", color: "var(--text-secondary)",
             border: "1px solid var(--border)", borderRadius: 4, textDecoration: "none",
           }}>
-            İptal
+            Cancel
           </Link>
         </div>
       </div>
@@ -148,11 +148,11 @@ export function UserForm({ form, set, toggleYear, config }) {
     <>
       {/* Section 1 — Personal */}
       <div style={sectionStyle}>
-        <div style={sectionTitle}>Kişisel Bilgiler</div>
+        <div style={sectionTitle}>Personal Information</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
-            <label style={labelStyle}>Ad *</label>
-            <input style={inputStyle} value={form.name} onChange={e => set("name", e.target.value)} placeholder="Ad Soyad" />
+            <label style={labelStyle}>Name *</label>
+            <input style={inputStyle} value={form.name} onChange={e => set("name", e.target.value)} placeholder="Full Name" />
           </div>
           <div>
             <label style={labelStyle}>Email</label>
@@ -163,7 +163,7 @@ export function UserForm({ form, set, toggleYear, config }) {
             <input style={inputStyle} value={form.whatsapp_phone} onChange={e => set("whatsapp_phone", e.target.value)} placeholder="+90..." />
           </div>
           <div>
-            <label style={labelStyle}>Dil</label>
+            <label style={labelStyle}>Language</label>
             <select style={inputStyle} value={form.language} onChange={e => set("language", e.target.value)}>
               {config.languages.map(l => <option key={l} value={l}>{LANG_LABELS[l] || l}</option>)}
             </select>
@@ -173,37 +173,37 @@ export function UserForm({ form, set, toggleYear, config }) {
 
       {/* Section 2 — Company */}
       <div style={sectionStyle}>
-        <div style={sectionTitle}>Şirket Bilgileri</div>
+        <div style={sectionTitle}>Company Information</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
-            <label style={labelStyle}>Rol *</label>
+            <label style={labelStyle}>Role *</label>
             <select style={inputStyle} value={form.role} onChange={e => set("role", e.target.value)}>
               {config.roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>)}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Ofis</label>
+            <label style={labelStyle}>Office</label>
             <select style={inputStyle} value={form.office} onChange={e => set("office", e.target.value)}>
-              <option value="">Seçin...</option>
+              <option value="">Select...</option>
               {config.offices.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
           <div>
             <label style={labelStyle}>Sales Group</label>
             <select style={inputStyle} value={form.sales_group} onChange={e => set("sales_group", e.target.value)}>
-              <option value="">Seçin...</option>
+              <option value="">Select...</option>
               {config.sales_groups.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Zoho Agent Adı</label>
-            <input style={inputStyle} value={form.sales_agent_name} onChange={e => set("sales_agent_name", e.target.value)} placeholder="örn: Elif AY" />
+            <label style={labelStyle}>Zoho Agent Name</label>
+            <input style={inputStyle} value={form.sales_agent_name} onChange={e => set("sales_agent_name", e.target.value)} placeholder="e.g. Elif AY" />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 20 }}>
             <label style={{ ...labelStyle, marginBottom: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
               <input type="checkbox" checked={form.is_manager} onChange={e => set("is_manager", e.target.checked)}
                 style={{ accentColor: "var(--accent)" }} />
-              Yönetici mi?
+              Is Manager?
             </label>
           </div>
         </div>
@@ -211,14 +211,14 @@ export function UserForm({ form, set, toggleYear, config }) {
 
       {/* Section 3 — Data Access */}
       <div style={sectionStyle}>
-        <div style={sectionTitle}>Veri Erişimi</div>
+        <div style={sectionTitle}>Data Access</div>
         <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>Veri Kapsamı</label>
+          <label style={labelStyle}>Data Scope</label>
           <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
             {[
-              { value: "own", label: "Sadece kendi verisi" },
-              { value: "team", label: "Ekibinin verisi" },
-              { value: "all", label: "Tüm veriler" },
+              { value: "own", label: "Own data only" },
+              { value: "team", label: "Team data" },
+              { value: "all", label: "All data" },
             ].map(opt => (
               <label key={opt.value} style={{
                 display: "flex", alignItems: "center", gap: 8, fontSize: 13,
@@ -237,12 +237,12 @@ export function UserForm({ form, set, toggleYear, config }) {
           </div>
           {form.role === "ceo" && (
             <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 8, fontStyle: "italic" }}>
-              CEO rolü her zaman tüm verilere erişir.
+              CEO role always has access to all data.
             </div>
           )}
         </div>
         <div>
-          <label style={labelStyle}>Görülebilir Yıllar</label>
+          <label style={labelStyle}>Visible Years</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
             {config.years.map(y => (
               <label key={y} style={{
@@ -264,13 +264,13 @@ export function UserForm({ form, set, toggleYear, config }) {
 
       {/* Section 4 — Permissions */}
       <div style={sectionStyle}>
-        <div style={sectionTitle}>Yetkiler</div>
+        <div style={sectionTitle}>Permissions</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {[
-            { key: "can_see_expenses", label: "Giderleri görebilir" },
-            { key: "can_take_notes", label: "Not alabilir (.note/.today)" },
-            { key: "can_use_message_generator", label: "Mesaj oluşturabilir (.msg)" },
-            { key: "can_see_financials", label: "Finansal verileri görebilir" },
+            { key: "can_see_expenses", label: "Can view expenses" },
+            { key: "can_take_notes", label: "Can take notes (.note/.today)" },
+            { key: "can_use_message_generator", label: "Can generate messages (.msg)" },
+            { key: "can_see_financials", label: "Can view financial data" },
           ].map(p => (
             <label key={p.key} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer", padding: "8px 0" }}>
               <input type="checkbox" checked={form[p.key]} onChange={e => set(p.key, e.target.checked)}
