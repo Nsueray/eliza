@@ -156,7 +156,7 @@ async function handleMessage(text, user) {
     const durationMs = Date.now() - startTime;
     const finalResponse = wrapWithPersonality(response, user, lang, true);
     logMessage({
-      user_phone: user?.whatsapp_phone || user?.phone_number || null,
+      user_phone: user?.phone || user?.whatsapp_phone || null,
       user_name: user?.name || null,
       user_role: user?.role || null,
       message_text: trimmed,
@@ -175,7 +175,7 @@ async function handleMessage(text, user) {
     let rewriteUsage = { input_tokens: 0, output_tokens: 0, model: 'none' };
     let questionForEngine = trimmed;
     try {
-      const history = await getHistory(user?.whatsapp_phone || user?.phone_number);
+      const history = await getHistory(user?.phone || user?.whatsapp_phone);
       const rewriteResult = await rewriteQuestion(trimmed, history);
       questionForEngine = rewriteResult.question;
       rewriteUsage = rewriteResult._usage;
@@ -217,7 +217,7 @@ async function handleMessage(text, user) {
 
     // Log the final response (after personality wrap)
     logMessage({
-      user_phone: user?.whatsapp_phone || user?.phone_number || null,
+      user_phone: user?.phone || user?.whatsapp_phone || null,
       user_name: user?.name || null,
       user_role: user?.role || null,
       message_text: trimmed,
@@ -235,7 +235,7 @@ async function handleMessage(text, user) {
   } catch (err) {
     console.error('Query error:', err.message);
     logMessage({
-      user_phone: user?.whatsapp_phone || user?.phone_number || null,
+      user_phone: user?.phone || user?.whatsapp_phone || null,
       user_name: user?.name || null,
       user_role: user?.role || null,
       message_text: trimmed,

@@ -63,7 +63,10 @@ Output: geçen hafta en çok kim satmış?`;
  * Returns last 5 messages within 2 hours, in chronological order.
  */
 async function getHistory(userPhone) {
-  if (!userPhone) return [];
+  if (!userPhone) {
+    console.log('[MEMORY] getHistory: no phone provided, skipping');
+    return [];
+  }
 
   try {
     const result = await query(`
@@ -77,6 +80,8 @@ async function getHistory(userPhone) {
       ORDER BY created_at DESC
       LIMIT 5
     `, [userPhone]);
+
+    console.log(`[MEMORY] getHistory phone: ${userPhone}, found: ${result.rows.length} messages`);
 
     if (result.rows.length === 0) return [];
 
@@ -105,7 +110,10 @@ async function rewriteQuestion(currentQuestion, history) {
   };
 
   // No history or too little context → no rewrite needed
-  if (!history || history.length < 2) return noRewrite;
+  if (!history || history.length < 2) {
+    console.log(`[REWRITE] skipped — history length: ${history?.length || 0}`);
+    return noRewrite;
+  }
 
   // Format history for prompt
   const historyText = history.map(h => {
@@ -132,6 +140,8 @@ async function rewriteQuestion(currentQuestion, history) {
       output_tokens: response.usage?.output_tokens || 0,
       model: REWRITE_MODEL,
     };
+
+    console.log(`[REWRITE] input: "${currentQuestion}" → output: "${rewritten}" (history: ${history.length} entries)`);
 
     // If Haiku returned empty or something weird, use original
     if (!rewritten || rewritten.length === 0) return noRewrite;
