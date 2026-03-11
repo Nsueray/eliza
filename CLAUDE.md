@@ -139,6 +139,7 @@ Completed:
 - Multi-user system (users + user_permissions, roller: ceo/manager/agent)
 - Admin Panel (localhost:3000/admin)
 - WhatsApp auth: users tablosundan phone lookup
+- Phase 11: Deploy (Render — 3 servis + PostgreSQL cloud)
 
 Pending:
 - Phase 7: Risk Engine Expansion + Explainable AI
@@ -533,8 +534,12 @@ Current phase: Phase 7 — Risk Engine Expansion
 # 24. Infrastructure & Environment
 Repository: https://github.com/Nsueray/eliza (public, main branch)
 Local: PostgreSQL localhost:5432/eliza, API port 3001
-Deploy: Once local gelistirme, sonra Render (henuz deploy edilmedi)
-Twilio: Sandbox kurulu, CEO_WHATSAPP .env'de tanimli
+Production (Render):
+  Dashboard: https://eliza-dashboard.onrender.com
+  API: https://eliza-api-8tkr.onrender.com
+  Bot: https://eliza-bot-r1vx.onrender.com
+  Database: Render PostgreSQL (eliza_73du)
+Twilio: Sandbox kurulu, production number henuz alinmadi
 Leena EMS: Bookmarkta mevcut, API entegrasyonu henuz yapilmadi
 Liffy: Bookmarkta mevcut, API entegrasyonu henuz yapilmadi
 Shadow Mode: Year 1 — sadece CEO kullaniyor, ekip haberdar degil

@@ -15,19 +15,22 @@
 - Multi-user system (users + user_permissions tabloları, roller: ceo/manager/agent)
 - Admin Panel (localhost:3000/admin — kullanıcı CRUD, rol/izin yönetimi)
 - WhatsApp auth: users tablosundan phone lookup (hardcoded .env kaldırıldı)
+- Phase 11: Deploy (Render — 3 servis + PostgreSQL cloud)
+
+## Production URLs
+- Dashboard: https://eliza-dashboard.onrender.com
+- API: https://eliza-api-8tkr.onrender.com
+- Bot: https://eliza-bot-r1vx.onrender.com
 
 ## 🔄 Devam Eden
 - Bug fixes (KNOWN_ISSUES.md)
 
 ## ⬜ Siradaki (oncelik sirasi)
 
-### Once — Deploy
-1. Phase 11 — Deploy
-   - Render veya Railway
-   - PostgreSQL cloud (Supabase veya Render Postgres)
-   - ngrok → gercek domain
-   - Twilio sandbox → verified business number
-   - Environment variables production'a tasi
+### Once — Production Stabilization
+1. Twilio sandbox → verified business number
+2. Zoho sync production'da test
+3. WhatsApp webhook URL güncelle (Bot URL)
 
 ### Sonra — Feature Expansion
 4. Office Performance (Sales Group bazli sorgular)
