@@ -761,7 +761,8 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..013
+Fixed: ISSUE-001..014
+ISSUE-014: "bu ay" sorgularında year filtresi eksikti → month varsa year=currentYear default
 ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
 ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu → final response loglanıyor
 ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi

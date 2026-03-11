@@ -122,3 +122,13 @@ Rules:
 **Root cause:** detectLang'da (a) accent normalization yoktu, (b) substring match kullanılıyordu (word boundary yerine)
 **Fix:** (1) router.js ile aynı ACCENT_MAP kullanarak input normalize edildi (ç→c, ş→s, ü→u, ı→i, ö→o, ğ→g), (2) trWords accent-normalized hale getirildi, (3) `lower.includes(w)` → `words.includes(w)` (word boundary match)
 **Files:** apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-014] "bu ay" queries return all years
+**Status:** FIXED (2026-03-12)
+**First seen:** 2026-03-12
+**Description:** "elif bu ay kaç m2 satmış?" → 53 sözleşme döndürüyordu, gerçek: 2 sözleşme. Mart ayını tüm yıllardan topluyordu.
+**Root cause:** Router/Haiku month entity çıkarıyor (month=3) ama year entity set etmiyor. SQL'de `($2::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $2)` year=NULL olunca tüm yılları döndürüyor.
+**Fix:** queryEngine.js run() fonksiyonunda: entities.month var ve entities.year yok → year = currentYear olarak default set edildi. Tüm intent'ler için geçerli.
+**Files:** packages/ai/queryEngine.js

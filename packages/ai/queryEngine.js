@@ -834,6 +834,12 @@ async function run(question, _depth = 0, lang, user) {
   delete intentResult._usage;
   const { intent, entities } = intentResult;
 
+  // Default year to current when month is specified without year
+  // Prevents "bu ay" queries from aggregating across all years
+  if (entities && entities.month && !entities.year) {
+    entities.year = new Date().getFullYear();
+  }
+
   // Handle compound questions (max depth 1 to prevent recursion)
   if (intent === 'compound' && entities?.questions && _depth === 0) {
     const subItems = entities.questions.slice(0, 2);
