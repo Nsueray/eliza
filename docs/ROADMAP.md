@@ -26,7 +26,12 @@
 - WhatsApp: +1 810-255-5377
 
 ## In Progress
-- Phase 12c: CEO Notes with semantic recall
+- Intelligence Roadmap v4 — Immediate Execution Plan
+  - Hybrid SQL scope fix (CEO-only restriction)
+  - 3 new router rules (expo_progress, agent_performance, expo_agent_breakdown)
+  - Unavailability response ("Bilmiyorum" feature)
+  - Sonnet assumption transparency rule
+  - Log enrichment (rewritten_question column)
 
 ## Next Phases
 

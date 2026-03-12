@@ -147,9 +147,15 @@ Completed:
 - Phase 14: Hybrid Text-to-SQL (Sonnet SQL fallback for unknown intents)
 
 In Progress:
-- Phase 12c: CEO Notes with semantic recall
+- Intelligence Roadmap v4 — Immediate Execution Plan
+  - Hybrid SQL scope fix (CEO-only)
+  - 3 new router rules (expo_progress, agent_performance, expo_agent_breakdown)
+  - "Bilmiyorum" unavailability response
+  - Sonnet assumption transparency
+  - Log enrichment (rewritten_question)
 
 Pending:
+- Phase 12c: CEO Notes with semantic recall
 - Phase 13: Answer Quality (explainability)
 - Phase 15: Learning & Feedback (CEO corrections, preference memory)
 - Phase 16: Proactive Attention & Alerts (auto morning brief, threshold alerts)
@@ -536,9 +542,10 @@ sales_start_date = previous edition end_date (auto-calculated on sync)
 
 # 23. Roadmap
 Ana roadmap dosyası: docs/ROADMAP.md
-Intelligence roadmap: docs/INTELLIGENCE_ROADMAP.md
+Intelligence roadmap: docs/INTELLIGENCE_ROADMAP.md (v4 — north star + immediate plan)
 Feature map: docs/ELIZA_FEATURE_MAP.md
-Current phase: Phase 12c — CEO Notes + Semantic Recall (Phase 14 Hybrid SQL done)
+System analysis: docs/SYSTEM_ANALYSIS.md
+Current phase: Intelligence Roadmap v4 Immediate Execution Plan in progress
 
 # 24. Infrastructure & Environment
 Repository: https://github.com/Nsueray/eliza (public, main branch)

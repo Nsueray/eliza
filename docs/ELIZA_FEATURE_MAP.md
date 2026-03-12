@@ -1,5 +1,6 @@
 # ELIZA — System Feature Map
-Version: v2 | Owner: Elan Expo
+Version: v3 | Owner: Elan Expo
+Intelligence Roadmap: v4 — Immediate Execution Plan in progress
 
 ## Architecture
 CEO → WhatsApp → Twilio → Bot → Intent Router →
@@ -81,3 +82,8 @@ Agent — own data (data_scope: own)
 - Tarih format: 19-Mayis-2026 (no auto-link)
 - Dil: TR/EN/FR otomatik algilama
 - Month without year → defaults to current year
+
+## Intelligence Roadmap v4 (in progress)
+- North star: Semantic Frame + Ambiguity Gate + DSL Compiler (future)
+- Immediate plan: hybrid SQL scope fix, 3 router rules, unavailability response, assumption transparency, log enrichment
+- Principle: "Assume transparently, clarify selectively, fail honestly"
