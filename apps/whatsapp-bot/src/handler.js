@@ -105,12 +105,17 @@ function detectLang(text) {
 /**
  * Personality wrapper — applies to all users.
  */
-function wrapWithPersonality(response, user, lang, isCommand) {
+function wrapWithPersonality(response, user, lang, isCommand, lastMessageTime) {
   if (isCommand) return response;
 
-  const { text: greeting, usedNickname } = generateGreeting(user, lang);
-  const closing = generateClosing(user, lang, usedNickname);
-  return `${greeting}\n\n${response}\n\n${closing}`;
+  const { text: greeting, usedNickname } = generateGreeting(user, lang, lastMessageTime);
+  const closing = generateClosing(user, lang, usedNickname, lastMessageTime);
+
+  let result = '';
+  if (greeting) result += `${greeting}\n\n`;
+  result += response;
+  if (closing) result += `\n\n${closing}`;
+  return result;
 }
 
 /**
@@ -189,8 +194,10 @@ async function handleMessage(text, user) {
     // Conversation memory: rewrite follow-up questions to be self-contained
     let rewriteUsage = { input_tokens: 0, output_tokens: 0, model: 'none' };
     let questionForEngine = questionText;
+    let lastMessageTime = null;
     try {
-      const history = await getHistory(user?.phone || user?.whatsapp_phone);
+      const { messages: history, lastMessageTime: lmt } = await getHistory(user?.phone || user?.whatsapp_phone);
+      lastMessageTime = lmt;
       const rewriteResult = await rewriteQuestion(questionText, history);
       questionForEngine = rewriteResult.question;
       rewriteUsage = rewriteResult._usage;
@@ -228,7 +235,7 @@ async function handleMessage(text, user) {
       response += `\n\n${moreHint[lang] || moreHint.tr}`;
     }
 
-    const finalResponse = wrapWithPersonality(response, user, lang, false);
+    const finalResponse = wrapWithPersonality(response, user, lang, false, lastMessageTime);
 
     // Log the final response (after personality wrap)
     logMessage({

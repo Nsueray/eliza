@@ -63,11 +63,11 @@ Output: geçen hafta en çok kim satmış?`;
  * Returns last 5 messages within 2 hours, in chronological order.
  */
 async function getHistory(userPhone) {
-  if (!userPhone) return [];
+  if (!userPhone) return { messages: [], lastMessageTime: null };
 
   try {
     const result = await query(`
-      SELECT message_text, response_text
+      SELECT message_text, response_text, created_at
       FROM message_logs
       WHERE user_phone = $1
         AND created_at > NOW() - INTERVAL '2 hours'
@@ -78,19 +78,22 @@ async function getHistory(userPhone) {
       LIMIT 5
     `, [userPhone]);
 
-    if (result.rows.length === 0) return [];
+    if (result.rows.length === 0) return { messages: [], lastMessageTime: null };
+
+    // Most recent message time (first row since ORDER BY DESC)
+    const lastMessageTime = result.rows[0].created_at;
 
     // Reverse to chronological order (oldest first)
     const rows = result.rows.reverse();
-    const history = [];
+    const messages = [];
     for (const row of rows) {
-      history.push({ role: 'user', content: row.message_text });
-      history.push({ role: 'assistant', content: row.response_text });
+      messages.push({ role: 'user', content: row.message_text });
+      messages.push({ role: 'assistant', content: row.response_text });
     }
-    return history;
+    return { messages, lastMessageTime };
   } catch (err) {
     console.error('getHistory error:', err.message);
-    return [];
+    return { messages: [], lastMessageTime: null };
   }
 }
 

@@ -74,14 +74,48 @@ const CLOSINGS = {
   ],
 };
 
-function generateGreeting(user, lang) {
+/**
+ * Calculate minutes since last message.
+ * Returns Infinity if no lastMessageTime (first message → full greeting).
+ */
+function minutesSince(lastMessageTime) {
+  if (!lastMessageTime) return Infinity;
+  const diff = Date.now() - new Date(lastMessageTime).getTime();
+  return diff / (1000 * 60);
+}
+
+const SHORT_GREETINGS = {
+  tr: (nickname) => [`${nickname},`, `Evet ${nickname},`],
+  en: (nickname) => [`${nickname},`, `Sure ${nickname},`],
+  fr: (nickname) => [`${nickname},`, `Oui ${nickname},`],
+};
+
+function generateGreeting(user, lang, lastMessageTime) {
+  const mins = minutesSince(lastMessageTime);
+
+  // < 15 min → skip greeting entirely
+  if (mins < 15) return { text: null, usedNickname: null };
+
   const nicknames = getNicknames(user);
   const nickname = pickRandom(nicknames);
+
+  // 15 min - 2 hours → short greeting (just nickname, no emoji)
+  if (mins <= 120) {
+    const templates = (SHORT_GREETINGS[lang] || SHORT_GREETINGS.tr)(nickname);
+    return { text: pickRandom(templates), usedNickname: nickname };
+  }
+
+  // > 2 hours or first message → full greeting
   const templates = (GREETINGS[lang] || GREETINGS.tr)(nickname);
   return { text: pickRandom(templates), usedNickname: nickname };
 }
 
-function generateClosing(user, lang, excludeNickname) {
+function generateClosing(user, lang, excludeNickname, lastMessageTime) {
+  const mins = minutesSince(lastMessageTime);
+
+  // < 15 min → skip closing entirely
+  if (mins < 15) return null;
+
   const nicknames = getNicknames(user);
   // Pick a different nickname than the one used in greeting
   let available = nicknames.filter(n => n !== excludeNickname);
