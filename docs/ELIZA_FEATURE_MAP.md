@@ -23,10 +23,16 @@ Haiku (fallback) → SQL Templates → PostgreSQL → Sonnet → Response
 .help — komutlar
 
 ## AI Pipeline
-Question → conversationMemory (rewrite) → router.js (0 API) → Haiku intent (fallback) →
-SQL template → applyScope (user filter) → PostgreSQL → Sonnet answer → WhatsApp
-Rule: Claude never generates SQL
+Question → self-reference replace → conversationMemory (rewrite) → router.js (0 API) → Haiku intent (fallback) →
+SQL template (or Hybrid SQL fallback) → applyScope (user filter) → PostgreSQL → Sonnet answer → Personality → WhatsApp
 Logging: every message logged with tokens, duration, intent to message_logs
+
+## Hybrid Text-to-SQL (Phase 14)
+- Trigger: intent=general_stats with empty entities (unknown question)
+- Sonnet generates SQL from DB schema + business rules
+- Safety: validateSQL, statement_timeout 3s, max 5 JOINs, NO_QUERY handling
+- Fallback: if SQL fails → normal general_stats template
+- intent_model logged as 'hybrid_sql'
 
 ## Conversation Memory (Phase 12)
 - Module: packages/ai/conversationMemory.js

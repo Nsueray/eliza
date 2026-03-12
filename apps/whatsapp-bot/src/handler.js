@@ -117,7 +117,7 @@ function wrapWithPersonality(response, user, lang, isCommand) {
  * Return dashboard link for a given intent, or null if no relevant page exists.
  */
 function getDashboardLink(intent) {
-  const DASHBOARD_BASE = 'http://localhost:3000';
+  const DASHBOARD_BASE = 'https://eliza.elanfairs.com';
   const INTENT_LINKS = {
     expo_progress: `${DASHBOARD_BASE}/expos?year=2026`,
     expo_list: `${DASHBOARD_BASE}/expos?year=2026`,
@@ -171,12 +171,27 @@ async function handleMessage(text, user) {
   try {
     const startTime = Date.now();
 
+    // Self-reference replacement: "ben kaç m2 satmışım" → "Elif AY kaç m2 satmış"
+    let questionText = trimmed;
+    if (user?.sales_agent_name) {
+      const agentName = user.sales_agent_name;
+      questionText = questionText
+        .replace(/\bben\b/gi, agentName)
+        .replace(/\bbenim\b/gi, agentName)
+        .replace(/\bbana\b/gi, agentName)
+        .replace(/\bbeni\b/gi, agentName)
+        .replace(/\bmy\b/gi, agentName)
+        .replace(/satmışım\b/gi, 'satmış')
+        .replace(/yapmışım\b/gi, 'yapmış')
+        .replace(/bulmuşum\b/gi, 'bulmuş');
+    }
+
     // Conversation memory: rewrite follow-up questions to be self-contained
     let rewriteUsage = { input_tokens: 0, output_tokens: 0, model: 'none' };
-    let questionForEngine = trimmed;
+    let questionForEngine = questionText;
     try {
       const history = await getHistory(user?.phone || user?.whatsapp_phone);
-      const rewriteResult = await rewriteQuestion(trimmed, history);
+      const rewriteResult = await rewriteQuestion(questionText, history);
       questionForEngine = rewriteResult.question;
       rewriteUsage = rewriteResult._usage;
     } catch (rewriteErr) {

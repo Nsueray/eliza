@@ -152,3 +152,22 @@ Rules:
 **Root cause:** applyScope subquery: `SELECT sa.name FROM sales_agents sa WHERE sa.sales_group = $N` — sales_agents tablosunda sales_group yok.
 **Fix:** Subquery `users` tablosunu kullanacak şekilde değiştirildi: `SELECT sales_agent_name FROM users WHERE sales_group = $N AND is_active = true`
 **Files:** packages/ai/queryEngine.js
+
+---
+
+## [ISSUE-017] Dashboard link points to localhost
+**Status:** FIXED (2026-03-12)
+**First seen:** 2026-03-12
+**Description:** WhatsApp'ta "... ve X sonuç daha" mesajıyla gelen dashboard linki localhost:3000'e gidiyordu.
+**Fix:** `DASHBOARD_BASE = 'http://localhost:3000'` → `'https://eliza.elanfairs.com'`
+**Files:** apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-018] Elif expo-based queries blocked by agent scope
+**Status:** FIXED (2026-03-12)
+**First seen:** 2026-03-12
+**Description:** Elif (data_scope=team) expo bazlı sorgularda veri göremiyordu. expo_progress, expo_agent_breakdown, country_count gibi genel expo sorguları agent/team filtresinden geçiriliyordu.
+**Root cause:** NO_AGENT_FILTER_INTENTS sadece expo_list içeriyordu. Expo bazlı intent'ler de agent filtresi alıyordu.
+**Fix:** NO_AGENT_FILTER_INTENTS genişletildi: expo_progress, expo_list, expo_agent_breakdown, expo_company_list, country_count, exhibitors_by_country, cluster_performance, rebooking_rate, payment_status, company_search
+**Files:** packages/ai/queryEngine.js

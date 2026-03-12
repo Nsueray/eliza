@@ -33,10 +33,11 @@ Question → Conversation Memory → Haiku Rewrite → Router (keyword) → Haik
 - Language validation (detected lang vs answer lang)
 - Explainability for risk (velocity comparison, not just label)
 
-### Phase 14: Hybrid Text-to-SQL
-- Fallback for unknown intents (router → template → LLM SQL)
-- Semantic layer in prompt (business definitions)
-- Safety: EXPLAIN cost, join limit 5, statement_timeout 3s, confidence scoring
+### Phase 14: Hybrid Text-to-SQL ✅ COMPLETED
+- Fallback for unknown intents (router → template → LLM SQL via Sonnet)
+- Semantic layer in prompt (DB schema + business rules)
+- Safety: validateSQL, statement_timeout 3s, join limit 5, NO_QUERY handling
+- Trigger: intent=general_stats with empty entities
 
 ### Phase 15: Learning & Feedback
 - .correct command via WhatsApp

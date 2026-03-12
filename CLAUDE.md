@@ -144,13 +144,13 @@ Completed:
 - Personality Engine (nicknames, time-aware greetings)
 - Language Detection fix (accent-insensitive + word boundary)
 - Phase 12a+12b: Conversation Memory + Question Rewrite
+- Phase 14: Hybrid Text-to-SQL (Sonnet SQL fallback for unknown intents)
 
 In Progress:
 - Phase 12c: CEO Notes with semantic recall
 
 Pending:
-- Phase 13: Answer Quality (enhanced Sonnet prompt, explainability)
-- Phase 14: Hybrid Text-to-SQL (fallback for unknown intents)
+- Phase 13: Answer Quality (explainability)
 - Phase 15: Learning & Feedback (CEO corrections, preference memory)
 - Phase 16: Proactive Attention & Alerts (auto morning brief, threshold alerts)
 - Phase 17: Action Layer Integration
@@ -538,7 +538,7 @@ sales_start_date = previous edition end_date (auto-calculated on sync)
 Ana roadmap dosyası: docs/ROADMAP.md
 Intelligence roadmap: docs/INTELLIGENCE_ROADMAP.md
 Feature map: docs/ELIZA_FEATURE_MAP.md
-Current phase: Phase 12c — CEO Notes + Semantic Recall
+Current phase: Phase 12c — CEO Notes + Semantic Recall (Phase 14 Hybrid SQL done)
 
 # 24. Infrastructure & Environment
 Repository: https://github.com/Nsueray/eliza (public, main branch)
@@ -726,8 +726,8 @@ Scope rules:
 
 Intent categories:
 - NO_SCOPE: days_to_event (pure expo dates)
-- NO_AGENT_FILTER: expo_list (everyone sees expo calendar, year filter only)
-- FULL_FILTER: all other intents (agent + year filter)
+- NO_AGENT_FILTER: expo_progress, expo_list, expo_agent_breakdown, expo_company_list, country_count, exhibitors_by_country, cluster_performance, rebooking_rate, payment_status, company_search (year filter only)
+- FULL_FILTER: agent_performance, agent_country_breakdown, agent_expo_breakdown, top_agents, monthly_trend, revenue_summary, general_stats, price_per_m2
 - expo_metrics queries: no filter (no sales_agent column)
 
 SQL injection:
@@ -767,8 +767,10 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..016
+Fixed: ISSUE-001..018
 ISSUE-016: applyScope team subquery sales_agents tablosunu kullanıyordu (sales_group yok) → users tablosuna düzeltildi
+ISSUE-017: Dashboard link localhost:3000 → production URL (eliza.elanfairs.com)
+ISSUE-018: Elif expo bazlı sorguları göremiyordu → NO_AGENT_FILTER intent listesi genişletildi
 ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
 ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu → final response loglanıyor
 ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi
@@ -801,6 +803,23 @@ Handler integration (handler.js):
 - logMessage'da message_text = orijinal trimmed (rewritten değil)
 - Rewrite tokenları _usage.total_input/output'a eklenir
 - Phone field: user.phone kullanılır (auth.js'ten), user.whatsapp_phone DEĞİL
+- Self-reference: "ben/benim/bana" → user.sales_agent_name (handler.js'te regex replace)
+
+# 30. Hybrid Text-to-SQL (Phase 14)
+Location: packages/ai/queryEngine.js → generateSQL()
+Trigger: intent === 'general_stats' AND entities boş (router + Haiku eşleşemedi)
+
+Akış:
+1. extractIntent → general_stats (empty entities)
+2. generateSQL(question) → Sonnet SQL üretir
+3. validateSQL → SELECT only, allowed tables, LIMIT
+4. Safety: statement_timeout 3s, max 5 JOIN, NO_QUERY handling
+5. query → data
+6. generateAnswer → response
+
+Fallback: SQL üretilemezse veya hata olursa → normal buildQuery(general_stats) akışına döner
+intent_model: 'hybrid_sql' olarak loglanır
+Token tracking: sqlGenUsage intent token'larına eklenir
 
 # currentDate
 Today's date is 2026-03-12.

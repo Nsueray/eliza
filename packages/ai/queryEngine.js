@@ -698,7 +698,11 @@ function buildQuery(intent, entities) {
 //   - visible_years → EXTRACT(YEAR FROM date_col) = ANY(years)
 
 const NO_SCOPE_INTENTS = new Set(['days_to_event']);
-const NO_AGENT_FILTER_INTENTS = new Set(['expo_list']);
+const NO_AGENT_FILTER_INTENTS = new Set([
+  'expo_progress', 'expo_list', 'expo_agent_breakdown', 'expo_company_list',
+  'country_count', 'exhibitors_by_country', 'cluster_performance',
+  'rebooking_rate', 'payment_status', 'company_search',
+]);
 
 function applyScope(sql, params, intent, user) {
   if (!user) return { sql, params };
@@ -832,6 +836,66 @@ Rules:
   return { text: answerText, _usage: answerUsage };
 }
 
+// STEP 5 — Hybrid Text-to-SQL Fallback (Sonnet generates SQL for unknown intents)
+const SQL_GEN_PROMPT = `You are a SQL query generator for ELIZA, a business intelligence system for Elan Expo (exhibition organizer).
+
+DATABASE SCHEMA:
+- expos: id, name, country, city, edition_year, start_date, end_date, cluster, target_m2
+- edition_contracts: id, af_number, company_name, country, sales_agent, m2, revenue_eur, contract_date, status, expo_id (status IN: Valid, Transferred In)
+- fiscal_contracts: same as edition_contracts (status IN: Valid, Transferred Out)
+- contracts: all contracts including cancelled
+- expo_metrics: expo_id, expo_name, sold_m2, target_m2, progress_percent, velocity_m2_per_month, required_velocity, velocity_ratio, risk_score, risk_level, country_count, agent_count, months_to_event, start_date
+- users: id, name, role, sales_agent_name, sales_group, office
+
+BUSINESS RULES:
+- 'ELAN EXPO' is an internal agent: include in revenue, EXCLUDE from m2, contract counts, exhibitor counts, agent rankings
+- progress = sold_m2 / target_m2 * 100
+- active expo = start_date > CURRENT_DATE
+- at risk = risk_level IN ('HIGH', 'WATCH') from expo_metrics
+- edition_contracts for expo performance questions
+- fiscal_contracts for company/agent performance questions
+- revenue_eur is always in EUR
+
+RULES:
+- Generate ONLY a SELECT query, nothing else
+- Always include LIMIT 50
+- Use proper JOINs (edition_contracts or fiscal_contracts, not raw contracts unless asking about rebooking)
+- When question is about expo performance → use edition_contracts
+- When question is about agent/sales performance → use fiscal_contracts
+- If you cannot generate a valid query, return exactly: NO_QUERY
+- Output ONLY the SQL, no explanation, no markdown, no backticks`;
+
+async function generateSQL(question, lang, user) {
+  const response = await client.messages.create({
+    model: ANSWER_MODEL,
+    max_tokens: 500,
+    system: SQL_GEN_PROMPT,
+    messages: [{
+      role: 'user',
+      content: `Question: ${question}`,
+    }],
+  });
+
+  const sqlText = response.content[0].text.trim();
+  const usage = {
+    input_tokens: response.usage?.input_tokens || 0,
+    output_tokens: response.usage?.output_tokens || 0,
+    model: ANSWER_MODEL,
+  };
+
+  if (sqlText === 'NO_QUERY' || !sqlText.toUpperCase().startsWith('SELECT')) {
+    return { sql: null, _usage: usage };
+  }
+
+  // Safety: reject queries with too many JOINs
+  const joinCount = (sqlText.match(/\bJOIN\b/gi) || []).length;
+  if (joinCount > 5) {
+    return { sql: null, _usage: usage };
+  }
+
+  return { sql: sqlText, _usage: usage };
+}
+
 // Main entry point
 async function run(question, _depth = 0, lang, user) {
   const intentResult = await extractIntent(question);
@@ -870,13 +934,47 @@ async function run(question, _depth = 0, lang, user) {
     return { intent: 'compound', entities, data: combinedData, answer: combinedAnswer };
   }
 
-  const built = buildQuery(intent, entities);
-  const scoped = applyScope(built.sql, built.params, intent, user);
-  const validatedSQL = validateSQL(scoped.sql);
-  const result = await query(validatedSQL, scoped.params);
-  const data = result.rows;
+  // Hybrid Text-to-SQL fallback: if intent is general_stats with no entities,
+  // router and Haiku couldn't classify → try LLM-generated SQL
+  const isUnknownIntent = intent === 'general_stats' &&
+    (!entities || Object.keys(entities).filter(k => entities[k] != null).length === 0);
+
+  let data, answerResult, finalIntent = intent;
+  let sqlGenUsage = { input_tokens: 0, output_tokens: 0 };
+
+  if (isUnknownIntent) {
+    try {
+      const sqlResult = await generateSQL(question, lang, user);
+      sqlGenUsage = sqlResult._usage || { input_tokens: 0, output_tokens: 0 };
+
+      if (sqlResult.sql) {
+        const validatedSQL = validateSQL(sqlResult.sql);
+        // Safety: 3 second timeout
+        await query('SET statement_timeout = 3000');
+        try {
+          const result = await query(validatedSQL);
+          data = result.rows;
+          finalIntent = 'hybrid_sql';
+        } finally {
+          await query('SET statement_timeout = 0');
+        }
+      }
+    } catch (err) {
+      console.error('Hybrid SQL fallback error:', err.message);
+    }
+  }
+
+  // If hybrid SQL didn't produce data, use normal template path
+  if (!data) {
+    const built = buildQuery(intent, entities);
+    const scoped = applyScope(built.sql, built.params, intent, user);
+    const validatedSQL = validateSQL(scoped.sql);
+    const result = await query(validatedSQL, scoped.params);
+    data = result.rows;
+  }
+
   const isCountQuery = entities?.metric === 'count';
-  const answerResult = await generateAnswer(question, data, lang);
+  answerResult = await generateAnswer(question, data, lang);
   const answerUsage = answerResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
 
   // Track attention — mark entities as reviewed by CEO
@@ -884,18 +982,18 @@ async function run(question, _depth = 0, lang, user) {
 
   // Build usage summary for logging
   const _usage = {
-    intent_input: intentUsage.input_tokens,
-    intent_output: intentUsage.output_tokens,
-    intent_model: intentUsage.model,
+    intent_input: intentUsage.input_tokens + sqlGenUsage.input_tokens,
+    intent_output: intentUsage.output_tokens + sqlGenUsage.output_tokens,
+    intent_model: finalIntent === 'hybrid_sql' ? 'hybrid_sql' : intentUsage.model,
     answer_input: answerUsage.input_tokens,
     answer_output: answerUsage.output_tokens,
     answer_model: answerUsage.model,
-    total_input: intentUsage.input_tokens + answerUsage.input_tokens,
-    total_output: intentUsage.output_tokens + answerUsage.output_tokens,
+    total_input: intentUsage.input_tokens + sqlGenUsage.input_tokens + answerUsage.input_tokens,
+    total_output: intentUsage.output_tokens + sqlGenUsage.output_tokens + answerUsage.output_tokens,
   };
 
   // Count queries: return only answer text, no data list
-  return { intent, entities, data: isCountQuery ? [] : data, answer: answerResult.text, _usage };
+  return { intent: finalIntent, entities, data: isCountQuery ? [] : data, answer: answerResult.text, _usage };
 }
 
 /**
@@ -920,4 +1018,4 @@ async function trackAttention(intent, entities) {
   }
 }
 
-module.exports = { run, extractIntent, buildQuery, validateSQL, applyScope };
+module.exports = { run, extractIntent, buildQuery, validateSQL, applyScope, generateSQL };

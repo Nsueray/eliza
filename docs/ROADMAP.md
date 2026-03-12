@@ -17,6 +17,7 @@
 - Data Scope Enforcement (user-level access control in queryEngine)
 - Language Detection fix (accent-insensitive)
 - Phase 12a+12b: Conversation Memory + Question Rewrite (Haiku)
+- Phase 14: Hybrid Text-to-SQL (Sonnet SQL fallback for unknown intents)
 
 ## Production URLs
 - Dashboard: https://eliza.elanfairs.com
