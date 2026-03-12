@@ -979,10 +979,29 @@ async function run(question, _depth = 0, lang, user) {
   delete intentResult._usage;
   const { intent, entities } = intentResult;
 
-  // Default year to current when month is specified without year
-  // Prevents "bu ay" queries from aggregating across all years
-  if (entities && entities.month && !entities.year) {
-    entities.year = new Date().getFullYear();
+  // Default year to current when not specified
+  // Prevents queries from aggregating across all years/editions
+  const currentYear = new Date().getFullYear();
+  if (entities && !entities.year) {
+    // Month without year → current year (ISSUE-014)
+    if (entities.month) {
+      entities.year = currentYear;
+    }
+    // Expo-based intents without year → current year
+    // "SIEMA'ya en çok kim satmış?" should mean SIEMA 2026, not all editions
+    const EXPO_INTENTS_NEED_YEAR = [
+      'expo_progress', 'expo_agent_breakdown', 'expo_company_list',
+      'country_count', 'price_per_m2', 'payment_status',
+    ];
+    if (entities.expo_name && EXPO_INTENTS_NEED_YEAR.includes(intent)) {
+      entities.year = currentYear;
+    }
+    // top_agents / agent_performance without year → current year
+    // "en iyi satışçı kim?" should mean 2026, not all time
+    const AGENT_INTENTS_NEED_YEAR = ['top_agents', 'agent_performance'];
+    if (AGENT_INTENTS_NEED_YEAR.includes(intent) && !entities.period && !entities.relative_days) {
+      entities.year = currentYear;
+    }
   }
 
   // Handle compound questions (max depth 1 to prevent recursion)

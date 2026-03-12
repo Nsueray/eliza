@@ -779,7 +779,7 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..018
+Fixed: ISSUE-001..020
 ISSUE-016: applyScope team subquery sales_agents tablosunu kullanıyordu (sales_group yok) → users tablosuna düzeltildi
 ISSUE-017: Dashboard link localhost:3000 → production URL (eliza.elanfairs.com)
 ISSUE-018: Elif expo bazlı sorguları göremiyordu → NO_AGENT_FILTER intent listesi genişletildi
@@ -788,6 +788,8 @@ ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu �
 ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi
 ISSUE-014: "bu ay" sorgularında year filtresi eksikti → month varsa year=currentYear default
 ISSUE-015: handler.js user.whatsapp_phone kullanıyordu ama auth.js user.phone döndürüyor → phone field mismatch düzeltildi
+ISSUE-019: Hybrid SQL CEO-only kısıtlaması
+ISSUE-020: Year filter eksik — expo/agent sorguları tüm yılların verisini döndürüyordu → run() seviyesinde year=currentYear default
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

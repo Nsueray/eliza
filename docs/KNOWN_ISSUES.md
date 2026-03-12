@@ -181,3 +181,13 @@ Rules:
 **Root cause:** Hybrid SQL path'inde applyScope() çağrısı yoktu. applyScope'un regex-based alias detection'ı Sonnet'in ürettiği SQL'de farklı alias kullanabileceği için güvenilir değildi.
 **Fix:** Hybrid SQL sadece CEO (data_scope=all) için çalışacak şekilde kısıtlandı. Non-CEO kullanıcılar normal template path'e düşer.
 **Files:** packages/ai/queryEngine.js
+
+---
+
+## [ISSUE-020] Year filter missing — expo and agent queries return all-time data
+**Status:** FIXED (2026-03-12)
+**First seen:** 2026-03-12
+**Description:** "SIEMA'ya en çok kim satmış?" → Elif AY €1.287.539 döndürüyordu, gerçek 2026 değeri €300.738. "En iyi satışçı kim?" → Elif AY €5.239.118 (tüm yıllar) döndürüyordu, gerçek 2026 değeri €122.076. Expo ve agent sorgularında year entity olmadığında SQL'deki `($2::int IS NULL OR ...)` koşulu tüm yılları döndürüyordu.
+**Root cause:** buildQuery() SQL template'lerinde year parametresi NULL olduğunda filtre devre dışı kalıyordu. Kullanıcı yıl belirtmezse entities.year = null → SQL tüm edition'ları topluyordu. 8 farklı intent'te aynı pattern mevcut.
+**Fix:** queryEngine.js run() fonksiyonunda year default logic genişletildi: (1) expo_name olan expo intent'lerinde year=currentYear, (2) top_agents/agent_performance'da period/relative_days yoksa year=currentYear. SQL template'leri değiştirilmedi — run() seviyesinde çözüm.
+**Files:** packages/ai/queryEngine.js
