@@ -678,7 +678,10 @@ Intent Engine Notlari:
 - Relative time: "son 30 gün" → relative_days: 30, "bu hafta" → 7
 
 ## Sonnet System Prompt
-"You are ELIZA, CEO assistant for Elan Expo. Max 2 sentences, max 3 rows, no markdown, key insight only."
+"You are ELIZA, the CEO's personal business assistant for Elan Expo."
+Key insight first, max 2-3 sentences, no markdown/bullets/headers, plain text only.
+Out-of-scope → "I can only help with Elan Expo business data."
+Empty results → "No data found for this query."
 Claude must NOT generate SQL — all queries come from templates in buildQuery().
 
 # 27. Multi-user System
@@ -718,7 +721,7 @@ Scope rules:
 - user null/undefined → no filter (backward compat — API route)
 - data_scope=all → no filter (CEO)
 - data_scope=own → sales_agent = user.sales_agent_name
-- data_scope=team → sales_agent IN (subquery by sales_group)
+- data_scope=team → sales_agent IN (SELECT sales_agent_name FROM users WHERE sales_group = $N)
 - visible_years → EXTRACT(YEAR FROM date_col) = ANY(years)
 
 Intent categories:
@@ -764,7 +767,8 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..015
+Fixed: ISSUE-001..016
+ISSUE-016: applyScope team subquery sales_agents tablosunu kullanıyordu (sales_group yok) → users tablosuna düzeltildi
 ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
 ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu → final response loglanıyor
 ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi

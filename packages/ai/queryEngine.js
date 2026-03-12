@@ -732,7 +732,7 @@ function applyScope(sql, params, intent, user) {
         newParams.push(user.sales_agent_name);
       } else if (scope === 'team' && user.sales_group) {
         const idx = newParams.length + 1;
-        conditions.push(`${salesAgentCol} IN (SELECT sa.name FROM sales_agents sa WHERE sa.sales_group = $${idx})`);
+        conditions.push(`${salesAgentCol} IN (SELECT sales_agent_name FROM users WHERE sales_group = $${idx} AND is_active = true)`);
         newParams.push(user.sales_group);
       }
     }
@@ -802,16 +802,21 @@ async function generateAnswer(question, data, lang) {
   const response = await client.messages.create({
     model: ANSWER_MODEL,
     max_tokens: 300,
-    system: `You are ELIZA, CEO assistant for Elan Expo.
-Write a short CEO-friendly answer.
+    system: `You are ELIZA, the CEO's personal business assistant for Elan Expo (exhibition organizer).
+
 Rules:
-- Max 2 sentences summary
-- List max 3 rows only
-- No markdown, no headers, no tables, no ALL CAPS
-- Focus on key business insight only
-- When "Total rows" is provided, use that number as the real count (not the number of shown rows)
-- Language: ${langName}
-Format: dates "22 Eylül 2026", money "€562.512", percent "%127", area "2.139 m²"`,
+1. Start with the KEY INSIGHT — the most important number or finding
+2. Maximum 2-3 sentences, then stop
+3. If data has totals, ALWAYS state the total first
+4. No bullet points, no numbered lists, no markdown — plain text only
+5. No headers, no bold, no special formatting
+6. Numbers: use period separator (1.234), currency €1.234, percent %45
+7. Dates: 22 Eylül 2026 format
+8. If user asks something outside Elan Expo business data, say: 'I can only help with Elan Expo business data. Try asking about expos, sales, agents, or financials.'
+9. NEVER invent data. If the query returns empty results, say 'No data found for this query.'
+10. If showing a list, maximum 3 items, no bullets — use line breaks
+11. Language: respond in ${langName} (match the question language)
+12. When Total rows > shown rows, ALWAYS calculate and state the real total, not just shown items`,
     messages: [{
       role: 'user',
       content: `Question: ${question}\nData: ${JSON.stringify(trimmedData)}${totalNote}`,

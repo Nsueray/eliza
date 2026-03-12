@@ -142,3 +142,13 @@ Rules:
 **Root cause:** auth.js `user.phone` döndürüyor ama handler.js `user.whatsapp_phone` kullanıyordu → undefined → logMessage `user_phone=null` kaydediyordu → getHistory(null) hep boş dönüyordu → rewrite hiç tetiklenmiyordu.
 **Fix:** handler.js'te 4 yerde `user?.whatsapp_phone || user?.phone_number` → `user?.phone || user?.whatsapp_phone` olarak düzeltildi.
 **Files:** apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-016] Team scope query fails — "column sa.sales_group does not exist"
+**Status:** FIXED (2026-03-12)
+**First seen:** 2026-03-12
+**Description:** Elif (data_scope=team) ilk mesajı attı, hata aldı. applyScope() team filtresi `sales_agents` tablosunda `sales_group` kolonu arıyordu ama bu kolon `users` tablosunda.
+**Root cause:** applyScope subquery: `SELECT sa.name FROM sales_agents sa WHERE sa.sales_group = $N` — sales_agents tablosunda sales_group yok.
+**Fix:** Subquery `users` tablosunu kullanacak şekilde değiştirildi: `SELECT sales_agent_name FROM users WHERE sales_group = $N AND is_active = true`
+**Files:** packages/ai/queryEngine.js
