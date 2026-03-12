@@ -536,8 +536,9 @@ sales_start_date = previous edition end_date (auto-calculated on sync)
 
 # 23. Roadmap
 Ana roadmap dosyası: docs/ROADMAP.md
+Intelligence roadmap: docs/INTELLIGENCE_ROADMAP.md
 Feature map: docs/ELIZA_FEATURE_MAP.md
-Current phase: Phase 12 — Conversation Memory + Question Rewrite
+Current phase: Phase 12c — CEO Notes + Semantic Recall
 
 # 24. Infrastructure & Environment
 Repository: https://github.com/Nsueray/eliza (public, main branch)
@@ -796,11 +797,6 @@ Handler integration (handler.js):
 - logMessage'da message_text = orijinal trimmed (rewritten değil)
 - Rewrite tokenları _usage.total_input/output'a eklenir
 - Phone field: user.phone kullanılır (auth.js'ten), user.whatsapp_phone DEĞİL
-
-Debug logları (production, geçici):
-- [MEMORY] getHistory phone: +905..., found: N messages
-- [REWRITE] skipped — history length: 0
-- [REWRITE] input: "..." → output: "..." (history: N entries)
 
 # currentDate
 Today's date is 2026-03-12.
