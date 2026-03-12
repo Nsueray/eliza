@@ -83,7 +83,10 @@ Agent — own data (data_scope: own)
 - Dil: TR/EN/FR otomatik algilama
 - Month without year → defaults to current year
 
-## Intelligence Roadmap v4 (in progress)
+## Intelligence Roadmap v4 (immediate plan completed)
 - North star: Semantic Frame + Ambiguity Gate + DSL Compiler (future)
-- Immediate plan: hybrid SQL scope fix, 3 router rules, unavailability response, assumption transparency, log enrichment
+- Completed: hybrid SQL CEO-only, 3 router rules, unavailability response, assumption transparency, log enrichment
 - Principle: "Assume transparently, clarify selectively, fail honestly"
+- Router: 15 rules (was 12), Haiku fallback for remaining intents
+- Unavailability: payment_balance, currency, salary, general_knowledge → honest refusal
+- Benchmark: 96% PASS (48/50)

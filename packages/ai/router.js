@@ -138,7 +138,44 @@ const RULES = [
     ],
   },
 
-  // 5. monthly_trend
+  // 5. expo_progress — "SIEMA nasıl gidiyor?", "SIEMA 2026 kaç m² satılmış?"
+  {
+    intent: 'expo_progress',
+    keywords: [
+      ['kac m2', 'satilmis'],
+      ['kac m2', 'satildi'],
+      ['nasil gidiyor', 'fuar'],
+      ['nasil gidiyor', 'expo'],
+      ['how is', 'expo'],
+      ['how is', 'doing'],
+      ['comment va', 'expo'],
+    ],
+  },
+
+  // 6. agent_performance — "Elif kaç satmış?", "Elif ne kadar satmış?"
+  {
+    intent: 'agent_performance',
+    keywords: [
+      ['ne kadar satmis'],
+      ['kac satmis'],
+      ['kac m2 satmis'],
+      ['how much', 'sold'],
+      ['combien', 'vendu'],
+    ],
+  },
+
+  // 7. expo_agent_breakdown — "SIEMA'da kim satmış?"
+  {
+    intent: 'expo_agent_breakdown',
+    keywords: [
+      ['kim satmis'],
+      ['en cok kim'],
+      ['who sold'],
+      ['qui a vendu'],
+    ],
+  },
+
+  // 8. monthly_trend
   {
     intent: 'monthly_trend',
     keywords: [

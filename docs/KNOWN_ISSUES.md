@@ -171,3 +171,13 @@ Rules:
 **Root cause:** NO_AGENT_FILTER_INTENTS sadece expo_list içeriyordu. Expo bazlı intent'ler de agent filtresi alıyordu.
 **Fix:** NO_AGENT_FILTER_INTENTS genişletildi: expo_progress, expo_list, expo_agent_breakdown, expo_company_list, country_count, exhibitors_by_country, cluster_performance, rebooking_rate, payment_status, company_search
 **Files:** packages/ai/queryEngine.js
+
+---
+
+## [ISSUE-019] Hybrid SQL bypasses data scope for non-CEO users
+**Status:** FIXED (2026-03-12)
+**First seen:** 2026-03-12
+**Description:** generateSQL() çıktısı applyScope()'tan geçmiyordu. Manager/agent kullanıcı hybrid SQL'e düşerse tüm veriyi filtresiz görüyordu.
+**Root cause:** Hybrid SQL path'inde applyScope() çağrısı yoktu. applyScope'un regex-based alias detection'ı Sonnet'in ürettiği SQL'de farklı alias kullanabileceği için güvenilir değildi.
+**Fix:** Hybrid SQL sadece CEO (data_scope=all) için çalışacak şekilde kısıtlandı. Non-CEO kullanıcılar normal template path'e düşer.
+**Files:** packages/ai/queryEngine.js

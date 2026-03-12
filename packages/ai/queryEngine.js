@@ -19,6 +19,68 @@ const INTERNAL_AGENT = 'ELAN EXPO';
 const EXCL_AGENT = `AND c.sales_agent != '${INTERNAL_AGENT}'`;
 const EXCL_AGENT_FC = `AND sales_agent != '${INTERNAL_AGENT}'`;
 
+// Unavailability registry — topics ELIZA cannot answer
+const METRIC_AVAILABILITY = {
+  payment_balance: {
+    keywords: ['bakiye', 'kalan odeme', 'remaining payment', 'borc', 'debt', 'solde restant', 'odenmemis tutar', 'unpaid amount'],
+    reason: {
+      tr: 'Ödeme bakiyesi verisi ELIZA\'da mevcut değil. Zoho CRM\'den sadece kontrat geliri (Grand_Total) senkronize ediliyor, gerçek ödeme durumu (Balance1, Received_Payment) henüz aktarılmadı. Gerçek ödeme bilgisi için Zoho CRM\'i kontrol edin.',
+      en: 'Payment balance data is not available in ELIZA. Only contract revenue (Grand_Total) is synced from Zoho CRM — actual payment status (Balance1, Received_Payment) is not yet imported. Check Zoho CRM for real payment info.',
+      fr: 'Les données de solde de paiement ne sont pas disponibles dans ELIZA. Seul le revenu contractuel (Grand_Total) est synchronisé depuis Zoho CRM. Vérifiez Zoho CRM pour les informations de paiement réelles.',
+    },
+  },
+  currency: {
+    keywords: ['kur', 'doviz', 'euro kac', 'dolar', 'tl', 'lira', 'exchange rate', 'currency convert', 'taux de change'],
+    reason: {
+      tr: 'ELIZA\'da döviz kuru verisi bulunmuyor. Tüm tutarlar EUR cinsindendir.',
+      en: 'ELIZA does not have exchange rate data. All amounts are in EUR.',
+      fr: 'ELIZA ne dispose pas de données de taux de change. Tous les montants sont en EUR.',
+    },
+  },
+  salary: {
+    keywords: ['maas', 'ucret', 'salary', 'wage', 'compensation', 'salaire', 'remuneration'],
+    reason: {
+      tr: 'Maaş ve kişisel finans verileri ELIZA kapsamında değil.',
+      en: 'Salary and personal financial data is not in ELIZA scope.',
+      fr: 'Les données salariales et financières personnelles ne sont pas dans le périmètre d\'ELIZA.',
+    },
+  },
+  general_knowledge: {
+    keywords: ['nufus', 'population', 'baskent', 'capital', 'hava durumu', 'weather', 'meteo', 'history of', 'kim kazandi', 'who won'],
+    reason: {
+      tr: 'ELIZA sadece Elan Expo iş verilerini içerir: fuarlar, satışlar, agentlar ve finans. Genel bilgi soruları kapsam dışıdır.',
+      en: 'ELIZA only contains Elan Expo business data: expos, sales, agents, and financials. General knowledge questions are out of scope.',
+      fr: 'ELIZA ne contient que les données commerciales d\'Elan Expo : expos, ventes, agents et finances. Les questions de culture générale sont hors périmètre.',
+    },
+  },
+};
+
+/**
+ * Check if a question is about an unavailable metric.
+ * Uses word-boundary matching to avoid false positives (e.g., "currently" matching "tl").
+ * Returns { unavailable: true, message: string } or { unavailable: false }
+ */
+function checkUnavailability(question, lang) {
+  const norm = normalize(question);
+  const words = norm.split(/\s+/);
+  for (const [, entry] of Object.entries(METRIC_AVAILABILITY)) {
+    for (const kw of entry.keywords) {
+      // Multi-word keywords: check substring match
+      if (kw.includes(' ')) {
+        if (norm.includes(kw)) {
+          return { unavailable: true, message: entry.reason[lang] || entry.reason.tr };
+        }
+      } else {
+        // Single-word keywords: word boundary match
+        if (words.includes(kw)) {
+          return { unavailable: true, message: entry.reason[lang] || entry.reason.tr };
+        }
+      }
+    }
+  }
+  return { unavailable: false };
+}
+
 const INTENT_PROMPT = `You are an intent extractor for ELIZA, a business intelligence system for Elan Expo (the company that organizes exhibitions).
 
 IMPORTANT: "Elan Expo" is the COMPANY NAME, not an expo/exhibition. Never use "Elan Expo" as expo_name.
@@ -820,7 +882,9 @@ Rules:
 9. NEVER invent data. If the query returns empty results, say 'No data found for this query.'
 10. If showing a list, maximum 3 items, no bullets — use line breaks
 11. Language: respond in ${langName} (match the question language)
-12. When Total rows > shown rows, ALWAYS calculate and state the real total, not just shown items`,
+12. When Total rows > shown rows, ALWAYS calculate and state the real total, not just shown items
+13. When no year was specified, you are seeing current year data. When no metric was specified, default is revenue. ALWAYS state your assumption briefly at the start: 'SIEMA 2026 gelire göre: ...' or '2026 revenue: ...' — this helps the user know what they're looking at
+14. If the question is about payment balance, exchange rates, salaries, or topics outside Elan Expo business data, say clearly that this data is not available in ELIZA`,
     messages: [{
       role: 'user',
       content: `Question: ${question}\nData: ${JSON.stringify(trimmedData)}${totalNote}`,
@@ -898,6 +962,18 @@ async function generateSQL(question, lang, user) {
 
 // Main entry point
 async function run(question, _depth = 0, lang, user) {
+  // Check unavailability BEFORE any API call
+  const unavail = checkUnavailability(question, lang || 'tr');
+  if (unavail.unavailable) {
+    return {
+      intent: 'unavailable',
+      entities: {},
+      data: [],
+      answer: unavail.message,
+      _usage: { intent_input: 0, intent_output: 0, intent_model: 'unavailability_check', answer_input: 0, answer_output: 0, answer_model: 'none', total_input: 0, total_output: 0 },
+    };
+  }
+
   const intentResult = await extractIntent(question);
   const intentUsage = intentResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
   delete intentResult._usage;
@@ -942,7 +1018,7 @@ async function run(question, _depth = 0, lang, user) {
   let data, answerResult, finalIntent = intent;
   let sqlGenUsage = { input_tokens: 0, output_tokens: 0 };
 
-  if (isUnknownIntent) {
+  if (isUnknownIntent && (!user || user.permissions?.data_scope === 'all')) {
     try {
       const sqlResult = await generateSQL(question, lang, user);
       sqlGenUsage = sqlResult._usage || { input_tokens: 0, output_tokens: 0 };

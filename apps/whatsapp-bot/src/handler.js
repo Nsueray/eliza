@@ -17,8 +17,9 @@ async function logMessage(params) {
       `INSERT INTO message_logs
         (user_phone, user_name, user_role, message_text, response_text,
          intent, tables_used, input_tokens, output_tokens, total_tokens,
-         model_intent, model_answer, duration_ms, is_command, error)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+         model_intent, model_answer, duration_ms, is_command, error,
+         rewritten_question)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [
         params.user_phone || null,
         params.user_name || null,
@@ -35,6 +36,7 @@ async function logMessage(params) {
         params.duration_ms || null,
         params.is_command || false,
         params.error || null,
+        params.rewritten_question || null,
       ]
     );
   } catch (err) {
@@ -251,6 +253,7 @@ async function handleMessage(text, user) {
       model_answer: _usage?.answer_model || null,
       duration_ms: durationMs,
       is_command: false,
+      rewritten_question: questionForEngine !== questionText ? questionForEngine : null,
     });
 
     return finalResponse;

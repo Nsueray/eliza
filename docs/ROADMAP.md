@@ -26,12 +26,13 @@
 - WhatsApp: +1 810-255-5377
 
 ## In Progress
-- Intelligence Roadmap v4 — Immediate Execution Plan
-  - Hybrid SQL scope fix (CEO-only restriction)
-  - 3 new router rules (expo_progress, agent_performance, expo_agent_breakdown)
-  - Unavailability response ("Bilmiyorum" feature)
-  - Sonnet assumption transparency rule
-  - Log enrichment (rewritten_question column)
+- Intelligence Roadmap v4 — Immediate Execution Plan ✅ COMPLETED
+  - ✅ Hybrid SQL scope fix (CEO-only restriction) — ISSUE-019
+  - ✅ 3 new router rules (expo_progress, agent_performance, expo_agent_breakdown)
+  - ✅ Unavailability response ("Bilmiyorum" — payment_balance, currency, salary, general_knowledge)
+  - ✅ Sonnet assumption transparency (rules 13-14 in prompt)
+  - ✅ Log enrichment (rewritten_question column, migration 008)
+  - Benchmark: 96% PASS (48/50)
 
 ## Next Phases
 
