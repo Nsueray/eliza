@@ -1,6 +1,6 @@
 # ELIZA — System Feature Map
-Version: v3 | Owner: Elan Expo
-Intelligence Roadmap: v4 — Immediate Execution Plan in progress
+Version: v4 | Owner: Elan Expo
+Intelligence Roadmap: v4 — Immediate Execution Plan completed
 
 ## Architecture
 CEO → WhatsApp → Twilio → Bot → Intent Router →
@@ -100,8 +100,15 @@ Agent — own data (data_scope: own)
 - Principle: "Ask once, then answer" — max 1 clarification per question
 
 ## Admin Dashboard
-- /admin/logs: Message cards (no expandable rows), Copy All button, filters (user/intent/status/date), Doughnut chart (router vs haiku), Bar chart (daily messages)
+- /admin/logs: Message cards, Copy button (stateful "Copied!" feedback, 2s), filters (user/intent/status/date), Doughnut chart (router vs haiku), Bar chart (daily messages)
 - /admin/intelligence: Router rules viewer, intent stats table (sortable), benchmark questions viewer, unavailable metrics, clarification stats
 - /admin/system: Service health checks, DB table sizes, last Zoho sync, active users, recent errors
 - Navigation: Logs | Intelligence | System | Users | War Room (shared header on all admin pages)
+- War Room + Expo Directory: full admin navigation links (Expo Directory | Logs | Intelligence | System | Users)
 - API: /api/intelligence/*, /api/system/status, enhanced /api/logs
+- UI: plain text labels (no emoji unicode escapes), DM Mono monospace throughout
+
+## Copy to Clipboard
+- /admin/logs: per-message Copy button copies MESSAGE, REWRITE, INTENT, MODEL, RESPONSE, TOKENS, DURATION, ERROR
+- Stateful CopyButton component: "Copy" → "Copied!" (green, 2s) → "Copy"
+- Uses navigator.clipboard.writeText() with .then() callback

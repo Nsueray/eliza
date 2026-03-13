@@ -1385,7 +1385,7 @@ module.exports = { tryRender };
 
 ---
 
-# BÖLÜM 2: IMMEDIATE EXECUTION PLAN
+# BÖLÜM 2: IMMEDIATE EXECUTION PLAN ✅ COMPLETED
 
 Claude Code analizi + 4 AI konsültasyonu sonucu belirlenen minimal plan.
 Kural: Mevcut sistemi bozmadan, minimum risk, maximum etki.
@@ -1398,26 +1398,28 @@ Kural: Mevcut sistemi bozmadan, minimum risk, maximum etki.
 - Varsayım sonucu değiştirebiliyorsa → sor (ileride, şimdi değil)
 - Veri yoksa → dürüstçe "yok" de
 
-## Şimdi Yapılacaklar (4 saat, sıfır mimari risk)
+## Şimdi Yapılacaklar ✅ ALL COMPLETED
 
-| # | Ne | Nasıl | Effort |
+| # | Ne | Nasıl | Status |
 |---|-----|-------|--------|
-| 1 | Hybrid SQL scope fix | CEO-only kısıtlama (1 satır) | 30 dk |
-| 2 | 3 yeni router rule | expo_progress, agent_performance, expo_agent_breakdown | 1 saat |
-| 3 | "Bilmiyorum" özelliği | METRIC_AVAILABILITY code object + keyword check | 1 saat |
-| 4 | Varsayımı açıkla | Sonnet prompt'a "mention your assumption" kuralı | 30 dk |
-| 5 | Log zenginleştirme | rewritten_question kolonu | 30 dk |
+| 1 | Hybrid SQL scope fix | CEO-only kısıtlama — ISSUE-019 | ✅ DONE |
+| 2 | 3 yeni router rule | expo_progress, agent_performance, expo_agent_breakdown (router: 12→15 rules) | ✅ DONE |
+| 3 | "Bilmiyorum" özelliği | METRIC_AVAILABILITY code object + keyword check (payment_balance, currency, salary, general_knowledge) | ✅ DONE |
+| 4 | Varsayımı açıkla | Sonnet prompt rules 13-14: "mention your assumption" | ✅ DONE |
+| 5 | Log zenginleştirme | rewritten_question kolonu (migration 008) | ✅ DONE |
 
-## Kurallar
-- Mevcut extractIntent(), buildQuery(), applyScope() fonksiyonlarına DOKUNMA
-- Yeni dosya OLUŞTURMA
-- handler.js'in mevcut akışını BOZMA
-- Sadece EKLEME yap, SİLME yapma
+Benchmark: 96% PASS (48/50)
 
-## Sonraki Adımlar (production log verisiyle karar verilecek)
+## Sonraki Adımlar ✅ COMPLETED
+
+| # | Ne | Status |
+|---|-----|--------|
+| 1 | Selective clarification | ✅ DONE — Mini Clarification System (missing_year, missing_expo flags, pending state) |
+| 2 | Mini pending state | ✅ DONE — users.pending_clarification JSONB, 10min expire, migration 009 |
+| 3 | Year filter default | ✅ DONE — ISSUE-020, expo/agent queries default to current year |
+
+Remaining (not yet started):
 - Frame Lite (extractIntent'e missing_slots + answerability ekle)
-- Selective clarification (dar kapsamlı, max 1 tur)
-- Mini pending state (users tablosuna JSONB kolonu)
 - Morning brief (08:00 cron)
 - Eval harness (gerçek loglardan altın set)
 

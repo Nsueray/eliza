@@ -18,6 +18,30 @@
 - Language Detection fix (accent-insensitive)
 - Phase 12a+12b: Conversation Memory + Question Rewrite (Haiku)
 - Phase 14: Hybrid Text-to-SQL (Sonnet SQL fallback for unknown intents)
+- Intelligence Roadmap v4 — Immediate Execution Plan
+  - Hybrid SQL scope fix (CEO-only restriction) — ISSUE-019
+  - 3 new router rules (expo_progress, agent_performance, expo_agent_breakdown) — router now 15 rules
+  - Unavailability response ("Bilmiyorum" — payment_balance, currency, salary, general_knowledge)
+  - Sonnet assumption transparency (rules 13-14 in prompt)
+  - Log enrichment (rewritten_question column, migration 008)
+  - Year filter default (ISSUE-020 — expo/agent queries default to current year)
+  - Benchmark: 96% PASS (48/50)
+- Mini Clarification System
+  - Ambiguity detection in router + Haiku (missing_year, missing_metric, missing_expo)
+  - Year clarification: DB edition lookup → ask user when multiple editions exist
+  - Expo clarification: upcoming expo list when expo not specified
+  - Pending state: users.pending_clarification JSONB, 10min expire, max 1 turn
+  - Handler: resolve numbered/text replies, rebuild question, clear pending
+  - Migration: 009_pending_clarification.sql
+- Admin Dashboard Upgrade
+  - /admin/logs: message cards, Copy button (with "Copied!" feedback), filters (user/intent/status/date), Doughnut + Bar charts
+  - /admin/intelligence: router rules, intent stats, benchmark viewer, clarification stats
+  - /admin/system: service health, DB tables, sync status, active users, recent errors
+  - Shared navigation: Logs | Intelligence | System | Users | War Room (all pages)
+  - War Room + Expo Directory pages: full admin nav links added
+  - API: /api/intelligence/* (4 endpoints), /api/system/status, enhanced /api/logs
+  - Emoji unicode escapes replaced with plain text labels throughout
+  - Health endpoint path fix (/api/health → /health)
 
 ## Production URLs
 - Dashboard: https://eliza.elanfairs.com
@@ -26,43 +50,19 @@
 - WhatsApp: +1 810-255-5377
 
 ## In Progress
-- Intelligence Roadmap v4 — Immediate Execution Plan ✅ COMPLETED
-  - ✅ Hybrid SQL scope fix (CEO-only restriction) — ISSUE-019
-  - ✅ 3 new router rules (expo_progress, agent_performance, expo_agent_breakdown)
-  - ✅ Unavailability response ("Bilmiyorum" — payment_balance, currency, salary, general_knowledge)
-  - ✅ Sonnet assumption transparency (rules 13-14 in prompt)
-  - ✅ Log enrichment (rewritten_question column, migration 008)
-  - Benchmark: 96% PASS (48/50)
-- Mini Clarification System ✅ COMPLETED
-  - ✅ Ambiguity detection in router + Haiku (missing_year, missing_metric, missing_expo)
-  - ✅ Year clarification: DB edition lookup → ask user when multiple editions exist
-  - ✅ Expo clarification: upcoming expo list when expo not specified
-  - ✅ Pending state management (users.pending_clarification JSONB, 10min expire)
-  - ✅ Handler: resolve numbered/text replies, rebuild question, clear pending
-  - Benchmark: 96% PASS (48/50) — no regression
-- Admin Dashboard Upgrade ✅ COMPLETED
-  - ✅ /admin/logs redesigned: message cards, Copy All, filters (user/intent/status/date), charts
-  - ✅ /admin/intelligence: router rules, intent stats, benchmark viewer, clarification stats
-  - ✅ /admin/system: service health, DB tables, sync status, active users, recent errors
-  - ✅ Shared navigation header across all admin pages
-  - ✅ API: /api/intelligence/* (4 endpoints), /api/system/status, enhanced /api/logs
+
+(none currently)
 
 ## Next Phases
 
-### Phase 12: Conversation Memory (CRITICAL)
-- 12a: Conversation history from message_logs (last 5 messages within 2 hours)
-- 12b: Question rewrite via Haiku (follow-up → full question → normal pipeline)
-- 12c: CEO Notes with semantic recall (.note command + entity matching)
+### Phase 12c: CEO Notes with semantic recall
+- .note command + entity matching
+- Semantic recall from stored notes
 
 ### Phase 13: Answer Quality
 - Enhanced Sonnet system prompt (key insight first, max 400 chars, action suggestions)
 - Language validation
 - Explainability for risk answers (velocity comparison)
-
-### Phase 14: Hybrid Text-to-SQL
-- Fallback for unknown intents (router → template → LLM SQL)
-- Semantic layer in prompt (business definitions)
-- Safety: EXPLAIN cost, join limit 5, statement_timeout 3s, confidence scoring
 
 ### Phase 15: Learning & Feedback
 - CEO corrections via WhatsApp (.correct command)

@@ -430,6 +430,11 @@ Pages:
 - / → War Room main dashboard
 - /expos?year=2026 → Expo Directory (sortable, filterable, mobile-friendly)
 
+Navigation (all pages):
+- War Room header: Expo Directory | Logs | Intelligence | System | Users
+- Expo Directory header: War Room | Logs | Intelligence | System | Users
+- Admin pages: Logs | Intelligence | System | Users | War Room
+
 API endpoints used:
 - GET /api/revenue/summary → fiscal KPIs
 - GET /api/revenue/edition-summary → edition KPIs (supports ?year=2026)
@@ -563,8 +568,8 @@ Ana roadmap dosyası: docs/ROADMAP.md
 Intelligence roadmap: docs/INTELLIGENCE_ROADMAP.md (v4 — north star + immediate plan)
 Feature map: docs/ELIZA_FEATURE_MAP.md
 System analysis: docs/SYSTEM_ANALYSIS.md
-Current phase: Intelligence Roadmap v4 Immediate Plan done, Phase 12c next
-ISSUE-019: Hybrid SQL CEO-only fix
+Current phase: All immediate plans completed, Phase 12c next
+Completed: Intelligence Roadmap v4 Immediate Plan, Mini Clarification System, Admin Dashboard Upgrade, Navigation, ISSUE-019, ISSUE-020
 Benchmark: 96% PASS (48/50)
 
 # 24. Infrastructure & Environment
@@ -580,6 +585,11 @@ Twilio: Sandbox kurulu, production number henuz alinmadi
 Leena EMS: Bookmarkta mevcut, API entegrasyonu henuz yapilmadi
 Liffy: Bookmarkta mevcut, API entegrasyonu henuz yapilmadi
 Shadow Mode: Year 1 — sadece CEO kullaniyor, ekip haberdar degil
+
+Render Deploy:
+- Monorepo note: Render services with Root Directory (apps/api, apps/whatsapp-bot) don't auto-deploy when only packages/** files change
+- Workaround: add version indicator to server.js health endpoints to force redeploy
+- Include paths: apps/api/**, apps/whatsapp-bot/**, packages/** (must be configured in Render dashboard)
 
 # 25. WhatsApp Bot
 Location: apps/whatsapp-bot
@@ -623,7 +633,7 @@ Veri Formatlama:
 - Etiketli: "SIEMA 2026 — Ülke: France — Tarih: 22-Eylül-2026 — Kontrat: 45 — m²: 1.234 — Gelir: €562.512"
 - Tarihler: TR "19-Mayıs-2026", EN "May 19 2026", FR "19-mai-2026"
 - Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
-- Max 5 satir, fazlasi: "... ve X sonuç daha" + dashboard linki (localhost:3000/expos)
+- Max 5 satir, fazlasi: "... ve X sonuç daha" + dashboard linki (eliza.elanfairs.com/expos)
 - Satir arasi bos satir ile ayrilir
 
 # 26. Message Generator (Phase 6)
@@ -677,8 +687,9 @@ Token tracking:
 - response_text: wrapWithPersonality sonrası final response loglanır (kişilik dahil)
 
 Admin Logs sayfasi (/admin/logs):
-- Ozet tab: toplam mesaj, token, kullanici/intent dagilimi, model kullanimi
-- Mesajlar tab: expandable rows, tam mesaj/cevap, pagination
+- Summary tab: 6 KPI cards (MSG/USR/TKN/DUR/ERR/CLR), Doughnut chart (router vs haiku), Bar chart (daily 30d), user/intent tables
+- Messages tab: message cards with filters (user/intent/status/date_range), per-card Copy button ("Copied!" feedback, 2s)
+- Plain text labels throughout (no emoji unicode escapes)
 
 Intent Engine Notlari:
 - "Elan Expo" = sirket adi, expo adi degil (intent prompt'a eklendi)
@@ -698,10 +709,12 @@ Intent Engine Notlari:
 - Env: AI_INTENT_MODEL, AI_ANSWER_MODEL
 
 ## Router Architecture
+- 15 rules total (was 12, added: expo_progress, agent_performance, expo_agent_breakdown)
 - Accent normalization: è→e, ç→c, ü→u, ı→i, ş→s, ğ→g, ö→o
-- Priority order: days_to_event → payment_status → rebooking_rate → price_per_m2 → monthly_trend → top_agents → agent_country_breakdown → agent_expo_breakdown → exhibitors_by_country → country_count → revenue_summary → expo_list
+- Priority order: days_to_event → payment_status → rebooking_rate → price_per_m2 → monthly_trend → expo_progress → agent_performance → expo_agent_breakdown → top_agents → agent_country_breakdown → agent_expo_breakdown → exhibitors_by_country → country_count → revenue_summary → expo_list
 - Returns: { intent, entities, confidence: 1.0 }
 - Entities: year, month, relative_days, expo_name, agent_name, country, metric
+- Ambiguity flags: missing_year, missing_metric, missing_expo (for clarification system)
 - Relative time: "son 30 gün" → relative_days: 30, "bu hafta" → 7
 
 ## Sonnet System Prompt
