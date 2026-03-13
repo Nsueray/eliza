@@ -1,58 +1,228 @@
 import Head from "next/head";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { Doughnut, Bar } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from "chart.js";
+
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
 function fmtNum(n) {
-  if (n == null) return "—";
+  if (n == null) return "\u2014";
   return Number(n).toLocaleString("en-US");
 }
 
-function fmtDate(d) {
-  if (!d) return "—";
+function fmtTime(d) {
+  if (!d) return "\u2014";
   const dt = new Date(d);
-  return dt.toLocaleString("en-US", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return dt.toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
-function truncate(str, max = 60) {
-  if (!str) return "—";
-  return str.length > max ? str.slice(0, max) + "…" : str;
+function fmtDate(d) {
+  if (!d) return "\u2014";
+  const dt = new Date(d);
+  return dt.toLocaleString("en-US", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-// Summary cards component
+function fmtChartDate(d) {
+  if (!d) return "";
+  const dt = new Date(d);
+  return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function copyLog(log) {
+  const text = [
+    `MESSAGE: ${log.message_text || "\u2014"}`,
+    `REWRITE: ${log.rewritten_question || "\u2014"}`,
+    `INTENT: ${log.intent || "\u2014"}`,
+    `MODEL: ${log.model_intent || "\u2014"} \u2192 ${log.model_answer || "\u2014"}`,
+    `RESPONSE: ${log.response_text || "\u2014"}`,
+    `TOKENS: ${fmtNum(log.total_tokens)} | DURATION: ${log.duration_ms ? fmtNum(log.duration_ms) + "ms" : "\u2014"}`,
+    `ERROR: ${log.error || "\u2014"}`,
+  ].join("\n");
+  navigator.clipboard.writeText(text);
+}
+
+// ─── Section Header ───
+function SectionHeader({ children }) {
+  return (
+    <div style={{
+      fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)",
+      letterSpacing: 3, textTransform: "uppercase", marginBottom: 16,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+// ─── Summary Cards ───
 function SummaryCards({ data }) {
   if (!data) return null;
   const cards = [
-    { label: "Total Messages", value: fmtNum(data.total_messages), icon: "💬" },
-    { label: "Active Users", value: fmtNum(data.unique_users), icon: "👤" },
-    { label: "Total Tokens", value: fmtNum(data.total_tokens), icon: "🔤" },
-    { label: "Avg. Duration", value: data.avg_duration_ms ? `${fmtNum(data.avg_duration_ms)}ms` : "—", icon: "⏱️" },
-    { label: "Errors", value: fmtNum(data.error_count), icon: "⚠️" },
+    { label: "Total Messages", value: fmtNum(data.total_messages), icon: "\uD83D\uDCAC" },
+    { label: "Active Users", value: fmtNum(data.unique_users), icon: "\uD83D\uDC64" },
+    { label: "Total Tokens", value: fmtNum(data.total_tokens), icon: "\uD83D\uDD24" },
+    { label: "Avg Duration", value: data.avg_duration_ms ? `${fmtNum(data.avg_duration_ms)}ms` : "\u2014", icon: "\u23F1\uFE0F" },
+    { label: "Errors", value: fmtNum(data.error_count), icon: "\u26A0\uFE0F" },
+    { label: "Clarifications", value: fmtNum(data.clarification_count), icon: "\u2753" },
   ];
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 32 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 32 }}>
       {cards.map(c => (
         <div key={c.label} style={{
           background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "20px 16px",
+          textAlign: "center",
         }}>
-          <div style={{ fontSize: 22, marginBottom: 4 }}>{c.icon}</div>
+          <div style={{ fontSize: 22, marginBottom: 8 }}>{c.icon}</div>
           <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 22, fontWeight: 500, color: "var(--accent)" }}>{c.value}</div>
-          <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1.5, textTransform: "uppercase", marginTop: 4, fontFamily: '"DM Mono", monospace' }}>{c.label}</div>
+          <div style={{
+            fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1.5,
+            textTransform: "uppercase", marginTop: 6, fontFamily: '"DM Mono", monospace',
+          }}>{c.label}</div>
         </div>
       ))}
     </div>
   );
 }
 
-// User table component
+// ─── Intent Routing Doughnut ───
+function IntentRoutingChart({ data }) {
+  if (!data || data.length === 0) return null;
+
+  const colorMap = {
+    router: "#2ECC71",
+    haiku: "#C8A97A",
+    hybrid_sql: "#4A9EBF",
+  };
+  const total = data.reduce((s, d) => s + parseInt(d.count), 0);
+
+  const chartData = {
+    labels: data.map(d => d.model_intent || "unknown"),
+    datasets: [{
+      data: data.map(d => parseInt(d.count)),
+      backgroundColor: data.map(d => colorMap[d.model_intent] || "#5A7080"),
+      borderColor: "var(--surface)",
+      borderWidth: 2,
+    }],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "65%",
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#141B22",
+        titleFont: { family: "DM Mono" },
+        bodyFont: { family: "DM Mono" },
+        borderColor: "#1E2A35",
+        borderWidth: 1,
+      },
+    },
+  };
+
+  return (
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6,
+      padding: 24, marginBottom: 32,
+    }}>
+      <SectionHeader>Intent Routing</SectionHeader>
+      <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+        <div style={{ width: 200, height: 200, flexShrink: 0 }}>
+          <Doughnut data={chartData} options={options} />
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {data.map(d => {
+            const pct = total > 0 ? ((parseInt(d.count) / total) * 100).toFixed(1) : 0;
+            const color = colorMap[d.model_intent] || "#5A7080";
+            return (
+              <div key={d.model_intent} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: color, flexShrink: 0 }} />
+                <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 13, color: "var(--text-primary)", minWidth: 90 }}>
+                  {d.model_intent || "unknown"}
+                </span>
+                <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 13, color: "var(--accent)" }}>
+                  {fmtNum(d.count)}
+                </span>
+                <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)" }}>
+                  ({pct}%)
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Daily Bar Chart ───
+function DailyChart({ data }) {
+  if (!data || data.length === 0) return null;
+
+  const sorted = [...data].reverse();
+
+  const chartData = {
+    labels: sorted.map(d => fmtChartDate(d.date)),
+    datasets: [{
+      label: "Messages",
+      data: sorted.map(d => parseInt(d.messages)),
+      backgroundColor: "rgba(200, 169, 122, 0.6)",
+      borderColor: "rgba(200, 169, 122, 0.8)",
+      borderWidth: 1,
+      borderRadius: 3,
+    }],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#141B22",
+        titleFont: { family: "DM Mono" },
+        bodyFont: { family: "DM Mono" },
+        borderColor: "#1E2A35",
+        borderWidth: 1,
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: "#5A7080", font: { family: "DM Mono", size: 10 }, maxRotation: 45 },
+        grid: { color: "rgba(30,42,53,0.5)" },
+        border: { color: "#1E2A35" },
+      },
+      y: {
+        ticks: { color: "#5A7080", font: { family: "DM Mono", size: 10 } },
+        grid: { color: "rgba(30,42,53,0.5)" },
+        border: { color: "#1E2A35" },
+        beginAtZero: true,
+      },
+    },
+  };
+
+  return (
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6,
+      padding: 24, marginBottom: 32,
+    }}>
+      <SectionHeader>Daily Messages (30 Days)</SectionHeader>
+      <div style={{ height: 200 }}>
+        <Bar data={chartData} options={options} />
+      </div>
+    </div>
+  );
+}
+
+// ─── User Table ───
 function UserTable({ data }) {
   if (!data || data.length === 0) return null;
   return (
-    <div style={{ marginBottom: 32 }}>
-      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
-        By User
-      </div>
+    <div>
+      <SectionHeader>By User</SectionHeader>
       <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
         <thead>
           <tr>
@@ -69,10 +239,10 @@ function UserTable({ data }) {
           {data.map((u, i) => (
             <tr key={i}>
               <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
-                {u.user_name || u.user_phone || "—"}
+                {u.user_name || u.user_phone || "\u2014"}
               </td>
               <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--text-secondary)" }}>
-                {u.user_role || "—"}
+                {u.user_role || "\u2014"}
               </td>
               <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontFamily: '"DM Mono", monospace' }}>
                 {fmtNum(u.messages)}
@@ -81,7 +251,7 @@ function UserTable({ data }) {
                 {fmtNum(u.tokens)}
               </td>
               <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)" }}>
-                {u.avg_ms ? `${fmtNum(u.avg_ms)}ms` : "—"}
+                {u.avg_ms ? `${fmtNum(u.avg_ms)}ms` : "\u2014"}
               </td>
             </tr>
           ))}
@@ -91,14 +261,12 @@ function UserTable({ data }) {
   );
 }
 
-// Intent table component
+// ─── Intent Table ───
 function IntentTable({ data }) {
   if (!data || data.length === 0) return null;
   return (
-    <div style={{ marginBottom: 32 }}>
-      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
-        Intent Distribution
-      </div>
+    <div>
+      <SectionHeader>Intent Distribution</SectionHeader>
       <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
         <thead>
           <tr>
@@ -115,7 +283,7 @@ function IntentTable({ data }) {
           {data.map((row, i) => (
             <tr key={i}>
               <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12, fontFamily: '"DM Mono", monospace' }}>
-                {row.intent || "—"}
+                {row.intent || "\u2014"}
               </td>
               <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontFamily: '"DM Mono", monospace' }}>
                 {fmtNum(row.count)}
@@ -131,96 +299,288 @@ function IntentTable({ data }) {
   );
 }
 
-// Message log detail row
-function LogRow({ log, expanded, onToggle }) {
+// ─── Model Usage Cards ───
+function ModelUsageCards({ data }) {
+  if (!data || data.length === 0) return null;
   return (
-    <>
-      <tr onClick={onToggle} style={{ cursor: "pointer" }}>
-        <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 11, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace' }}>
-          {fmtDate(log.created_at)}
-        </td>
-        <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12 }}>
-          {log.user_name || log.user_phone || "—"}
-        </td>
-        <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12 }}>
-          {truncate(log.message_text, 50)}
-        </td>
-        <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 11, fontFamily: '"DM Mono", monospace' }}>
-          <span style={{
-            padding: "2px 8px", borderRadius: 3, fontSize: 10,
-            background: log.is_command ? "rgba(74,158,191,0.15)" : "rgba(200,169,122,0.15)",
-            color: log.is_command ? "var(--accent-2)" : "var(--accent)",
-            border: `1px solid ${log.is_command ? "rgba(74,158,191,0.3)" : "rgba(200,169,122,0.3)"}`,
+    <div style={{ marginBottom: 32 }}>
+      <SectionHeader>Model Usage</SectionHeader>
+      <div style={{ display: "flex", gap: 16 }}>
+        {data.map((m, i) => (
+          <div key={i} style={{
+            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "16px 20px",
           }}>
-            {log.intent || "—"}
-          </span>
-        </td>
-        <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12, fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>
-          {fmtNum(log.total_tokens)}
-        </td>
-        <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)" }}>
-          {log.duration_ms ? `${fmtNum(log.duration_ms)}ms` : "—"}
-        </td>
-        <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12 }}>
-          {log.error ? "❌" : "✅"}
-        </td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan={7} style={{ padding: "16px 24px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', letterSpacing: 1, marginBottom: 6 }}>MESSAGE</div>
-                <div style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>
-                  {log.message_text || "—"}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', letterSpacing: 1, marginBottom: 6 }}>RESPONSE</div>
-                <div style={{ fontSize: 13, lineHeight: 1.5, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>
-                  {log.response_text || "—"}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 24, marginTop: 12, fontSize: 11, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace' }}>
-              <span>Intent: {log.model_intent || "—"}</span>
-              <span>Answer: {log.model_answer || "—"}</span>
-              <span>Input: {fmtNum(log.input_tokens)}</span>
-              <span>Output: {fmtNum(log.output_tokens)}</span>
-              {log.error && <span style={{ color: "var(--danger)" }}>Error: {log.error}</span>}
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
+            <div style={{ fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)", marginBottom: 4 }}>{m.model}</div>
+            <div style={{ fontSize: 18, fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>{fmtNum(m.tokens)} token</div>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{fmtNum(m.calls)} calls</div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
+// ─── Intent Badge ───
+function IntentBadge({ intent, isCommand }) {
+  return (
+    <span style={{
+      padding: "2px 8px", borderRadius: 3, fontSize: 10, fontFamily: '"DM Mono", monospace',
+      background: isCommand ? "rgba(74,158,191,0.15)" : "rgba(200,169,122,0.15)",
+      color: isCommand ? "var(--accent-2)" : "var(--accent)",
+      border: `1px solid ${isCommand ? "rgba(74,158,191,0.3)" : "rgba(200,169,122,0.3)"}`,
+    }}>
+      {intent || "\u2014"}
+    </span>
+  );
+}
+
+// ─── Role Badge ───
+function RoleBadge({ role }) {
+  if (!role) return null;
+  const colors = { ceo: "var(--accent)", manager: "var(--accent-2)", agent: "var(--text-secondary)" };
+  return (
+    <span style={{
+      padding: "1px 6px", borderRadius: 3, fontSize: 9, fontFamily: '"DM Mono", monospace',
+      background: "rgba(200,169,122,0.1)", color: colors[role] || "var(--text-secondary)",
+      border: "1px solid rgba(200,169,122,0.2)", marginLeft: 8, textTransform: "uppercase",
+      letterSpacing: 1,
+    }}>
+      {role}
+    </span>
+  );
+}
+
+// ─── Message Card ───
+function MessageCard({ log }) {
+  const hasError = !!log.error;
+  const isClarification = log.intent === "clarification";
+  const hasRewrite = log.rewritten_question && log.rewritten_question !== log.message_text;
+
+  let borderLeft = "none";
+  if (hasError) borderLeft = "3px solid var(--danger)";
+  else if (isClarification) borderLeft = "3px solid var(--accent-2)";
+
+  return (
+    <div style={{
+      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8,
+      padding: 20, marginBottom: 12, borderLeft, position: "relative",
+    }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--text-secondary)" }}>
+            {fmtTime(log.created_at)}
+          </span>
+          <span style={{ color: "var(--text-secondary)", fontSize: 10 }}>|</span>
+          <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
+            {log.user_name || log.user_phone || "\u2014"}
+          </span>
+          <RoleBadge role={log.user_role} />
+        </div>
+        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--accent)" }}>
+          {fmtNum(log.total_tokens)} tk
+        </span>
+      </div>
+
+      {/* Separator */}
+      <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0" }} />
+
+      {/* Message */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+          Message
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text-primary)" }}>
+          {log.message_text || "\u2014"}
+        </div>
+      </div>
+
+      {/* Rewrite */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+          Rewrite
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.6, color: hasRewrite ? "var(--accent-2)" : "var(--text-secondary)" }}>
+          {hasRewrite ? log.rewritten_question : "\u2014"}
+        </div>
+      </div>
+
+      {/* Intent + Model row */}
+      <div style={{ display: "flex", gap: 24, alignItems: "center", marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1 }}>
+            Intent
+          </span>
+          <IntentBadge intent={log.intent} isCommand={log.is_command} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1 }}>
+            Model
+          </span>
+          <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--text-primary)" }}>
+            {log.model_intent || "\u2014"}
+          </span>
+        </div>
+      </div>
+
+      {/* Separator */}
+      <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0" }} />
+
+      {/* Response */}
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+          Response
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>
+          {log.response_text || "\u2014"}
+        </div>
+      </div>
+
+      {/* Separator */}
+      <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0" }} />
+
+      {/* Footer */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)" }}>
+          <span>\u23F1 {log.duration_ms ? `${fmtNum(log.duration_ms)}ms` : "\u2014"}</span>
+          <span>\uD83D\uDCCA {fmtNum(log.total_tokens)} tokens</span>
+          <span>\uD83D\uDD24 {log.model_intent || "\u2014"} \u2192 {log.model_answer || "\u2014"}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 11, fontFamily: '"DM Mono", monospace', color: hasError ? "var(--danger)" : "var(--text-secondary)" }}>
+            {hasError ? `\u274C ${log.error}` : "\u274C Error: \u2014"}
+          </span>
+          <button
+            onClick={() => copyLog(log)}
+            style={{
+              fontFamily: '"DM Mono", monospace', fontSize: 10, padding: "4px 10px",
+              border: "1px solid var(--border)", borderRadius: 4, background: "transparent",
+              color: "var(--text-secondary)", cursor: "pointer",
+            }}
+            title="Copy log to clipboard"
+          >
+            \uD83D\uDCCB Copy
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Filter Dropdown ───
+function FilterSelect({ value, onChange, options, placeholder }) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      style={{
+        fontFamily: '"DM Mono", monospace', fontSize: 11, padding: "8px 12px",
+        background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4,
+        color: "var(--text-primary)", cursor: "pointer", minWidth: 140,
+        appearance: "none", WebkitAppearance: "none",
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235A7080'/%3E%3C/svg%3E")`,
+        backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center",
+        paddingRight: 28,
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {options.map(opt => (
+        <option key={typeof opt === "string" ? opt : opt.value} value={typeof opt === "string" ? opt : opt.value}>
+          {typeof opt === "string" ? opt : opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// ─── Main Page ───
 export default function LogsPage() {
   const [summary, setSummary] = useState(null);
   const [logs, setLogs] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState(null);
-  const [tab, setTab] = useState("summary"); // summary | messages
+  const [tab, setTab] = useState("summary");
 
+  // Filters
+  const [filterUser, setFilterUser] = useState("");
+  const [filterIntent, setFilterIntent] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterDateRange, setFilterDateRange] = useState("");
+
+  // Dropdown options from summary
+  const [userOptions, setUserOptions] = useState([]);
+  const [intentOptions, setIntentOptions] = useState([]);
+
+  const limit = 20;
+
+  // Fetch summary
   useEffect(() => {
     fetch(`${API}/logs/summary?days=30`)
       .then(r => r.json())
-      .then(setSummary)
+      .then(data => {
+        setSummary(data);
+        // Extract distinct users and intents for filter dropdowns
+        if (data.byUser) {
+          setUserOptions(data.byUser.map(u => u.user_name).filter(Boolean));
+        }
+        if (data.byIntent) {
+          setIntentOptions(data.byIntent.map(i => i.intent).filter(Boolean));
+        }
+      })
       .catch(console.error);
   }, []);
 
-  useEffect(() => {
+  // Fetch logs with filters
+  const fetchLogs = useCallback(() => {
     setLoading(true);
-    fetch(`${API}/logs?page=${page}&limit=30`)
-      .then(r => r.json())
-      .then(data => { setLogs(data.logs || []); setTotal(data.total || 0); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [page]);
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (filterUser) params.set("user", filterUser);
+    if (filterIntent) params.set("intent", filterIntent);
+    if (filterStatus) params.set("status", filterStatus);
+    if (filterDateRange) params.set("date_range", filterDateRange);
 
-  const totalPages = Math.ceil(total / 30);
+    fetch(`${API}/logs?${params.toString()}`)
+      .then(r => r.json())
+      .then(data => {
+        setLogs(data.logs || []);
+        setTotal(data.total || 0);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [page, filterUser, filterIntent, filterStatus, filterDateRange]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [filterUser, filterIntent, filterStatus, filterDateRange]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  const navLinks = [
+    { href: "/admin/logs", label: "Logs", active: true },
+    { href: "/admin/intelligence", label: "Intelligence", active: false },
+    { href: "/admin/system", label: "System", active: false },
+    { href: "/admin", label: "Users", active: false },
+    { href: "/", label: "War Room \u2192", active: false },
+  ];
+
+  const statusOptions = [
+    { value: "success", label: "Success" },
+    { value: "error", label: "Error" },
+    { value: "clarification", label: "Clarification" },
+  ];
+
+  const dateRangeOptions = [
+    { value: "today", label: "Today" },
+    { value: "yesterday", label: "Yesterday" },
+    { value: "7d", label: "Last 7 Days" },
+    { value: "30d", label: "Last 30 Days" },
+  ];
 
   return (
     <>
@@ -234,24 +594,32 @@ export default function LogsPage() {
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg); color: var(--text-primary); font-family: "DM Sans", -apple-system, sans-serif; min-height: 100vh; }
+        select option { background: var(--surface); color: var(--text-primary); }
       `}</style>
 
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 48px" }}>
         {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingBottom: 24, borderBottom: "1px solid var(--accent)", marginBottom: 32 }}>
-          <div>
-            <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 28, fontWeight: 500, letterSpacing: 6 }}>
-              ELIZA<span style={{ color: "var(--accent)" }}>.</span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Message Logs</div>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          paddingBottom: 24, borderBottom: "1px solid var(--accent)", marginBottom: 32,
+        }}>
+          <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 28, fontWeight: 500, letterSpacing: 6 }}>
+            ELIZA<span style={{ color: "var(--accent)" }}>.</span>
           </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <Link href="/admin" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "var(--text-secondary)", textDecoration: "none" }}>
-              Admin →
-            </Link>
-            <Link href="/" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "var(--text-secondary)", textDecoration: "none" }}>
-              War Room →
-            </Link>
+          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+            {navLinks.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{
+                  fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2,
+                  textTransform: "uppercase", textDecoration: "none",
+                  color: link.active ? "var(--accent)" : "var(--text-secondary)",
+                }}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -277,65 +645,90 @@ export default function LogsPage() {
           ))}
         </div>
 
-        {/* Summary Tab */}
+        {/* ═══ SUMMARY TAB ═══ */}
         {tab === "summary" && summary && (
           <>
+            {/* A) Summary Cards */}
             <SummaryCards data={summary.overall} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+
+            {/* B) Intent Routing Doughnut */}
+            <IntentRoutingChart data={summary.byModelIntent} />
+
+            {/* C) Daily Bar Chart */}
+            <DailyChart data={summary.daily} />
+
+            {/* D) User + Intent Tables side by side */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
               <UserTable data={summary.byUser} />
               <IntentTable data={summary.byIntent} />
             </div>
-            {summary.byModel && summary.byModel.length > 0 && (
-              <div style={{ marginBottom: 32 }}>
-                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginBottom: 12 }}>
-                  Model Usage
-                </div>
-                <div style={{ display: "flex", gap: 16 }}>
-                  {summary.byModel.map((m, i) => (
-                    <div key={i} style={{
-                      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "16px 20px",
-                    }}>
-                      <div style={{ fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)", marginBottom: 4 }}>{m.model}</div>
-                      <div style={{ fontSize: 18, fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>{fmtNum(m.tokens)} token</div>
-                      <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{fmtNum(m.calls)} calls</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
+            {/* E) Model Usage Cards */}
+            <ModelUsageCards data={summary.byModel} />
           </>
         )}
 
-        {/* Messages Tab */}
+        {/* ═══ MESSAGES TAB ═══ */}
         {tab === "messages" && (
           <>
+            {/* Filter Bar */}
+            <div style={{
+              display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap", alignItems: "center",
+            }}>
+              <FilterSelect
+                value={filterUser}
+                onChange={setFilterUser}
+                options={userOptions}
+                placeholder="All Users"
+              />
+              <FilterSelect
+                value={filterIntent}
+                onChange={setFilterIntent}
+                options={intentOptions}
+                placeholder="All Intents"
+              />
+              <FilterSelect
+                value={filterStatus}
+                onChange={setFilterStatus}
+                options={statusOptions}
+                placeholder="All Status"
+              />
+              <FilterSelect
+                value={filterDateRange}
+                onChange={setFilterDateRange}
+                options={dateRangeOptions}
+                placeholder="All Time"
+              />
+              {(filterUser || filterIntent || filterStatus || filterDateRange) && (
+                <button
+                  onClick={() => { setFilterUser(""); setFilterIntent(""); setFilterStatus(""); setFilterDateRange(""); }}
+                  style={{
+                    fontFamily: '"DM Mono", monospace', fontSize: 10, padding: "8px 14px",
+                    border: "1px solid var(--border)", borderRadius: 4, background: "transparent",
+                    color: "var(--text-secondary)", cursor: "pointer", letterSpacing: 1,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Clear Filters
+                </button>
+              )}
+              <div style={{ marginLeft: "auto", fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)" }}>
+                {fmtNum(total)} results
+              </div>
+            </div>
+
+            {/* Message Cards */}
             {loading ? (
               <div style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}>Loading...</div>
+            ) : logs.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', fontSize: 13 }}>
+                No messages found.
+              </div>
             ) : (
               <>
-                <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
-                  <thead>
-                    <tr>
-                      {["Date", "User", "Message", "Intent", "Tokens", "Duration", ""].map(h => (
-                        <th key={h} style={{
-                          fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)",
-                          letterSpacing: 1.5, textTransform: "uppercase", textAlign: "left",
-                          padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)",
-                        }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map(log => (
-                      <LogRow
-                        key={log.id}
-                        log={log}
-                        expanded={expandedId === log.id}
-                        onToggle={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                      />
-                    ))}
-                  </tbody>
-                </table>
+                {logs.map(log => (
+                  <MessageCard key={log.id} log={log} />
+                ))}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -346,10 +739,11 @@ export default function LogsPage() {
                       style={{
                         fontFamily: '"DM Mono", monospace', fontSize: 11, padding: "6px 16px",
                         border: "1px solid var(--border)", borderRadius: 4, background: "transparent",
-                        color: page === 1 ? "var(--border)" : "var(--text-secondary)", cursor: page === 1 ? "default" : "pointer",
+                        color: page === 1 ? "var(--border)" : "var(--text-secondary)",
+                        cursor: page === 1 ? "default" : "pointer",
                       }}
                     >
-                      ←
+                      \u2190
                     </button>
                     <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--text-secondary)", alignSelf: "center" }}>
                       {page} / {totalPages}
@@ -360,10 +754,11 @@ export default function LogsPage() {
                       style={{
                         fontFamily: '"DM Mono", monospace', fontSize: 11, padding: "6px 16px",
                         border: "1px solid var(--border)", borderRadius: 4, background: "transparent",
-                        color: page === totalPages ? "var(--border)" : "var(--text-secondary)", cursor: page === totalPages ? "default" : "pointer",
+                        color: page === totalPages ? "var(--border)" : "var(--text-secondary)",
+                        cursor: page === totalPages ? "default" : "pointer",
                       }}
                     >
-                      →
+                      \u2192
                     </button>
                   </div>
                 )}

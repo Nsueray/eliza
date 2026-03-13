@@ -98,3 +98,10 @@ Agent — own data (data_scope: own)
 - Pending state: users.pending_clarification JSONB, 10 min expire, max 1 turn
 - Resolution: numbered reply, text match, keyword match
 - Principle: "Ask once, then answer" — max 1 clarification per question
+
+## Admin Dashboard
+- /admin/logs: Message cards (no expandable rows), Copy All button, filters (user/intent/status/date), Doughnut chart (router vs haiku), Bar chart (daily messages)
+- /admin/intelligence: Router rules viewer, intent stats table (sortable), benchmark questions viewer, unavailable metrics, clarification stats
+- /admin/system: Service health checks, DB table sizes, last Zoho sync, active users, recent errors
+- Navigation: Logs | Intelligence | System | Users | War Room (shared header on all admin pages)
+- API: /api/intelligence/*, /api/system/status, enhanced /api/logs

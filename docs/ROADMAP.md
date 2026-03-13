@@ -40,6 +40,12 @@
   - ✅ Pending state management (users.pending_clarification JSONB, 10min expire)
   - ✅ Handler: resolve numbered/text replies, rebuild question, clear pending
   - Benchmark: 96% PASS (48/50) — no regression
+- Admin Dashboard Upgrade ✅ COMPLETED
+  - ✅ /admin/logs redesigned: message cards, Copy All, filters (user/intent/status/date), charts
+  - ✅ /admin/intelligence: router rules, intent stats, benchmark viewer, clarification stats
+  - ✅ /admin/system: service health, DB tables, sync status, active users, recent errors
+  - ✅ Shared navigation header across all admin pages
+  - ✅ API: /api/intelligence/* (4 endpoints), /api/system/status, enhanced /api/logs
 
 ## Next Phases
 

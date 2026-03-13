@@ -10,6 +10,8 @@ router.get('/', async (req, res) => {
     const offset = (page - 1) * limit;
     const userFilter = req.query.user || null;
     const intentFilter = req.query.intent || null;
+    const statusFilter = req.query.status || null;
+    const dateRange = req.query.date_range || null;
 
     let where = 'WHERE 1=1';
     const params = [];
@@ -23,6 +25,26 @@ router.get('/', async (req, res) => {
       where += ` AND intent = $${params.length}`;
     }
 
+    // Status filter
+    if (statusFilter === 'error') {
+      where += ' AND error IS NOT NULL';
+    } else if (statusFilter === 'clarification') {
+      where += ` AND intent = 'clarification'`;
+    } else if (statusFilter === 'success') {
+      where += ' AND error IS NULL';
+    }
+
+    // Date range filter
+    if (dateRange === 'today') {
+      where += ` AND created_at >= CURRENT_DATE`;
+    } else if (dateRange === 'yesterday') {
+      where += ` AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`;
+    } else if (dateRange === '7d') {
+      where += ` AND created_at >= NOW() - INTERVAL '7 days'`;
+    } else if (dateRange === '30d') {
+      where += ` AND created_at >= NOW() - INTERVAL '30 days'`;
+    }
+
     // Total count
     const countResult = await query(`SELECT COUNT(*) FROM message_logs ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
@@ -32,7 +54,8 @@ router.get('/', async (req, res) => {
     const rows = await query(
       `SELECT id, user_phone, user_name, user_role, message_text, response_text,
               intent, input_tokens, output_tokens, total_tokens,
-              model_intent, model_answer, duration_ms, is_command, error, created_at
+              model_intent, model_answer, duration_ms, is_command, error,
+              rewritten_question, created_at
        FROM message_logs ${where}
        ORDER BY created_at DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -60,7 +83,8 @@ router.get('/summary', async (req, res) => {
         COALESCE(SUM(output_tokens), 0) AS total_output_tokens,
         COALESCE(SUM(total_tokens), 0) AS total_tokens,
         ROUND(AVG(duration_ms)::numeric, 0) AS avg_duration_ms,
-        COUNT(CASE WHEN error IS NOT NULL THEN 1 END) AS error_count
+        COUNT(CASE WHEN error IS NOT NULL THEN 1 END) AS error_count,
+        COUNT(CASE WHEN intent = 'clarification' THEN 1 END) AS clarification_count
       FROM message_logs
       WHERE created_at >= ${since}
     `);
@@ -99,7 +123,7 @@ router.get('/summary', async (req, res) => {
       LIMIT 30
     `);
 
-    // Model usage
+    // Model usage (answer model)
     const byModel = await query(`
       SELECT model_answer AS model,
         COUNT(*) AS calls,
@@ -110,12 +134,24 @@ router.get('/summary', async (req, res) => {
       ORDER BY tokens DESC
     `);
 
+    // Model intent breakdown (router vs haiku)
+    const byModelIntent = await query(`
+      SELECT model_intent,
+        COUNT(*) AS count,
+        COALESCE(SUM(total_tokens), 0) AS tokens
+      FROM message_logs
+      WHERE created_at >= ${since} AND model_intent IS NOT NULL
+      GROUP BY model_intent
+      ORDER BY count DESC
+    `);
+
     res.json({
       overall: overall.rows[0],
       byUser: byUser.rows,
       byIntent: byIntent.rows,
       daily: daily.rows,
       byModel: byModel.rows,
+      byModelIntent: byModelIntent.rows,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

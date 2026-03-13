@@ -11,6 +11,8 @@ const alertRoutes = require('./routes/alerts');
 const messageRoutes = require('./routes/messages');
 const userRoutes = require('./routes/users');
 const logRoutes = require('./routes/logs');
+const intelligenceRoutes = require('./routes/intelligence');
+const systemRoutes = require('./routes/system');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +40,8 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/logs', logRoutes);
+app.use('/api/intelligence', intelligenceRoutes);
+app.use('/api/system', systemRoutes);
 
 app.listen(PORT, () => {
   console.log(`ELIZA API running on port ${PORT}`);

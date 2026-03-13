@@ -162,6 +162,13 @@ Completed (cont.):
   - Pending state: users.pending_clarification JSONB, 10 dakika expire
   - Max 1 clarification turn per question
   - Migration: 009_pending_clarification.sql
+- Admin Dashboard Upgrade
+  - /admin/logs: redesigned with message cards, filters, charts (Doughnut + Bar)
+  - /admin/intelligence: router rules, intent stats, benchmark, clarification stats
+  - /admin/system: service health, DB tables, sync status, errors
+  - Shared navigation: Logs | Intelligence | System | Users | War Room
+  - API: /api/intelligence/* (4 endpoints), /api/system/status
+  - /api/logs enhanced: status/date_range filters, rewritten_question, byModelIntent
 
 In Progress:
 
@@ -759,11 +766,21 @@ SQL injection:
 Handler integration: queryEngine.run(trimmed, 0, lang, user)
 
 Admin Panel sayfaları:
-- /admin → kullanıcı listesi
+- /admin → kullanıcı listesi (Users)
+- /admin/logs → mesaj logları (redesigned: cards, filters, charts)
+- /admin/intelligence → ELIZA Intelligence Panel (router rules, intent stats, benchmark, clarifications)
+- /admin/system → System Status (services, DB tables, sync, errors)
 - /admin/users/new → yeni kullanıcı formu
 - /admin/users/[id] → düzenleme formu
+- Navigation: Logs | Intelligence | System | Users | War Room (shared header)
 
-War Room: sağ üst köşede "⚙ Admin" linki
+API endpoints (new):
+- GET /api/intelligence/router-rules
+- GET /api/intelligence/intent-stats?days=30
+- GET /api/intelligence/benchmark
+- GET /api/intelligence/clarification-stats?days=30
+- GET /api/system/status
+- GET /api/logs enhanced: ?status=error/clarification/success&date_range=today/yesterday/7d/30d
 
 # 28. Benchmark
 Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)
