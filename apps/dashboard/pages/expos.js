@@ -348,8 +348,12 @@ export default function ExposPage() {
             <div className="page-brand">ELIZA<span className="dot">.</span></div>
             <div className="page-sub">Expo Directory</div>
           </div>
-          <div className="page-nav">
-            <a href="/" className="nav-link">{"\u2190"} War Room</a>
+          <div className="page-nav" style={{ display: 'flex', gap: 16 }}>
+            <a href="/" className="nav-link">War Room</a>
+            <a href="/admin/logs" className="nav-link">Logs</a>
+            <a href="/admin/intelligence" className="nav-link">Intelligence</a>
+            <a href="/admin/system" className="nav-link">System</a>
+            <a href="/admin" className="nav-link">Users</a>
           </div>
         </div>
 

@@ -826,8 +826,11 @@ export default function WarRoom() {
           </div>
           <div className="hdr-right">
             <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
-              <a href="/expos?year=2026" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Expo Directory {"\u2192"}</a>
-              <a href="/admin" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>{"\u2699"} Admin</a>
+              <a href="/expos?year=2026" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Expo Directory</a>
+              <a href="/admin/logs" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Logs</a>
+              <a href="/admin/intelligence" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Intelligence</a>
+              <a href="/admin/system" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>System</a>
+              <a href="/admin" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Users</a>
             </div>
             <div className="hdr-clock">{clock}</div>
             <div className="hdr-date">{dateStr}</div>
