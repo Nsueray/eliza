@@ -31,17 +31,40 @@ function fmtChartDate(d) {
   return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function copyLog(log) {
-  const text = [
-    `MESSAGE: ${log.message_text || "\u2014"}`,
-    `REWRITE: ${log.rewritten_question || "\u2014"}`,
-    `INTENT: ${log.intent || "\u2014"}`,
-    `MODEL: ${log.model_intent || "\u2014"} \u2192 ${log.model_answer || "\u2014"}`,
-    `RESPONSE: ${log.response_text || "\u2014"}`,
-    `TOKENS: ${fmtNum(log.total_tokens)} | DURATION: ${log.duration_ms ? fmtNum(log.duration_ms) + "ms" : "\u2014"}`,
-    `ERROR: ${log.error || "\u2014"}`,
-  ].join("\n");
-  navigator.clipboard.writeText(text);
+function CopyButton({ log }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    const text = [
+      `MESSAGE: ${log.message_text || "-"}`,
+      `REWRITE: ${log.rewritten_question || "-"}`,
+      `INTENT: ${log.intent || "-"}`,
+      `MODEL: ${log.model_intent || "-"} -> ${log.model_answer || "-"}`,
+      `RESPONSE: ${log.response_text || "-"}`,
+      `TOKENS: ${fmtNum(log.total_tokens)} | DURATION: ${log.duration_ms ? fmtNum(log.duration_ms) + "ms" : "-"}`,
+      log.error ? `ERROR: ${log.error}` : "",
+    ].filter(Boolean).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        fontFamily: '"DM Mono", monospace', fontSize: 10, padding: "4px 10px",
+        border: `1px solid ${copied ? "rgba(46,204,113,0.4)" : "var(--border)"}`,
+        borderRadius: 4, background: copied ? "rgba(46,204,113,0.1)" : "transparent",
+        color: copied ? "var(--success)" : "var(--text-secondary)", cursor: "pointer",
+        transition: "all 0.2s ease",
+      }}
+      title="Copy log to clipboard"
+    >
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
 }
 
 // ─── Section Header ───
@@ -60,12 +83,12 @@ function SectionHeader({ children }) {
 function SummaryCards({ data }) {
   if (!data) return null;
   const cards = [
-    { label: "Total Messages", value: fmtNum(data.total_messages), icon: "\uD83D\uDCAC" },
-    { label: "Active Users", value: fmtNum(data.unique_users), icon: "\uD83D\uDC64" },
-    { label: "Total Tokens", value: fmtNum(data.total_tokens), icon: "\uD83D\uDD24" },
-    { label: "Avg Duration", value: data.avg_duration_ms ? `${fmtNum(data.avg_duration_ms)}ms` : "\u2014", icon: "\u23F1\uFE0F" },
-    { label: "Errors", value: fmtNum(data.error_count), icon: "\u26A0\uFE0F" },
-    { label: "Clarifications", value: fmtNum(data.clarification_count), icon: "\u2753" },
+    { label: "Total Messages", value: fmtNum(data.total_messages), icon: "MSG" },
+    { label: "Active Users", value: fmtNum(data.unique_users), icon: "USR" },
+    { label: "Total Tokens", value: fmtNum(data.total_tokens), icon: "TKN" },
+    { label: "Avg Duration", value: data.avg_duration_ms ? `${fmtNum(data.avg_duration_ms)}ms` : "\u2014", icon: "DUR" },
+    { label: "Errors", value: fmtNum(data.error_count), icon: "ERR" },
+    { label: "Clarifications", value: fmtNum(data.clarification_count), icon: "CLR" },
   ];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 32 }}>
@@ -74,7 +97,7 @@ function SummaryCards({ data }) {
           background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "20px 16px",
           textAlign: "center",
         }}>
-          <div style={{ fontSize: 22, marginBottom: 8 }}>{c.icon}</div>
+          <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, color: "var(--accent-2)", marginBottom: 8 }}>{c.icon}</div>
           <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 22, fontWeight: 500, color: "var(--accent)" }}>{c.value}</div>
           <div style={{
             fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1.5,
@@ -442,25 +465,17 @@ function MessageCard({ log }) {
       {/* Footer */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)" }}>
-          <span>\u23F1 {log.duration_ms ? `${fmtNum(log.duration_ms)}ms` : "\u2014"}</span>
-          <span>\uD83D\uDCCA {fmtNum(log.total_tokens)} tokens</span>
-          <span>\uD83D\uDD24 {log.model_intent || "\u2014"} \u2192 {log.model_answer || "\u2014"}</span>
+          <span>Duration: {log.duration_ms ? `${fmtNum(log.duration_ms)}ms` : "\u2014"}</span>
+          <span>Tokens: {fmtNum(log.total_tokens)}</span>
+          <span>Model: {log.model_intent || "\u2014"} &rarr; {log.model_answer || "\u2014"}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 11, fontFamily: '"DM Mono", monospace', color: hasError ? "var(--danger)" : "var(--text-secondary)" }}>
-            {hasError ? `\u274C ${log.error}` : "\u274C Error: \u2014"}
-          </span>
-          <button
-            onClick={() => copyLog(log)}
-            style={{
-              fontFamily: '"DM Mono", monospace', fontSize: 10, padding: "4px 10px",
-              border: "1px solid var(--border)", borderRadius: 4, background: "transparent",
-              color: "var(--text-secondary)", cursor: "pointer",
-            }}
-            title="Copy log to clipboard"
-          >
-            \uD83D\uDCCB Copy
-          </button>
+          {hasError && (
+            <span style={{ fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--danger)" }}>
+              Error: {log.error}
+            </span>
+          )}
+          <CopyButton log={log} />
         </div>
       </div>
     </div>

@@ -49,7 +49,7 @@ const ROLE_COLORS = {
 };
 
 const SERVICES = [
-  { name: "ELIZA API", url: "https://eliza-api-8tkr.onrender.com", healthPath: "/api/health" },
+  { name: "ELIZA API", url: "https://eliza-api-8tkr.onrender.com", healthPath: "/health" },
   { name: "ELIZA Bot", url: "https://eliza-bot-r1vx.onrender.com", healthPath: "/health" },
   { name: "ELIZA Dashboard", url: "https://eliza.elanfairs.com", healthPath: "/" },
 ];
