@@ -154,6 +154,14 @@ Completed (cont.):
   - Sonnet assumption transparency: rules 13-14 in generateAnswer prompt
   - Log enrichment: rewritten_question column (migration 008)
   - Benchmark: 96% PASS (48/50)
+- Mini Clarification System
+  - Ambiguity detection: missing_year, missing_metric, missing_expo flags
+  - Year clarification: expo-based intents without year → DB'den edition listesi → kullanıcıya sor
+  - Expo clarification: expo gerektiren intent'lerde expo belirtilmemişse → upcoming expo listesi
+  - Metric clarification: infrastructure in place, not currently triggered (queries return all metrics)
+  - Pending state: users.pending_clarification JSONB, 10 dakika expire
+  - Max 1 clarification turn per question
+  - Migration: 009_pending_clarification.sql
 
 In Progress:
 
@@ -835,5 +843,35 @@ Fallback: SQL üretilemezse veya hata olursa → normal buildQuery(general_stats
 intent_model: 'hybrid_sql' olarak loglanır
 Token tracking: sqlGenUsage intent token'larına eklenir
 
+# 31. Mini Clarification System
+Location: queryEngine.js (detection + response), handler.js (pending state), auth.js (load state)
+Migration: packages/db/migrations/009_pending_clarification.sql
+
+Ambiguity flags (set by router.js extractEntities + Haiku INTENT_PROMPT):
+- missing_year: expo_name present but no year → year clarification
+- missing_metric: no metric keyword (m2/gelir/kontrat) → metric clarification (currently disabled)
+- missing_expo: expo-required intent but no expo name → expo clarification
+
+Clarification flow:
+1. extractIntent → entities with missing_* flags
+2. run() checks flags BEFORE year defaults:
+   - missing_year + expo_name + YEAR_CLARIFICATION_INTENTS → DB query for editions → if >1, ask user
+   - missing_expo + expo-required intent → list upcoming expos → ask user
+3. Return intent='clarification' with clarification object {slot, options, original_question, original_intent}
+4. handler.js saves pending state to users.pending_clarification (JSONB)
+5. Next message: handler checks pending, resolves answer (number/text match), rebuilds question
+6. Rebuilt question goes through normal pipeline
+
+Pending state:
+- Stored in: users.pending_clarification JSONB
+- Expire: 10 minutes
+- Clear on: successful resolution, expiry, or unmatched reply (new question)
+- Max 1 turn — no double clarification
+
+YEAR_CLARIFICATION_INTENTS: expo_progress, expo_agent_breakdown, expo_company_list, country_count, price_per_m2, payment_status
+Excluded from year clarification: rebooking_rate (cross-edition by nature), days_to_event, expo_list
+
+Ambiguity flags cleaned up (deleted from entities) before buildQuery to prevent interference.
+
 # currentDate
-Today's date is 2026-03-12.
+Today's date is 2026-03-13.

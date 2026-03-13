@@ -175,6 +175,104 @@ async function handleMessage(text, user) {
     return finalResponse;
   }
 
+  // Check pending clarification (before rewrite, before queryEngine)
+  if (user && user.pending_clarification && !trimmed.startsWith('.')) {
+    const pending = user.pending_clarification;
+
+    // Check expiry (10 minutes)
+    const createdAt = new Date(pending.created_at);
+    if (Date.now() - createdAt.getTime() > 10 * 60 * 1000) {
+      await dbQuery('UPDATE users SET pending_clarification = NULL WHERE id = $1', [user.id]);
+      // Expired — fall through to normal flow
+    } else {
+      const options = pending.options || [];
+      const reply = trimmed.trim();
+
+      // Try to resolve: numbered reply or text match
+      let resolvedValue = null;
+      const num = parseInt(reply);
+      if (!isNaN(num) && num >= 1 && num <= options.length) {
+        resolvedValue = options[num - 1];
+      } else {
+        // Exact or partial match
+        resolvedValue = options.find(o =>
+          o.toLowerCase() === reply.toLowerCase() ||
+          o.toLowerCase().includes(reply.toLowerCase()) ||
+          reply.toLowerCase().includes(o.toLowerCase())
+        );
+        // Year detection
+        if (!resolvedValue && /^\d{4}$/.test(reply)) {
+          resolvedValue = options.find(o => o.includes(reply));
+        }
+        // Metric keywords
+        if (!resolvedValue) {
+          const normReply = normalizeLang(reply);
+          const metricMap = { 'm2': 'm²', 'metrekare': 'm²', 'alan': 'm²', 'gelir': 'Gelir', 'revenue': 'Gelir', 'kontrat': 'Sözleşme', 'sozlesme': 'Sözleşme', 'contract': 'Sözleşme' };
+          const mapped = metricMap[normReply];
+          if (mapped) resolvedValue = options.find(o => o.includes(mapped));
+        }
+      }
+
+      if (resolvedValue) {
+        // Clear pending
+        await dbQuery('UPDATE users SET pending_clarification = NULL WHERE id = $1', [user.id]);
+
+        // Rebuild question with resolved slot
+        let rebuiltQuestion = pending.original_question;
+        if (pending.slot === 'year') rebuiltQuestion = `${pending.original_question} ${resolvedValue}`;
+        if (pending.slot === 'metric') {
+          const metricWord = resolvedValue.includes('m²') ? 'm2' : resolvedValue.includes('Gelir') ? 'gelir' : 'kontrat';
+          rebuiltQuestion = `${pending.original_question} ${metricWord}`;
+        }
+        if (pending.slot === 'expo') rebuiltQuestion = `${resolvedValue} ${pending.original_question}`;
+
+        const startTime = Date.now();
+
+        // Get conversation context for personality
+        let lastMessageTime = null;
+        try {
+          const { lastMessageTime: lmt } = await getHistory(user?.phone || user?.whatsapp_phone);
+          lastMessageTime = lmt;
+        } catch { /* ignore */ }
+
+        const result = await queryEngine.run(rebuiltQuestion, 0, lang, user);
+        const durationMs = Date.now() - startTime;
+
+        let response = result.answer || 'Sonuç bulunamadı.';
+        if (result.data && Array.isArray(result.data) && result.data.length > 5) {
+          const remaining = result.data.length - 5;
+          const dashboardLink = getDashboardLink(result.intent);
+          const moreHint = dashboardLink
+            ? { tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${dashboardLink}`, en: `... and ${remaining} more results.\nFull list: ${dashboardLink}`, fr: `... et ${remaining} résultats de plus.\nListe complète: ${dashboardLink}` }
+            : { tr: `... ve ${remaining} sonuç daha.`, en: `... and ${remaining} more results.`, fr: `... et ${remaining} résultats de plus.` };
+          response += `\n\n${moreHint[lang] || moreHint.tr}`;
+        }
+
+        const finalResponse = wrapWithPersonality(response, user, lang, false, lastMessageTime);
+        logMessage({
+          user_phone: user?.phone || user?.whatsapp_phone || null,
+          user_name: user?.name || null,
+          user_role: user?.role || null,
+          message_text: trimmed,
+          response_text: finalResponse,
+          intent: result.intent,
+          input_tokens: result._usage?.total_input || 0,
+          output_tokens: result._usage?.total_output || 0,
+          model_intent: result._usage?.intent_model || null,
+          model_answer: result._usage?.answer_model || null,
+          duration_ms: durationMs,
+          is_command: false,
+          rewritten_question: rebuiltQuestion,
+        });
+        return finalResponse;
+      } else {
+        // Reply didn't match options — treat as new question, clear pending
+        await dbQuery('UPDATE users SET pending_clarification = NULL WHERE id = $1', [user.id]);
+        // Fall through to normal flow
+      }
+    }
+  }
+
   try {
     const startTime = Date.now();
 
@@ -207,8 +305,54 @@ async function handleMessage(text, user) {
       console.error('Rewrite error (using original):', rewriteErr.message);
     }
 
-    const { intent, answer, data, _usage } = await queryEngine.run(questionForEngine, 0, lang, user);
+    const result = await queryEngine.run(questionForEngine, 0, lang, user);
+    const { intent, answer, data, _usage } = result;
     const durationMs = Date.now() - startTime;
+
+    // Handle clarification response
+    if (intent === 'clarification' && result.clarification) {
+      const c = result.clarification;
+      const optionsList = c.options.map((o, i) => `${i + 1}. ${o}`).join('\n');
+
+      const questionTexts = {
+        year: { tr: 'Hangi edisyonu soruyorsun?', en: 'Which edition?', fr: 'Quelle édition?' },
+        metric: { tr: 'Neye göre sıralayayım?', en: 'Sort by what?', fr: 'Trier par quoi?' },
+        expo: { tr: 'Hangi fuar?', en: 'Which expo?', fr: 'Quel expo?' },
+      };
+
+      const q = (questionTexts[c.slot] || questionTexts.year)[lang] || (questionTexts[c.slot] || questionTexts.year).tr;
+      const clarificationText = `${q}\n${optionsList}`;
+
+      // Save pending state
+      await dbQuery('UPDATE users SET pending_clarification = $1 WHERE id = $2', [
+        JSON.stringify({
+          slot: c.slot,
+          options: c.options,
+          original_question: trimmed,
+          original_intent: c.original_intent,
+          original_entities: c.original_entities,
+          created_at: new Date().toISOString(),
+        }),
+        user.id
+      ]);
+
+      const finalResponse = wrapWithPersonality(clarificationText, user, lang, false, lastMessageTime);
+      logMessage({
+        user_phone: user?.phone || user?.whatsapp_phone || null,
+        user_name: user?.name || null,
+        user_role: user?.role || null,
+        message_text: trimmed,
+        response_text: finalResponse,
+        intent: 'clarification',
+        input_tokens: _usage?.total_input || 0,
+        output_tokens: _usage?.total_output || 0,
+        model_intent: _usage?.intent_model || null,
+        model_answer: null,
+        duration_ms: durationMs,
+        is_command: false,
+      });
+      return finalResponse;
+    }
 
     // Add rewrite tokens to usage
     if (_usage && rewriteUsage.input_tokens > 0) {

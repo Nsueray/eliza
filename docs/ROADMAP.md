@@ -33,6 +33,13 @@
   - ✅ Sonnet assumption transparency (rules 13-14 in prompt)
   - ✅ Log enrichment (rewritten_question column, migration 008)
   - Benchmark: 96% PASS (48/50)
+- Mini Clarification System ✅ COMPLETED
+  - ✅ Ambiguity detection in router + Haiku (missing_year, missing_metric, missing_expo)
+  - ✅ Year clarification: DB edition lookup → ask user when multiple editions exist
+  - ✅ Expo clarification: upcoming expo list when expo not specified
+  - ✅ Pending state management (users.pending_clarification JSONB, 10min expire)
+  - ✅ Handler: resolve numbered/text replies, rebuild question, clear pending
+  - Benchmark: 96% PASS (48/50) — no regression
 
 ## Next Phases
 

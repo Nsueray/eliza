@@ -149,7 +149,16 @@ Q: SIEMA'da kaç ülke var → {"intent":"country_count","entities":{"expo_name"
 
 If the question contains multiple distinct questions (connected by "ve", "and", "also", "ayrıca", "+"), set intent to "compound" and list sub-questions:
 Q: elif ulke breakdown ve emircan expo breakdown → {"intent":"compound","entities":{"questions":["elif ulke breakdown","emircan expo breakdown"]}}
-Limit to max 2 sub-questions.`;
+Limit to max 2 sub-questions.
+
+AMBIGUITY DETECTION RULES:
+- If expo name is mentioned but NO year specified, add "missing_year": true to entities
+- If question asks for ranking (en çok, en iyi, top, best) or comparison but NO metric specified (m², revenue, contracts), add "missing_metric": true to entities
+- If question asks about an expo but expo name is not clear or could match multiple expos, add "missing_expo": true to entities
+Examples:
+Q: SIEMA'ya en çok kim satmış → {"intent":"expo_agent_breakdown","entities":{"expo_name":"SIEMA","missing_year":true,"missing_metric":true}}
+Q: toplam ne kadar → {"intent":"revenue_summary","entities":{"missing_metric":true}}
+Q: fuardaki katılımcı ülke sayısı → {"intent":"country_count","entities":{"missing_expo":true}}`;
 
 // STEP 1 — Intent Extraction (Haiku — fast, cheap)
 async function extractIntent(question) {
@@ -979,9 +988,73 @@ async function run(question, _depth = 0, lang, user) {
   delete intentResult._usage;
   const { intent, entities } = intentResult;
 
+  // Clarification check — ask instead of guessing
+  const currentYear = new Date().getFullYear();
+  const YEAR_CLARIFICATION_INTENTS = ['expo_progress', 'expo_agent_breakdown', 'expo_company_list', 'country_count', 'price_per_m2', 'payment_status'];
+  if (entities && entities.missing_year && entities.expo_name && YEAR_CLARIFICATION_INTENTS.includes(intent)) {
+    try {
+      const editions = await query(
+        `SELECT DISTINCT EXTRACT(YEAR FROM e.start_date)::int AS year
+         FROM expos e WHERE e.name ILIKE $1 AND e.start_date IS NOT NULL
+         ORDER BY year DESC LIMIT 5`,
+        [`%${entities.expo_name}%`]
+      );
+      if (editions.rows.length > 1) {
+        const options = editions.rows.map(r => String(r.year));
+        return {
+          intent: 'clarification',
+          clarification: {
+            slot: 'year',
+            options,
+            original_question: question,
+            original_intent: intent,
+            original_entities: entities,
+          },
+          answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
+        };
+      }
+      // Single edition → use it directly
+      if (editions.rows.length === 1) {
+        entities.year = editions.rows[0].year;
+        delete entities.missing_year;
+      }
+    } catch { /* fallback to default year */ }
+  }
+
+  // Note: missing_metric clarification infrastructure is in place but not triggered.
+  // expo_agent_breakdown and top_agents already return all metrics (m², revenue, contracts).
+  // Metric clarification can be enabled for future intents that need it.
+
+  if (entities && entities.missing_expo && ['country_count', 'exhibitors_by_country', 'expo_company_list'].includes(intent)) {
+    try {
+      const upcomingExpos = await query(
+        `SELECT DISTINCT name FROM expos WHERE start_date > CURRENT_DATE ORDER BY start_date ASC LIMIT 10`
+      );
+      if (upcomingExpos.rows.length > 0) {
+        return {
+          intent: 'clarification',
+          clarification: {
+            slot: 'expo',
+            options: upcomingExpos.rows.map(r => r.name),
+            original_question: question,
+            original_intent: intent,
+            original_entities: entities,
+          },
+          answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
+        };
+      }
+    } catch { /* fallback */ }
+  }
+
+  // Clean up ambiguity flags before buildQuery
+  if (entities) {
+    delete entities.missing_year;
+    delete entities.missing_metric;
+    delete entities.missing_expo;
+  }
+
   // Default year to current when not specified
   // Prevents queries from aggregating across all years/editions
-  const currentYear = new Date().getFullYear();
   if (entities && !entities.year) {
     // Month without year → current year (ISSUE-014)
     if (entities.month) {

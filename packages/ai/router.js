@@ -427,6 +427,18 @@ function extractEntities(norm, original) {
     entities.metric = 'count';
   }
 
+  // Ambiguity flags
+  if (entities.expo_name && !entities.year) {
+    entities.missing_year = true;
+  }
+
+  // Ranking/comparison intents without explicit metric
+  // (detected by caller based on intent — router only flags if no metric keyword found)
+  const hasMetricKeyword = /\bm2\b|\bmetrekare\b|\bgelir\b|\brevenue\b|\bkontrat\b|\bcontract\b|\bsozlesme\b/.test(norm);
+  if (!hasMetricKeyword && !entities.metric) {
+    entities.missing_metric = true;
+  }
+
   return entities;
 }
 

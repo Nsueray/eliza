@@ -16,7 +16,7 @@ async function authenticate(phoneNumber) {
     const result = await query(`
       SELECT u.id, u.name, u.email, u.whatsapp_phone, u.role, u.office,
              u.sales_group, u.sales_agent_name, u.is_manager, u.language,
-             u.nicknames, u.is_active,
+             u.nicknames, u.is_active, u.pending_clarification,
              up.data_scope, up.visible_years,
              up.can_see_expenses, up.can_take_notes,
              up.can_use_message_generator, up.can_see_financials
@@ -46,6 +46,7 @@ async function authenticate(phoneNumber) {
       is_manager: user.is_manager,
       language: user.language,
       nicknames: user.nicknames || null,
+      pending_clarification: user.pending_clarification || null,
       access: user.role === 'ceo' ? 'full' : 'limited',
       permissions: {
         data_scope: user.data_scope || 'own',

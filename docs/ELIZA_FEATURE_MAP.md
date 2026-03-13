@@ -90,3 +90,11 @@ Agent — own data (data_scope: own)
 - Router: 15 rules (was 12), Haiku fallback for remaining intents
 - Unavailability: payment_balance, currency, salary, general_knowledge → honest refusal
 - Benchmark: 96% PASS (48/50)
+
+## Mini Clarification System
+- Ambiguity detection: missing_year, missing_expo flags in router + Haiku
+- Year clarification: expo queries without year → DB edition list → ask user
+- Expo clarification: expo-required intents without expo → upcoming expo list
+- Pending state: users.pending_clarification JSONB, 10 min expire, max 1 turn
+- Resolution: numbered reply, text match, keyword match
+- Principle: "Ask once, then answer" — max 1 clarification per question
