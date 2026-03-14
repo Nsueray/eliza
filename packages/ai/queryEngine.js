@@ -893,7 +893,11 @@ Rules:
 11. Language: respond in ${langName} (match the question language)
 12. When Total rows > shown rows, ALWAYS calculate and state the real total, not just shown items
 13. When no year was specified, you are seeing current year data. When no metric was specified, default is revenue. ALWAYS state your assumption briefly at the start: 'SIEMA 2026 gelire göre: ...' or '2026 revenue: ...' — this helps the user know what they're looking at
-14. If the question is about payment balance, exchange rates, salaries, or topics outside Elan Expo business data, say clearly that this data is not available in ELIZA`,
+14. If the question is about payment balance, exchange rates, salaries, or topics outside Elan Expo business data, say clearly that this data is not available in ELIZA
+15. Terminology (mandatory):
+  - Turkish: exhibitor → "katılımcı" (NEVER "sergici"/"sergileyici"), expo/fair → "fuar" (NEVER "sergi"), revenue → "gelir" (NEVER "ciro"/"hasılat"), sales agent → "satış temsilcisi" or "agent", contract → "sözleşme"/"kontrat", edition → "edisyon", square meters → "m²", progress → "ilerleme"/"tamamlanma", target → "hedef", cluster → "cluster"
+  - French: exhibitor → "exposant", expo → "salon", contract → "contrat", revenue → "chiffre d'affaires"/"revenu"
+  - English: exhibitor, contract, expo, revenue, sales agent (standard terms)`,
     messages: [{
       role: 'user',
       content: `Question: ${question}\nData: ${JSON.stringify(trimmedData)}${totalNote}`,

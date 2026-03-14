@@ -194,6 +194,25 @@ Rules:
 
 ---
 
+## [ISSUE-021] Dashboard links hardcoded 2026, only 5 expo intents
+**Status:** FIXED (2026-03-13)
+**First seen:** 2026-03-13
+**Description:** getDashboardLink() hardcoded year=2026 ve sadece 5 expo intent'i destekliyordu. Diğer intent'ler için link üretmiyordu.
+**Fix:** getDashboardLink(intent, entities) → entities.year || currentYear dinamik, 11 expo intent + 7 sales intent mapped, deep linking (expo_name, country query params)
+**Files:** apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-022] "entities is not defined" crash in normal flow
+**Status:** FIXED (2026-03-14)
+**First seen:** 2026-03-14
+**Description:** "En iyi 3 satışçı kim?" ve "Morocco fuarlarında kaç ülke var?" sorguları production'da crash veriyordu: "entities is not defined". getDashboardLink(intent, entities) çağrısı var ama entities destructure edilmemişti.
+**Root cause:** handler.js line 328'de `const { intent, answer, data, _usage } = result;` — entities missing. queryEngine.run() entities döndürüyor ama handler destructure'da yoktu.
+**Fix:** Destructure'a entities eklendi: `const { intent, entities, answer, data, _usage } = result;`
+**Files:** apps/whatsapp-bot/src/handler.js
+
+---
+
 ## [ISSUE-021] Dashboard links hardcoded year and missing for most intents
 **Status:** FIXED (2026-03-14)
 **First seen:** 2026-03-14

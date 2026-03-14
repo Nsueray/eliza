@@ -633,7 +633,10 @@ Veri Formatlama:
 - Etiketli: "SIEMA 2026 — Ülke: France — Tarih: 22-Eylül-2026 — Kontrat: 45 — m²: 1.234 — Gelir: €562.512"
 - Tarihler: TR "19-Mayıs-2026", EN "May 19 2026", FR "19-mai-2026"
 - Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
-- Max 5 satir, fazlasi: "... ve X sonuç daha" + intent-based dashboard linki
+- Dashboard linki HER ZAMAN gösterilir (data sayısından bağımsız)
+- data > 5 satır → "... ve X sonuç daha.\nTüm liste: URL"
+- data <= 5 satır veya boş → cevabın sonuna "\n\n📊 URL" eklenir
+- getDashboardLink null dönerse veya intent=clarification ise → link eklenmez
 - getDashboardLink(intent, entities): expo intent'leri → /expos?year=YYYY, sales intent'leri → / (War Room)
 - Year dinamik: entities.year || currentYear (hardcoded 2026 kaldırıldı)
 - Deep linking: expo_name → &expo=X, country → &country=X query params
@@ -734,6 +737,10 @@ Key insight first, max 2-3 sentences, no markdown/bullets/headers, plain text on
 Out-of-scope → "I can only help with Elan Expo business data."
 Empty results → "No data found for this query."
 Claude must NOT generate SQL — all queries come from templates in buildQuery().
+Terminology (rule 15 in prompt):
+- TR: exhibitor→"katılımcı" (ASLA "sergici"), expo→"fuar" (ASLA "sergi"), revenue→"gelir" (ASLA "ciro")
+- FR: exhibitor→"exposant", expo→"salon", revenue→"chiffre d'affaires"
+- EN: standard terms (exhibitor, expo, revenue)
 
 # 27. Multi-user System
 Location: packages/db/migrations/005_users.sql
@@ -828,7 +835,7 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..020
+Fixed: ISSUE-001..022
 ISSUE-016: applyScope team subquery sales_agents tablosunu kullanıyordu (sales_group yok) → users tablosuna düzeltildi
 ISSUE-017: Dashboard link localhost:3000 → production URL (eliza.elanfairs.com)
 ISSUE-018: Elif expo bazlı sorguları göremiyordu → NO_AGENT_FILTER intent listesi genişletildi
@@ -840,6 +847,7 @@ ISSUE-015: handler.js user.whatsapp_phone kullanıyordu ama auth.js user.phone d
 ISSUE-019: Hybrid SQL CEO-only kısıtlaması
 ISSUE-020: Year filter eksik — expo/agent sorguları tüm yılların verisini döndürüyordu → run() seviyesinde year=currentYear default
 ISSUE-021: Dashboard linkler hardcoded 2026, sadece 5 expo intent → getDashboardLink(intent, entities) dinamik year + 18 intent mapped
+ISSUE-022: "entities is not defined" crash — handler.js'te entities destructure edilmemişti → düzeltildi
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

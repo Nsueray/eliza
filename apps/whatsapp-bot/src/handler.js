@@ -258,13 +258,15 @@ async function handleMessage(text, user) {
         const durationMs = Date.now() - startTime;
 
         let response = result.answer || 'Sonuç bulunamadı.';
+        const clDashLink = getDashboardLink(result.intent, result.entities);
         if (result.data && Array.isArray(result.data) && result.data.length > 5) {
           const remaining = result.data.length - 5;
-          const dashboardLink = getDashboardLink(result.intent, result.entities);
-          const moreHint = dashboardLink
-            ? { tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${dashboardLink}`, en: `... and ${remaining} more results.\nFull list: ${dashboardLink}`, fr: `... et ${remaining} résultats de plus.\nListe complète: ${dashboardLink}` }
+          const moreHint = clDashLink
+            ? { tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${clDashLink}`, en: `... and ${remaining} more results.\nFull list: ${clDashLink}`, fr: `... et ${remaining} résultats de plus.\nListe complète: ${clDashLink}` }
             : { tr: `... ve ${remaining} sonuç daha.`, en: `... and ${remaining} more results.`, fr: `... et ${remaining} résultats de plus.` };
           response += `\n\n${moreHint[lang] || moreHint.tr}`;
+        } else if (clDashLink) {
+          response += `\n\n📊 ${clDashLink}`;
         }
 
         const finalResponse = wrapWithPersonality(response, user, lang, false, lastMessageTime);
@@ -325,7 +327,7 @@ async function handleMessage(text, user) {
     }
 
     const result = await queryEngine.run(questionForEngine, 0, lang, user);
-    const { intent, answer, data, _usage } = result;
+    const { intent, entities, answer, data, _usage } = result;
     const durationMs = Date.now() - startTime;
 
     // Handle clarification response
@@ -381,11 +383,10 @@ async function handleMessage(text, user) {
 
     let response = answer || 'Sonuç bulunamadı.';
 
-    // Sonnet already summarizes the data — don't render raw rows.
-    // Only add "more results" hint if data exceeds 5 rows.
+    // Dashboard link — always show unless null
+    const dashboardLink = getDashboardLink(intent, entities);
     if (data && Array.isArray(data) && data.length > 5) {
       const remaining = data.length - 5;
-      const dashboardLink = getDashboardLink(intent, entities);
       const moreHint = dashboardLink
         ? {
             tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${dashboardLink}`,
@@ -398,6 +399,8 @@ async function handleMessage(text, user) {
             fr: `... et ${remaining} résultats de plus.`,
           };
       response += `\n\n${moreHint[lang] || moreHint.tr}`;
+    } else if (dashboardLink) {
+      response += `\n\n📊 ${dashboardLink}`;
     }
 
     const finalResponse = wrapWithPersonality(response, user, lang, false, lastMessageTime);
