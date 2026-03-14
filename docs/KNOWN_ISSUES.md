@@ -191,3 +191,12 @@ Rules:
 **Root cause:** buildQuery() SQL template'lerinde year parametresi NULL olduğunda filtre devre dışı kalıyordu. Kullanıcı yıl belirtmezse entities.year = null → SQL tüm edition'ları topluyordu. 8 farklı intent'te aynı pattern mevcut.
 **Fix:** queryEngine.js run() fonksiyonunda year default logic genişletildi: (1) expo_name olan expo intent'lerinde year=currentYear, (2) top_agents/agent_performance'da period/relative_days yoksa year=currentYear. SQL template'leri değiştirilmedi — run() seviyesinde çözüm.
 **Files:** packages/ai/queryEngine.js
+
+---
+
+## [ISSUE-021] Dashboard links hardcoded year and missing for most intents
+**Status:** FIXED (2026-03-14)
+**First seen:** 2026-03-14
+**Description:** getDashboardLink() had year hardcoded as 2026 and only mapped 5 expo intents. Agent/sales intents (top_agents, agent_performance, revenue_summary etc.) returned no link. 12 of 19 intents had no dashboard link — "... ve X sonuç daha" messages appeared without a URL.
+**Fix:** getDashboardLink(intent, entities) — accepts entities, uses entities.year dynamically (fallback: currentYear). 11 expo intents → /expos?year=YYYY, 7 sales intents → / (War Room). All 18 data intents now have links.
+**Files:** apps/whatsapp-bot/src/handler.js

@@ -633,7 +633,11 @@ Veri Formatlama:
 - Etiketli: "SIEMA 2026 — Ülke: France — Tarih: 22-Eylül-2026 — Kontrat: 45 — m²: 1.234 — Gelir: €562.512"
 - Tarihler: TR "19-Mayıs-2026", EN "May 19 2026", FR "19-mai-2026"
 - Para dile gore: TR "€76.715", EN "€76,715", FR "76 715 €"
-- Max 5 satir, fazlasi: "... ve X sonuç daha" + dashboard linki (eliza.elanfairs.com/expos)
+- Max 5 satir, fazlasi: "... ve X sonuç daha" + intent-based dashboard linki
+- getDashboardLink(intent, entities): expo intent'leri → /expos?year=YYYY, sales intent'leri → / (War Room)
+- Year dinamik: entities.year || currentYear (hardcoded 2026 kaldırıldı)
+- Expo intents (11): expo_progress, expo_list, expo_agent_breakdown, expo_company_list, cluster_performance, country_count, exhibitors_by_country, days_to_event, rebooking_rate, price_per_m2, payment_status
+- Sales intents (7): top_agents, agent_performance, agent_country_breakdown, agent_expo_breakdown, monthly_trend, revenue_summary, general_stats
 - Satir arasi bos satir ile ayrilir
 
 # 26. Message Generator (Phase 6)
@@ -828,6 +832,7 @@ ISSUE-014: "bu ay" sorgularında year filtresi eksikti → month varsa year=curr
 ISSUE-015: handler.js user.whatsapp_phone kullanıyordu ama auth.js user.phone döndürüyor → phone field mismatch düzeltildi
 ISSUE-019: Hybrid SQL CEO-only kısıtlaması
 ISSUE-020: Year filter eksik — expo/agent sorguları tüm yılların verisini döndürüyordu → run() seviyesinde year=currentYear default
+ISSUE-021: Dashboard linkler hardcoded 2026, sadece 5 expo intent → getDashboardLink(intent, entities) dinamik year + 18 intent mapped
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

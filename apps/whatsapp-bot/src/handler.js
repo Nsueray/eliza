@@ -121,19 +121,35 @@ function wrapWithPersonality(response, user, lang, isCommand, lastMessageTime) {
 }
 
 /**
- * Return dashboard link for a given intent, or null if no relevant page exists.
+ * Return dashboard link for a given intent + entities.
+ * Uses entities.year for dynamic year param, falls back to current year.
  */
-function getDashboardLink(intent) {
+function getDashboardLink(intent, entities) {
   const DASHBOARD_BASE = 'https://eliza.elanfairs.com';
-  const INTENT_LINKS = {
-    expo_progress: `${DASHBOARD_BASE}/expos?year=2026`,
-    expo_list: `${DASHBOARD_BASE}/expos?year=2026`,
-    expo_agent_breakdown: `${DASHBOARD_BASE}/expos?year=2026`,
-    expo_company_list: `${DASHBOARD_BASE}/expos?year=2026`,
-    cluster_performance: `${DASHBOARD_BASE}/expos?year=2026`,
-    // agent intents: /sales sayfası henüz yok, link eklenmeyecek
-  };
-  return INTENT_LINKS[intent] || null;
+  const year = entities?.year || new Date().getFullYear();
+
+  // Expo-related intents → Expo Directory
+  const EXPO_INTENTS = [
+    'expo_progress', 'expo_list', 'expo_agent_breakdown',
+    'expo_company_list', 'cluster_performance', 'country_count',
+    'exhibitors_by_country', 'days_to_event', 'rebooking_rate',
+    'price_per_m2', 'payment_status',
+  ];
+  if (EXPO_INTENTS.includes(intent)) {
+    return `${DASHBOARD_BASE}/expos?year=${year}`;
+  }
+
+  // Agent/sales intents → War Room (has Sales Leaderboard)
+  const SALES_INTENTS = [
+    'top_agents', 'agent_performance', 'agent_country_breakdown',
+    'agent_expo_breakdown', 'monthly_trend', 'revenue_summary',
+    'general_stats',
+  ];
+  if (SALES_INTENTS.includes(intent)) {
+    return DASHBOARD_BASE;
+  }
+
+  return null;
 }
 
 /**
@@ -241,7 +257,7 @@ async function handleMessage(text, user) {
         let response = result.answer || 'Sonuç bulunamadı.';
         if (result.data && Array.isArray(result.data) && result.data.length > 5) {
           const remaining = result.data.length - 5;
-          const dashboardLink = getDashboardLink(result.intent);
+          const dashboardLink = getDashboardLink(result.intent, result.entities);
           const moreHint = dashboardLink
             ? { tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${dashboardLink}`, en: `... and ${remaining} more results.\nFull list: ${dashboardLink}`, fr: `... et ${remaining} résultats de plus.\nListe complète: ${dashboardLink}` }
             : { tr: `... ve ${remaining} sonuç daha.`, en: `... and ${remaining} more results.`, fr: `... et ${remaining} résultats de plus.` };
@@ -366,7 +382,7 @@ async function handleMessage(text, user) {
     // Only add "more results" hint if data exceeds 5 rows.
     if (data && Array.isArray(data) && data.length > 5) {
       const remaining = data.length - 5;
-      const dashboardLink = getDashboardLink(intent);
+      const dashboardLink = getDashboardLink(intent, entities);
       const moreHint = dashboardLink
         ? {
             tr: `... ve ${remaining} sonuç daha.\nTüm liste: ${dashboardLink}`,
