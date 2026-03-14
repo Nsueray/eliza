@@ -1025,9 +1025,24 @@ async function run(question, _depth = 0, lang, user) {
     } catch { /* fallback to default year */ }
   }
 
-  // Note: missing_metric clarification infrastructure is in place but not triggered.
-  // expo_agent_breakdown and top_agents already return all metrics (m², revenue, contracts).
-  // Metric clarification can be enabled for future intents that need it.
+  // Metric clarification — only for expo_agent_breakdown WITH an expo_name
+  // top_agents defaults to revenue which is the expected behavior
+  // "SIEMA'ya en çok kim satmış?" → ask: revenue? m²? contracts?
+  if (entities && entities.missing_metric && intent === 'expo_agent_breakdown' && entities.expo_name) {
+    return {
+      intent: 'clarification',
+      clarification: {
+        slot: 'metric',
+        options: ['Gelir (€)', 'Alan (m²)', 'Sözleşme sayısı'],
+        options_en: ['Revenue (€)', 'Area (m²)', 'Contract count'],
+        options_fr: ['Revenu (€)', 'Surface (m²)', 'Nombre de contrats'],
+        original_question: question,
+        original_intent: intent,
+        original_entities: entities,
+      },
+      answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
+    };
+  }
 
   if (entities && entities.missing_expo && ['country_count', 'exhibitors_by_country', 'expo_company_list'].includes(intent)) {
     try {

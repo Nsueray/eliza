@@ -432,8 +432,8 @@ function extractEntities(norm, original) {
     entities.missing_year = true;
   }
 
-  // Ranking/comparison intents without explicit metric
-  // (detected by caller based on intent — router only flags if no metric keyword found)
+  // Note: missing_metric is set here but only acted on in queryEngine.js
+  // for specific intents (expo_agent_breakdown, top_agents)
   const hasMetricKeyword = /\bm2\b|\bmetrekare\b|\bgelir\b|\brevenue\b|\bkontrat\b|\bcontract\b|\bsozlesme\b/.test(norm);
   if (!hasMetricKeyword && !entities.metric) {
     entities.missing_metric = true;

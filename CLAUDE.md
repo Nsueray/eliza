@@ -818,7 +818,7 @@ Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)
 Runner: node packages/ai/benchmark.js
 Hedef: >= 90% PASS rate
 
-Son sonuc: 49 PASS / 0 FAIL / 1 WARN — %98
+Son sonuc: 46 PASS / 0 FAIL / 4 WARN — %92
 
 Intent synonym mapping (benchmark tolerance):
 - exhibitors_by_country <-> country_count
@@ -858,15 +858,19 @@ Location: packages/ai/conversationMemory.js
 - Chronological order (oldest first)
 - Return: [{role: 'user', content}, {role: 'assistant', content}]
 
-## 12b: Question Rewrite
+## 12b: Question Rewrite (Conservative)
 - rewriteQuestion(currentQuestion, history) → Haiku ile follow-up soru → bağımsız soru
 - History < 2 mesaj → rewrite yapılmaz (original döner)
 - Hata durumunda sessizce original question kullanılır
 - _usage bilgisi döndürülür (token tracking)
 - Response truncation: 300 char max per history entry (prompt boyutunu küçük tut)
-- Prompt: Entity carry-forward odaklı (expo adı, agent adı, ülke, metrik)
 - Bilinen agent isimleri: Elif, Meriem, Emircan, Joanna, Amaka, Damilola, Sinerji, Anka
 - History formatı: "User: soru\nAssistant: cevap" (hem soru hem cevap gider)
+- Conservative rewrite: bağımsız soruları DEĞİŞTİRMEZ
+  - Follow-up ipuçları (rewrite yap): "peki", "onun", "bunun", "ya", "ayrıca", "o fuar", eksik özne ("geliri?", "riski ne?")
+  - Bağımsız ipuçları (rewrite YAPMA): kendi öznesi var ("Elif kaç satmış?"), genel soru ("en iyi satışçı kim?"), farklı entity
+  - Örnek: History=SIEMA → "en iyi satışçı kim?" → DEĞİŞMEZ (bağımsız)
+  - Örnek: History=SIEMA → "peki geliri?" → "SIEMA 2026 geliri ne kadar?" (follow-up)
 
 Handler integration (handler.js):
 - Komutlar (.brief, .help vb.) rewrite'dan geçmez
@@ -899,18 +903,31 @@ Migration: packages/db/migrations/009_pending_clarification.sql
 
 Ambiguity flags (set by router.js extractEntities + Haiku INTENT_PROMPT):
 - missing_year: expo_name present but no year → year clarification
-- missing_metric: no metric keyword (m2/gelir/kontrat) → metric clarification (currently disabled)
+- missing_metric: no metric keyword (m2/gelir/kontrat) → metric clarification
 - missing_expo: expo-required intent but no expo name → expo clarification
+
+Clarification slots (4 types):
+1. year: expo query without year, multiple editions exist → "Hangi edisyon? 1. 2026 2. 2025"
+2. expo: expo-required intent without expo → "Hangi fuar? 1. SIEMA 2. Madesign ..."
+3. metric: expo_agent_breakdown + expo_name + no metric → "Neye göre? 1. Gelir 2. m² 3. Sözleşme"
+4. context: bağımsız soru + history'de expo var → "Ne için? 1. SIEMA 2026 2. Genel"
 
 Clarification flow:
 1. extractIntent → entities with missing_* flags
-2. run() checks flags BEFORE year defaults:
+2. queryEngine.js run() checks flags BEFORE year defaults:
    - missing_year + expo_name + YEAR_CLARIFICATION_INTENTS → DB query for editions → if >1, ask user
+   - missing_metric + expo_agent_breakdown + expo_name → metric clarification
    - missing_expo + expo-required intent → list upcoming expos → ask user
-3. Return intent='clarification' with clarification object {slot, options, original_question, original_intent}
-4. handler.js saves pending state to users.pending_clarification (JSONB)
-5. Next message: handler checks pending, resolves answer (number/text match), rebuilds question
-6. Rebuilt question goes through normal pipeline
+3. handler.js checks context ambiguity AFTER queryEngine.run():
+   - rewrite unchanged (bağımsız soru) + history'de expo var + intent in CONTEXT_AMBIGUOUS_INTENTS → context clarification
+   - CONTEXT_AMBIGUOUS_INTENTS: top_agents, agent_performance, expo_agent_breakdown, revenue_summary
+4. Return intent='clarification' with clarification object {slot, options, original_question, original_intent}
+5. handler.js saves pending state to users.pending_clarification (JSONB)
+6. Next message: handler checks pending, resolves answer (number/text match), rebuilds question
+7. Rebuilt question goes through normal pipeline
+
+Metric resolve: "1"→gelir keyword, "2"→m2 keyword, "3"→kontrat keyword eklenir soruya
+Context resolve: "1"→expo+year prepend, "2" (Genel)→soruyu olduğu gibi çalıştır
 
 Pending state:
 - Stored in: users.pending_clarification JSONB
@@ -924,4 +941,4 @@ Excluded from year clarification: rebooking_rate (cross-edition by nature), days
 Ambiguity flags cleaned up (deleted from entities) before buildQuery to prevent interference.
 
 # currentDate
-Today's date is 2026-03-13.
+Today's date is 2026-03-14.

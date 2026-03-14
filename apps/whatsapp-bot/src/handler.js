@@ -240,10 +240,19 @@ async function handleMessage(text, user) {
         let rebuiltQuestion = pending.original_question;
         if (pending.slot === 'year') rebuiltQuestion = `${pending.original_question} ${resolvedValue}`;
         if (pending.slot === 'metric') {
-          const metricWord = resolvedValue.includes('m²') ? 'm2' : resolvedValue.includes('Gelir') ? 'gelir' : 'kontrat';
+          const metricWord = resolvedValue.includes('m²') ? 'm2' : resolvedValue.includes('Gelir') || resolvedValue.includes('Revenue') || resolvedValue.includes('Revenu') ? 'gelir' : 'kontrat';
           rebuiltQuestion = `${pending.original_question} ${metricWord}`;
         }
         if (pending.slot === 'expo') rebuiltQuestion = `${resolvedValue} ${pending.original_question}`;
+        if (pending.slot === 'context') {
+          // If user chose "Genel" option (last option) → run original as-is
+          // Otherwise → prepend the expo context
+          const isGeneral = resolvedValue.toLowerCase().startsWith('genel') || resolvedValue.toLowerCase().startsWith('general') || resolvedValue.toLowerCase().startsWith('général');
+          if (!isGeneral) {
+            rebuiltQuestion = `${resolvedValue} ${pending.original_question}`;
+          }
+          // else: rebuiltQuestion stays as original_question (general query)
+        }
 
         const startTime = Date.now();
 
@@ -333,12 +342,20 @@ async function handleMessage(text, user) {
     // Handle clarification response
     if (intent === 'clarification' && result.clarification) {
       const c = result.clarification;
-      const optionsList = c.options.map((o, i) => `${i + 1}. ${o}`).join('\n');
+
+      // Use language-specific options for metric clarification
+      let displayOptions = c.options;
+      if (c.slot === 'metric') {
+        if (lang === 'en' && c.options_en) displayOptions = c.options_en;
+        else if (lang === 'fr' && c.options_fr) displayOptions = c.options_fr;
+      }
+      const optionsList = displayOptions.map((o, i) => `${i + 1}. ${o}`).join('\n');
 
       const questionTexts = {
         year: { tr: 'Hangi edisyonu soruyorsun?', en: 'Which edition?', fr: 'Quelle édition?' },
         metric: { tr: 'Neye göre sıralayayım?', en: 'Sort by what?', fr: 'Trier par quoi?' },
         expo: { tr: 'Hangi fuar?', en: 'Which expo?', fr: 'Quel expo?' },
+        context: { tr: 'Ne için soruyorsun?', en: 'Which context?', fr: 'Pour quel contexte ?' },
       };
 
       const q = (questionTexts[c.slot] || questionTexts.year)[lang] || (questionTexts[c.slot] || questionTexts.year).tr;
@@ -373,6 +390,68 @@ async function handleMessage(text, user) {
         is_command: false,
       });
       return finalResponse;
+    }
+
+    // Context ambiguity: independent question + expo in recent history
+    // e.g., user asked about SIEMA, then "en iyi satışçı kim?" — do they mean SIEMA or general?
+    const CONTEXT_AMBIGUOUS_INTENTS = ['top_agents', 'agent_performance', 'expo_agent_breakdown', 'revenue_summary'];
+    const rewriteUnchanged = questionForEngine === questionText; // rewrite didn't modify
+    if (rewriteUnchanged && CONTEXT_AMBIGUOUS_INTENTS.includes(intent) && !entities?.expo_name) {
+      // Check if conversation history has an expo context
+      try {
+        const { messages: histMsgs } = await getHistory(user?.phone || user?.whatsapp_phone);
+        if (histMsgs && histMsgs.length >= 2) {
+          const histText = histMsgs.filter(m => m.role === 'user').map(m => m.content).join(' ').toLowerCase();
+          const EXPO_BRANDS_LC = ['siema', 'mega clima', 'megaclima', 'foodexpo', 'food expo', 'buildexpo', 'build expo', 'plastexpo', 'plast expo', 'madesign', 'hvac', 'elect expo', 'electexpo'];
+          const foundExpo = EXPO_BRANDS_LC.find(b => histText.includes(b));
+          if (foundExpo) {
+            const expoDisplay = foundExpo.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+            const currentYear = new Date().getFullYear();
+            const expoOption = `${expoDisplay} ${currentYear}`;
+            const generalOptions = {
+              tr: ['Genel (tüm fuarlar ' + currentYear + ')'],
+              en: ['General (all expos ' + currentYear + ')'],
+              fr: ['Général (tous les salons ' + currentYear + ')'],
+            };
+            const options = [expoOption, (generalOptions[lang] || generalOptions.tr)[0]];
+
+            // Return as clarification
+            const questionTexts = { tr: 'Ne için soruyorsun?', en: 'Which context?', fr: 'Pour quel contexte ?' };
+            const q = questionTexts[lang] || questionTexts.tr;
+            const optionsList = options.map((o, i) => `${i + 1}. ${o}`).join('\n');
+            const clarificationText = `${q}\n${optionsList}`;
+
+            await dbQuery('UPDATE users SET pending_clarification = $1 WHERE id = $2', [
+              JSON.stringify({
+                slot: 'context',
+                options,
+                original_question: trimmed,
+                original_intent: intent,
+                original_entities: entities,
+                created_at: new Date().toISOString(),
+              }),
+              user.id
+            ]);
+
+            const finalResponse = wrapWithPersonality(clarificationText, user, lang, false, lastMessageTime);
+            logMessage({
+              user_phone: user?.phone || user?.whatsapp_phone || null,
+              user_name: user?.name || null,
+              user_role: user?.role || null,
+              message_text: trimmed,
+              response_text: finalResponse,
+              intent: 'clarification',
+              input_tokens: _usage?.total_input || 0,
+              output_tokens: _usage?.total_output || 0,
+              model_intent: _usage?.intent_model || null,
+              model_answer: null,
+              duration_ms: durationMs,
+              is_command: false,
+            });
+            return finalResponse;
+          }
+        }
+      } catch { /* fallback — skip context clarification */ }
     }
 
     // Add rewrite tokens to usage
