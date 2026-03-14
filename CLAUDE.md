@@ -170,6 +170,16 @@ Completed (cont.):
   - API: /api/intelligence/* (4 endpoints), /api/system/status
   - /api/logs enhanced: status/date_range filters, rewritten_question, byModelIntent
 
+Completed (cont. 2):
+- Phase A1+A2: Semantic Frame Extraction + Ambiguity Gate
+  - extractSemanticFrame() replaces extractIntent() as primary extraction
+  - FRAME_PROMPT: structured JSON frame with task types, ambiguity_flags, answerability
+  - Router fast path unchanged (0 API cost, confidence: 1.0)
+  - Haiku fallback: semantic frame extraction with 14 few-shot examples
+  - Ambiguity gate: unanswerable → refuse, critical → clarification (priority: metric > expo > year), warning → defaults
+  - Backward-compatible entities mapping to buildQuery/generateAnswer
+  - Benchmark: 96% PASS (48/50, 0 FAIL, 2 WARN)
+
 In Progress:
 
 Pending:
@@ -498,10 +508,13 @@ Input: { question: string }
 Output: { question, intent, answer, data }
 
 Architecture:
-1. Intent Extraction (Claude) → { intent, entities }
-2. Query Builder → parameterized SQL
-3. SQL Validator → SELECT only, whitelist tables, LIMIT 200
-4. Answer Generator (Claude) → 1-3 sentence insight, no markdown
+1. Semantic Frame Extraction → extractSemanticFrame() → { intent, entities, ambiguity_flags, answerability }
+   - Router fast path (0 API cost) → keyword match → {intent, entities, confidence: 1.0}
+   - Haiku fallback → FRAME_PROMPT → structured JSON frame → backward-compatible entities
+2. Ambiguity Gate → unanswerable refuse, critical clarification, warning defaults
+3. Query Builder → parameterized SQL
+4. SQL Validator → SELECT only, whitelist tables, LIMIT 200
+5. Answer Generator (Claude) → 1-3 sentence insight, no markdown
 
 Supported intents (19):
 - expo_progress: expo ilerleme durumu
@@ -717,9 +730,10 @@ Intent Engine Notlari:
 - price_per_m2: agent bazlı, m2>0 AND sales_agent IS NOT NULL filtresi
 
 ## AI Model Split
-- Intent: Router (keyword, 0 API) → Haiku fallback (fast, cheap)
+- Intent: Router (keyword, 0 API) → Haiku Semantic Frame fallback (fast, cheap, structured JSON)
 - Answer: Sonnet (quality, CEO-friendly)
 - Router: packages/ai/router.js — accent normalization, priority-ordered rules
+- Semantic Frame: extractSemanticFrame() with FRAME_PROMPT — task types, ambiguity detection, answerability
 - Env: AI_INTENT_MODEL, AI_ANSWER_MODEL
 
 ## Router Architecture
@@ -818,7 +832,7 @@ Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)
 Runner: node packages/ai/benchmark.js
 Hedef: >= 90% PASS rate
 
-Son sonuc: 46 PASS / 0 FAIL / 4 WARN — %92
+Son sonuc: 48 PASS / 0 FAIL / 2 WARN — %96 (Semantic Frame)
 
 Intent synonym mapping (benchmark tolerance):
 - exhibitors_by_country <-> country_count

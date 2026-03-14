@@ -224,11 +224,12 @@ Update logMessage() in handler.js to populate these fields.
 
 # PHASE A: SEMANTIC FRAME + AMBIGUITY DETECTION
 
-## A1. Semantic Frame Extraction
+## ✅ A1. Semantic Frame Extraction — COMPLETED (2026-03-14)
 
 ### What Changes
 Replace current `extractIntent()` Haiku prompt with a semantic frame prompt.
 Router fast path stays unchanged — semantic frame only runs when router doesn't match.
+**Implementation:** extractSemanticFrame() with FRAME_PROMPT in queryEngine.js. 14 few-shot examples. Backward-compatible entities mapping. Benchmark: 96% (48/50 PASS, 0 FAIL, 2 WARN).
 
 ### File: packages/ai/queryEngine.js
 
@@ -513,9 +514,14 @@ async function extractSemanticFrame(question) {
 
 ---
 
-## A2. Material Ambiguity Gate
+## ✅ A2. Material Ambiguity Gate — COMPLETED (2026-03-14)
 
-### File: NEW — packages/ai/ambiguityGate.js
+Implemented inline in queryEngine.js run() instead of separate file.
+- Unanswerable check: frame.answerability === 'unavailable' → refuse with reason
+- Critical ambiguity: priority order metric > expo > year → max 1 clarification turn
+- Warning flags: default to current year (no clarification)
+
+### File: packages/ai/queryEngine.js (ambiguity gate in run())
 
 ```javascript
 /**

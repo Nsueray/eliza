@@ -220,6 +220,248 @@ async function extractIntent(question) {
   return parsed;
 }
 
+// Semantic Frame Prompt — replaces INTENT_PROMPT for Haiku fallback
+const FRAME_PROMPT = `You are ELIZA's semantic frame extractor for Elan Expo (exhibition organizer).
+
+Given a business question, extract a structured JSON frame.
+
+DATABASE CONTEXT:
+- Expos: SIEMA, Mega Clima, Madesign, Foodexpo, Buildexpo, Plastexpo, Elect Expo, HVAC
+- Expos have editions by year (e.g., SIEMA 2024, SIEMA 2025, SIEMA 2026)
+- Agents: Elif AY, Meriem, Emircan, Joanna, Amaka, Damilola, Sinerji, Anka, Bengu
+- Countries: Turkey, Nigeria, Morocco, Kenya, Algeria, Ghana, China
+- Metrics: m² (area sold), revenue (€), contracts (count), progress (%), risk level, velocity
+- Data available: 2014-2026 (main focus 2024-2026)
+- Data NOT available: payment balance (only contract revenue), salaries, personal info, currency conversion
+- "Elan Expo" is the COMPANY NAME, not an expo/exhibition. Never use "Elan Expo" as expo_name.
+
+TASK TYPES:
+- aggregate: SUM/COUNT/AVG (e.g., "total revenue", "how many contracts")
+- rank_top: ranking by metric (e.g., "top agents", "who sold most")
+- compare: side-by-side (e.g., "2025 vs 2026", "SIEMA vs Madesign")
+- trend: over time (e.g., "monthly sales", "weekly trend")
+- list: filtered items (e.g., "expo list", "company list")
+- detail: single entity deep dive (e.g., "SIEMA 2026 details")
+- exception: outliers/risks (e.g., "at risk expos", "inactive agents")
+- explain: why analysis (e.g., "why is SIEMA at risk?")
+
+AMBIGUITY RULES:
+- If expo name given but year not specified AND the question is about historical data (not current status) → flag expo_year as critical
+- If expo name given but year not specified AND the question is about current status (risk, progress, velocity, upcoming) → set expo_year to current year (do NOT flag as critical)
+- If ranking/comparison asked but metric not specified → flag metric as critical
+- If time period could mean different things → flag time_scope as warning
+- If question is about data that ELIZA doesn't have → set answerability to "unavailable" with reason
+- Questions about "what needs attention", "important topics", "priorities" → these are answerable as general_stats (ELIZA has risk and performance data)
+
+INTENT MAPPING — use these exact intent names in maps_to_intent:
+expo_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown,
+expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance,
+payment_status, rebooking_rate, price_per_m2, country_count,
+exhibitors_by_country, top_agents, revenue_summary, expo_list,
+company_search, days_to_event, general_stats, compound
+
+IMPORTANT COUNT RULE: When the question asks "how many" / "kaç tane" / "combien" and expects a NUMBER answer (not a list), set metric to "count".
+
+If the question contains multiple distinct questions (connected by "ve", "and", "also", "ayrıca"), set maps_to_intent to "compound".
+
+Output ONLY valid JSON, nothing else:
+{
+  "language": "tr|en|fr",
+  "task": "aggregate|rank_top|compare|trend|list|detail|exception|explain",
+  "subject": "sales_agent|expo|company|country|office|general",
+  "expo_name": "string or null",
+  "expo_year": "number or null",
+  "agent_name": "string or null",
+  "country": "string or null",
+  "metric": "m2|revenue|contracts|progress|risk|velocity|count|null",
+  "time_scope": {"type": "year|month|week|day|range|relative_days|null", "value": "..."},
+  "group_by": "string or null",
+  "ambiguity_flags": [
+    {"slot": "field_name", "severity": "critical|warning", "options": ["opt1","opt2"], "options_from_db": false}
+  ],
+  "answerability": "answerable|unavailable|partial",
+  "unavailable_reason": "string or null",
+  "confidence": 0-100,
+  "maps_to_intent": "one of the intent names above or null"
+}
+
+FEW-SHOT EXAMPLES:
+
+Q: "SIEMA'ya en çok kim satmış?"
+{"language":"tr","task":"rank_top","subject":"sales_agent","expo_name":"SIEMA","expo_year":null,"agent_name":null,"country":null,"metric":null,"time_scope":null,"group_by":null,"ambiguity_flags":[{"slot":"expo_year","severity":"critical","options":["2026","2025","2024"],"options_from_db":true},{"slot":"metric","severity":"critical","options":["m²","revenue (€)","contracts"],"options_from_db":false}],"answerability":"answerable","unavailable_reason":null,"confidence":35,"maps_to_intent":"expo_agent_breakdown"}
+
+Q: "SIEMA 2026 kaç m²?"
+{"language":"tr","task":"detail","subject":"expo","expo_name":"SIEMA","expo_year":2026,"agent_name":null,"country":null,"metric":"m2","time_scope":{"type":"year","value":2026},"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":98,"maps_to_intent":"expo_progress"}
+
+Q: "elif bu ay kaç m2 satmış?"
+{"language":"tr","task":"aggregate","subject":"sales_agent","expo_name":null,"expo_year":null,"agent_name":"Elif","country":null,"metric":"m2","time_scope":{"type":"month","value":"current"},"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":95,"maps_to_intent":"agent_performance"}
+
+Q: "kalan ödemeler ne kadar?"
+{"language":"tr","task":"aggregate","subject":"general","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"payment_balance","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"partial","unavailable_reason":"Actual payment balance (Balance1) is not synced from Zoho. Only contract revenue (Grand_Total) is available.","confidence":80,"maps_to_intent":"payment_status"}
+
+Q: "Türkiye'nin nüfusu kaç?"
+{"language":"tr","task":null,"subject":null,"expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":null,"time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"unavailable","unavailable_reason":"This question is outside ELIZA's scope. ELIZA only has Elan Expo business data.","confidence":99,"maps_to_intent":null}
+
+Q: "en çok gelir getiren 3 ülke hangileri?"
+{"language":"tr","task":"rank_top","subject":"country","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"revenue","time_scope":null,"group_by":"country","ambiguity_flags":[{"slot":"expo_year","severity":"warning","options":["2026","all_time"],"options_from_db":false}],"answerability":"answerable","unavailable_reason":null,"confidence":75,"maps_to_intent":"general_stats"}
+
+Q: "1 euro kaç TL?"
+{"language":"tr","task":null,"subject":null,"expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":null,"time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"unavailable","unavailable_reason":"ELIZA does not have live exchange rate data.","confidence":99,"maps_to_intent":null}
+
+Q: "top agents this month"
+{"language":"en","task":"rank_top","subject":"sales_agent","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":null,"time_scope":{"type":"month","value":"current"},"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":85,"maps_to_intent":"top_agents"}
+
+Q: "SIEMA risk durumu nedir?"
+{"language":"tr","task":"detail","subject":"expo","expo_name":"SIEMA","expo_year":2026,"agent_name":null,"country":null,"metric":"risk","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":90,"maps_to_intent":"expo_progress"}
+
+Q: "Madesign hedefe ulaşacak mı?"
+{"language":"tr","task":"detail","subject":"expo","expo_name":"Madesign","expo_year":2026,"agent_name":null,"country":null,"metric":"progress","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":90,"maps_to_intent":"expo_progress"}
+
+Q: "Bugün benim için en önemli 3 konu ne?"
+{"language":"tr","task":"exception","subject":"general","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"risk","time_scope":{"type":"day","value":"today"},"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":75,"maps_to_intent":"general_stats"}
+
+Q: "Hedefine en yakın expo hangisi?"
+{"language":"tr","task":"rank_top","subject":"expo","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"progress","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":85,"maps_to_intent":"expo_list"}
+
+Q: "Hedefinden en uzak expo hangisi?"
+{"language":"tr","task":"rank_top","subject":"expo","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"progress","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":85,"maps_to_intent":"expo_list"}
+
+Q: "Which expos are currently at risk?"
+{"language":"en","task":"exception","subject":"expo","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"risk","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":90,"maps_to_intent":"expo_list"}`;
+
+// Valid intents for backward compatibility
+const VALID_INTENTS = [
+  'expo_progress', 'agent_performance', 'agent_country_breakdown', 'agent_expo_breakdown',
+  'expo_agent_breakdown', 'expo_company_list', 'monthly_trend', 'cluster_performance',
+  'payment_status', 'rebooking_rate', 'price_per_m2', 'country_count',
+  'exhibitors_by_country', 'top_agents', 'revenue_summary', 'expo_list',
+  'company_search', 'days_to_event', 'general_stats', 'compound',
+];
+
+/**
+ * Semantic Frame Extraction — replaces extractIntent() as the primary extraction method.
+ * Router fast path stays unchanged (0 API cost).
+ * Falls back to Haiku with FRAME_PROMPT for structured extraction.
+ */
+async function extractSemanticFrame(question) {
+  // Try keyword router first (0 API cost)
+  const routed = route(question);
+  if (routed) {
+    return {
+      frame: null,
+      intent: routed.intent,
+      entities: routed.entities,
+      confidence: 1.0,
+      ambiguity_flags: [],
+      answerability: 'answerable',
+      source: 'router',
+      _usage: { input_tokens: 0, output_tokens: 0, model: 'router' },
+    };
+  }
+
+  // LLM semantic frame extraction (Haiku — fast, cheap)
+  const response = await client.messages.create({
+    model: INTENT_MODEL,
+    max_tokens: 600,
+    system: FRAME_PROMPT,
+    messages: [{ role: 'user', content: `Question: ${question}` }],
+  });
+
+  const usage = {
+    input_tokens: response.usage?.input_tokens || 0,
+    output_tokens: response.usage?.output_tokens || 0,
+    model: INTENT_MODEL,
+  };
+
+  const text = response.content[0].text.trim();
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    return {
+      frame: null, intent: 'general_stats', entities: {},
+      confidence: 0, ambiguity_flags: [], answerability: 'answerable',
+      source: 'haiku_parse_fail', _usage: usage,
+    };
+  }
+
+  let frame;
+  try {
+    frame = JSON.parse(jsonMatch[0]);
+  } catch {
+    return {
+      frame: null, intent: 'general_stats', entities: {},
+      confidence: 0, ambiguity_flags: [], answerability: 'answerable',
+      source: 'haiku_json_fail', _usage: usage,
+    };
+  }
+
+  // Map frame to existing intent + entities for backward compatibility
+  let intent = frame.maps_to_intent || 'general_stats';
+  if (!VALID_INTENTS.includes(intent)) intent = 'general_stats';
+
+  const entities = {};
+  if (frame.expo_name) entities.expo_name = frame.expo_name;
+  if (frame.agent_name) entities.agent_name = frame.agent_name;
+  if (frame.country) entities.country = frame.country;
+
+  // Year extraction from frame
+  if (frame.expo_year) {
+    entities.year = frame.expo_year;
+  } else if (frame.time_scope?.type === 'year') {
+    entities.year = frame.time_scope.value === 'current' ? new Date().getFullYear() : frame.time_scope.value;
+  }
+
+  // Month extraction
+  if (frame.time_scope?.type === 'month') {
+    entities.month = frame.time_scope.value === 'current' ? new Date().getMonth() + 1 : frame.time_scope.value;
+  }
+
+  // Week/day time scope → period
+  if (frame.time_scope?.type === 'week') {
+    entities.period = frame.time_scope.value === 'current' ? 'this_week' : 'last_week';
+  }
+  if (frame.time_scope?.type === 'day') {
+    if (frame.time_scope.value === 'today') entities.period = 'today';
+    else if (frame.time_scope.value === 'yesterday') entities.period = 'yesterday';
+  }
+
+  // Relative days
+  if (frame.time_scope?.type === 'relative_days') {
+    entities.relative_days = parseInt(frame.time_scope.value) || null;
+  }
+
+  // Metric
+  if (frame.metric) entities.metric = frame.metric;
+
+  // Resolve "current" values
+  if (entities.year === 'current') entities.year = new Date().getFullYear();
+  if (entities.month === 'current') entities.month = new Date().getMonth() + 1;
+
+  // Compound sub-questions
+  if (intent === 'compound' && frame.sub_questions) {
+    entities.questions = frame.sub_questions;
+  }
+
+  // Map ambiguity_flags to legacy missing_* flags for existing clarification logic
+  const flags = frame.ambiguity_flags || [];
+  for (const flag of flags) {
+    if (flag.slot === 'expo_year' && flag.severity === 'critical') entities.missing_year = true;
+    if (flag.slot === 'metric' && flag.severity === 'critical') entities.missing_metric = true;
+    if (flag.slot === 'expo_name' && flag.severity === 'critical') entities.missing_expo = true;
+  }
+
+  return {
+    frame,
+    intent,
+    entities,
+    confidence: frame.confidence || 0,
+    ambiguity_flags: flags,
+    answerability: frame.answerability || 'answerable',
+    unavailable_reason: frame.unavailable_reason || null,
+    source: 'haiku_frame',
+    _usage: usage,
+  };
+}
+
 // STEP 2 — Query Builder
 function buildQuery(intent, entities) {
   const e = entities || {};
@@ -987,13 +1229,66 @@ async function run(question, _depth = 0, lang, user) {
     };
   }
 
-  const intentResult = await extractIntent(question);
-  const intentUsage = intentResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
-  delete intentResult._usage;
-  const { intent, entities } = intentResult;
+  const frameResult = await extractSemanticFrame(question);
+  const intentUsage = frameResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
+  const { intent, entities } = frameResult;
+
+  // Ambiguity Gate — check answerability from semantic frame
+  if (frameResult.answerability === 'unavailable' && frameResult.unavailable_reason) {
+    return {
+      intent: 'unavailable',
+      entities: entities || {},
+      data: [],
+      answer: frameResult.unavailable_reason,
+      _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
+    };
+  }
 
   // Clarification check — ask instead of guessing
   const currentYear = new Date().getFullYear();
+
+  // Ambiguity Gate — critical flags from semantic frame trigger clarification
+  // Priority: 1. metric  2. expo  3. year (max 1 clarification turn)
+  // Metric clarification — only for expo_agent_breakdown WITH an expo_name
+  if (entities && entities.missing_metric && intent === 'expo_agent_breakdown' && entities.expo_name) {
+    return {
+      intent: 'clarification',
+      clarification: {
+        slot: 'metric',
+        options: ['Gelir (€)', 'Alan (m²)', 'Sözleşme sayısı'],
+        options_en: ['Revenue (€)', 'Area (m²)', 'Contract count'],
+        options_fr: ['Revenu (€)', 'Surface (m²)', 'Nombre de contrats'],
+        original_question: question,
+        original_intent: intent,
+        original_entities: entities,
+      },
+      answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
+    };
+  }
+
+  // Expo clarification
+  if (entities && entities.missing_expo && ['country_count', 'exhibitors_by_country', 'expo_company_list'].includes(intent)) {
+    try {
+      const upcomingExpos = await query(
+        `SELECT DISTINCT name FROM expos WHERE start_date > CURRENT_DATE ORDER BY start_date ASC LIMIT 10`
+      );
+      if (upcomingExpos.rows.length > 0) {
+        return {
+          intent: 'clarification',
+          clarification: {
+            slot: 'expo',
+            options: upcomingExpos.rows.map(r => r.name),
+            original_question: question,
+            original_intent: intent,
+            original_entities: entities,
+          },
+          answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
+        };
+      }
+    } catch { /* fallback */ }
+  }
+
+  // Year clarification (lowest priority — only if metric and expo didn't trigger)
   const YEAR_CLARIFICATION_INTENTS = ['expo_progress', 'expo_agent_breakdown', 'expo_company_list', 'country_count', 'price_per_m2', 'payment_status'];
   if (entities && entities.missing_year && entities.expo_name && YEAR_CLARIFICATION_INTENTS.includes(intent)) {
     try {
@@ -1023,46 +1318,6 @@ async function run(question, _depth = 0, lang, user) {
         delete entities.missing_year;
       }
     } catch { /* fallback to default year */ }
-  }
-
-  // Metric clarification — only for expo_agent_breakdown WITH an expo_name
-  // top_agents defaults to revenue which is the expected behavior
-  // "SIEMA'ya en çok kim satmış?" → ask: revenue? m²? contracts?
-  if (entities && entities.missing_metric && intent === 'expo_agent_breakdown' && entities.expo_name) {
-    return {
-      intent: 'clarification',
-      clarification: {
-        slot: 'metric',
-        options: ['Gelir (€)', 'Alan (m²)', 'Sözleşme sayısı'],
-        options_en: ['Revenue (€)', 'Area (m²)', 'Contract count'],
-        options_fr: ['Revenu (€)', 'Surface (m²)', 'Nombre de contrats'],
-        original_question: question,
-        original_intent: intent,
-        original_entities: entities,
-      },
-      answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
-    };
-  }
-
-  if (entities && entities.missing_expo && ['country_count', 'exhibitors_by_country', 'expo_company_list'].includes(intent)) {
-    try {
-      const upcomingExpos = await query(
-        `SELECT DISTINCT name FROM expos WHERE start_date > CURRENT_DATE ORDER BY start_date ASC LIMIT 10`
-      );
-      if (upcomingExpos.rows.length > 0) {
-        return {
-          intent: 'clarification',
-          clarification: {
-            slot: 'expo',
-            options: upcomingExpos.rows.map(r => r.name),
-            original_question: question,
-            original_intent: intent,
-            original_entities: entities,
-          },
-          answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
-        };
-      }
-    } catch { /* fallback */ }
   }
 
   // Clean up ambiguity flags before buildQuery
@@ -1205,4 +1460,4 @@ async function trackAttention(intent, entities) {
   }
 }
 
-module.exports = { run, extractIntent, buildQuery, validateSQL, applyScope, generateSQL };
+module.exports = { run, extractIntent, extractSemanticFrame, buildQuery, validateSQL, applyScope, generateSQL };
