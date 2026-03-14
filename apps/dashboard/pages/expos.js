@@ -37,6 +37,14 @@ export default function ExposPage() {
   const [riskMap, setRiskMap] = useState({});
   const [sort, setSort] = useState({ key: "start_date", dir: "asc" });
   const [filter, setFilter] = useState("");
+  const [copyFeedback, setCopyFeedback] = useState("");
+
+  // Pre-fill filter from URL query params (expo, country, agent)
+  useEffect(() => {
+    if (!router.isReady) return;
+    const q = router.query.expo || router.query.country || router.query.agent || "";
+    if (q) setFilter(q);
+  }, [router.isReady, router.query.expo, router.query.country, router.query.agent]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -83,6 +91,120 @@ export default function ExposPage() {
     if (sort.key !== key) return "";
     return sort.dir === "asc" ? " \u25B2" : " \u25BC";
   };
+
+  // --- Export helpers ---
+  function buildTableRows() {
+    return sorted.map(e => {
+      const risk = riskMap[e.name];
+      return {
+        Expo: e.name || "",
+        Country: e.country || "",
+        Date: formatDate(e.start_date),
+        Contracts: Number(e.contracts || 0),
+        "M² Sold": Number(e.sold_m2 || 0),
+        "Revenue (€)": Number(e.revenue_eur || 0),
+        "Progress %": e.progress_percent ? Number(e.progress_percent) : "",
+        Risk: risk ? risk.risk_level : "",
+      };
+    });
+  }
+
+  function handleCopyTable() {
+    const rows = buildTableRows();
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.join("\t")];
+    for (const r of rows) lines.push(headers.map(h => r[h]).join("\t"));
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopyFeedback("Copied!");
+      setTimeout(() => setCopyFeedback(""), 2000);
+    });
+  }
+
+  function handleExportCSV() {
+    const rows = buildTableRows();
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.join(",")];
+    for (const r of rows) {
+      lines.push(headers.map(h => {
+        const v = r[h];
+        return typeof v === "string" && v.includes(",") ? `"${v}"` : v;
+      }).join(","));
+    }
+    downloadFile(`ELIZA_Expos_${year}.csv`, lines.join("\n"), "text/csv");
+  }
+
+  async function handleExportExcel() {
+    const rows = buildTableRows();
+    if (!rows.length) return;
+    try {
+      if (!window.XLSX) {
+        await loadScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
+      }
+      const XLSX = window.XLSX;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws["!cols"] = [{ wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 8 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, `Expos ${year}`);
+      XLSX.writeFile(wb, `ELIZA_Expos_${year}.xlsx`);
+    } catch (err) {
+      console.error("Excel export failed:", err);
+      handleExportCSV();
+    }
+  }
+
+  async function handleExportPDF() {
+    const rows = buildTableRows();
+    if (!rows.length) return;
+    try {
+      if (!window.jspdf) {
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js");
+        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js");
+      }
+      const doc = new window.jspdf.jsPDF({ orientation: "landscape" });
+      doc.setFontSize(16);
+      doc.text(`ELIZA — Expo Directory ${year}`, 14, 15);
+      doc.setFontSize(9);
+      doc.setTextColor(128);
+      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}${filter ? "  |  Filter: " + filter : ""}`, 14, 22);
+      const headers = Object.keys(rows[0]);
+      const body = rows.map(r => headers.map(h => r[h]));
+      doc.autoTable({
+        head: [headers],
+        body,
+        startY: 28,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [14, 19, 24], textColor: [200, 169, 122], fontSize: 7 },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+      });
+      doc.save(`ELIZA_Expos_${year}.pdf`);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      alert("PDF export failed. Check your internet connection.");
+    }
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  function downloadFile(filename, content, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <>
@@ -200,6 +322,35 @@ export default function ExposPage() {
           background: rgba(200,169,122,0.08);
         }
         .year-tab:hover:not(.active) { border-color: var(--text-secondary); color: var(--text-primary); }
+
+        .export-bar {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .export-btn {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          padding: 6px 14px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          border-radius: 3px;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+        .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .export-feedback {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          color: var(--success);
+          letter-spacing: 1px;
+          animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .summary-row {
           display: grid;
@@ -379,6 +530,15 @@ export default function ExposPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* EXPORT BAR */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16, gap: 8, alignItems: "center" }}>
+          {copyFeedback && <span className="export-feedback">{copyFeedback}</span>}
+          <button className="export-btn" onClick={handleCopyTable}>Copy</button>
+          <button className="export-btn" onClick={handleExportCSV}>CSV</button>
+          <button className="export-btn" onClick={handleExportExcel}>Excel</button>
+          <button className="export-btn" onClick={handleExportPDF}>PDF</button>
         </div>
 
         {/* SUMMARY */}

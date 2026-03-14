@@ -428,7 +428,7 @@ Running on: http://localhost:3000
 
 Pages:
 - / → War Room main dashboard
-- /expos?year=2026 → Expo Directory (sortable, filterable, mobile-friendly)
+- /expos?year=2026&expo=SIEMA&country=Morocco → Expo Directory (sortable, filterable, export: Copy/CSV/Excel/PDF)
 
 Navigation (all pages):
 - War Room header: Expo Directory | Logs | Intelligence | System | Users
@@ -636,8 +636,15 @@ Veri Formatlama:
 - Max 5 satir, fazlasi: "... ve X sonuç daha" + intent-based dashboard linki
 - getDashboardLink(intent, entities): expo intent'leri → /expos?year=YYYY, sales intent'leri → / (War Room)
 - Year dinamik: entities.year || currentYear (hardcoded 2026 kaldırıldı)
+- Deep linking: expo_name → &expo=X, country → &country=X query params
 - Expo intents (11): expo_progress, expo_list, expo_agent_breakdown, expo_company_list, cluster_performance, country_count, exhibitors_by_country, days_to_event, rebooking_rate, price_per_m2, payment_status
 - Sales intents (7): top_agents, agent_performance, agent_country_breakdown, agent_expo_breakdown, monthly_trend, revenue_summary, general_stats
+
+Expo Directory (/expos) Features:
+- Query params: ?year=2026&expo=SIEMA&country=Morocco&agent=Elif → auto pre-fill search filter
+- Export bar: Copy (clipboard tab-separated) | CSV | Excel (SheetJS CDN) | PDF (jsPDF CDN)
+- Excel/PDF lazy-loaded from CDN on first click, fallback to CSV if CDN fails
+- PDF: landscape, ELIZA branded header, date + filter info, dark header with gold text
 - Satir arasi bos satir ile ayrilir
 
 # 26. Message Generator (Phase 6)

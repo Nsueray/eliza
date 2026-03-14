@@ -122,13 +122,13 @@ function wrapWithPersonality(response, user, lang, isCommand, lastMessageTime) {
 
 /**
  * Return dashboard link for a given intent + entities.
- * Uses entities.year for dynamic year param, falls back to current year.
+ * Uses entities for dynamic query params (year, expo, country, agent).
  */
 function getDashboardLink(intent, entities) {
   const DASHBOARD_BASE = 'https://eliza.elanfairs.com';
   const year = entities?.year || new Date().getFullYear();
 
-  // Expo-related intents → Expo Directory
+  // Expo-related intents → Expo Directory with context filters
   const EXPO_INTENTS = [
     'expo_progress', 'expo_list', 'expo_agent_breakdown',
     'expo_company_list', 'cluster_performance', 'country_count',
@@ -136,7 +136,10 @@ function getDashboardLink(intent, entities) {
     'price_per_m2', 'payment_status',
   ];
   if (EXPO_INTENTS.includes(intent)) {
-    return `${DASHBOARD_BASE}/expos?year=${year}`;
+    let url = `${DASHBOARD_BASE}/expos?year=${year}`;
+    if (entities?.expo_name) url += `&expo=${encodeURIComponent(entities.expo_name)}`;
+    else if (entities?.country) url += `&country=${encodeURIComponent(entities.country)}`;
+    return url;
   }
 
   // Agent/sales intents → War Room (has Sales Leaderboard)
