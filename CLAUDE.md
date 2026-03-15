@@ -920,10 +920,10 @@ Ambiguity flags (set by router.js extractEntities + Haiku INTENT_PROMPT):
 - missing_metric: no metric keyword (m2/gelir/kontrat) → metric clarification
 - missing_expo: expo-required intent but no expo name → expo clarification
 
-Clarification slots (4 types):
-1. year: expo query without year, multiple editions exist → "Hangi edisyon? 1. 2026 2. 2025"
-2. expo: expo-required intent without expo → DB'den tüm aktif fuarlar (12 ay içinde) + "Genel" seçeneği (max 10+1)
-3. metric: expo_agent_breakdown + expo_name + no metric → "Neye göre? 1. Gelir 2. m² 3. Sözleşme"
+Clarification slots (4 types, priority: expo > metric > year):
+1. expo: expo-required intent without expo → DB'den tüm aktif fuarlar (12 ay içinde) + "Genel" seçeneği (max 10+1)
+2. metric: expo_agent_breakdown + expo_name + no metric → "Neye göre? 1. Gelir 2. m² 3. Sözleşme"
+3. year: expo query without year, multiple editions exist → "Hangi edisyon? 1. 2026 2. 2025"
 4. context: bağımsız soru + history'de expo var → DB'den tüm aktif fuarlar + "Genel" seçeneği (history expo en üstte)
 
 Clarification flow:
@@ -941,15 +941,25 @@ Clarification flow:
 7. Rebuilt question goes through normal pipeline
 
 Metric resolve: "1"→gelir keyword, "2"→m2 keyword, "3"→kontrat keyword eklenir soruya
-Context resolve: numara seçimi → expo prepend, "Genel" seçilirse → soruyu olduğu gibi çalıştır (expo filtresi olmadan)
-Expo resolve: numara seçimi → expo prepend, "Genel" seçilirse → soruyu olduğu gibi çalıştır
+Multi-turn resolve flow:
+1. User picks option → resolved_slots'a ekle (expo_name, metric, year)
+2. Rebuilt question = original_question + tüm resolved_slots
+3. queryEngine.run(rebuilt) → başka clarification varsa → yeni pending (resolved_slots korunur)
+4. queryEngine.run(rebuilt) → cevap varsa → göster
+Expo resolve: expo seçimi → expo_name prepend, "Genel" → "genel" keyword eklenir
+Metric resolve: "1"→gelir, "2"→m2, "3"→kontrat keyword eklenir
+Year resolve: yıl numarası eklenir
 Active expo query: start_date >= CURRENT_DATE AND <= CURRENT_DATE + 12 months, GROUP BY name+year, ORDER BY start_date ASC, LIMIT 10
 
 Pending state:
 - Stored in: users.pending_clarification JSONB
+- Format: { original_question, original_intent, resolved_slots, pending_slot, options, created_at }
+- resolved_slots accumulates across turns (e.g., { expo_name: "SIEMA 2026", metric: "gelir" })
 - Expire: 10 minutes
-- Clear on: successful resolution, expiry, or unmatched reply (new question)
-- Max 1 turn — no double clarification
+- Clear on: successful resolution, expiry, unmatched reply (new question), or "iptal"/"cancel"
+- Multi-turn: unlimited turns until all slots resolved, each turn resolves one slot
+- Cancel: "iptal"/"cancel"/"annuler"/"vazgeç" clears pending → "Tamam, iptal edildi."
+- "Genel" selection: appends "genel" keyword to prevent infinite expo clarification loop
 
 YEAR_CLARIFICATION_INTENTS: expo_progress, expo_agent_breakdown, expo_company_list, country_count, price_per_m2, payment_status
 Excluded from year clarification: rebooking_rate (cross-edition by nature), days_to_event, expo_list

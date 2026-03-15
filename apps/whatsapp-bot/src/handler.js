@@ -195,6 +195,7 @@ async function handleMessage(text, user) {
   }
 
   // Check pending clarification (before rewrite, before queryEngine)
+  // Multi-turn: resolved_slots accumulate across turns until answer is clear
   if (user && user.pending_clarification && !trimmed.startsWith('.')) {
     const pending = user.pending_clarification;
 
@@ -204,8 +205,17 @@ async function handleMessage(text, user) {
       await dbQuery('UPDATE users SET pending_clarification = NULL WHERE id = $1', [user.id]);
       // Expired — fall through to normal flow
     } else {
+      // Check for cancel
+      const cancelWords = ['iptal', 'cancel', 'annuler', 'vazgeç', 'vazgec'];
+      if (cancelWords.includes(trimmed.toLowerCase())) {
+        await dbQuery('UPDATE users SET pending_clarification = NULL WHERE id = $1', [user.id]);
+        const cancelMsg = { tr: 'Tamam, iptal edildi.', en: 'OK, cancelled.', fr: 'OK, annulé.' };
+        return cancelMsg[lang] || cancelMsg.tr;
+      }
+
       const options = pending.options || [];
       const reply = trimmed.trim();
+      const pendingSlot = pending.pending_slot || pending.slot; // backward compat
 
       // Try to resolve: numbered reply or text match
       let resolvedValue = null;
@@ -233,36 +243,45 @@ async function handleMessage(text, user) {
       }
 
       if (resolvedValue) {
-        // Clear pending
+        // Accumulate resolved slots across turns
+        const resolvedSlots = { ...(pending.resolved_slots || {}) };
+        const isGeneral = resolvedValue.toLowerCase().startsWith('genel') || resolvedValue.toLowerCase().startsWith('general') || resolvedValue.toLowerCase().startsWith('général');
+
+        if (pendingSlot === 'expo' || pendingSlot === 'context') {
+          if (!isGeneral) {
+            resolvedSlots.expo_name = resolvedValue;
+            const yearMatch = resolvedValue.match(/\b(20\d{2})\b/);
+            if (yearMatch) resolvedSlots.year = parseInt(yearMatch[1]);
+          } else {
+            resolvedSlots.expo_general = true;
+          }
+        }
+        if (pendingSlot === 'metric') {
+          const metricWord = resolvedValue.includes('m²') ? 'm2' : (resolvedValue.includes('Gelir') || resolvedValue.includes('Revenue') || resolvedValue.includes('Revenu')) ? 'gelir' : 'kontrat';
+          resolvedSlots.metric = metricWord;
+        }
+        if (pendingSlot === 'year') {
+          resolvedSlots.year = parseInt(resolvedValue) || resolvedValue;
+        }
+
+        // Build rebuilt question from original + all resolved slots
+        let rebuiltQuestion = pending.original_question;
+        if (resolvedSlots.expo_name) {
+          rebuiltQuestion = `${resolvedSlots.expo_name} ${rebuiltQuestion}`;
+        } else if (resolvedSlots.expo_general) {
+          rebuiltQuestion = `${rebuiltQuestion} genel`;
+        }
+        if (resolvedSlots.year && !rebuiltQuestion.includes(String(resolvedSlots.year))) {
+          rebuiltQuestion = `${rebuiltQuestion} ${resolvedSlots.year}`;
+        }
+        if (resolvedSlots.metric) {
+          rebuiltQuestion = `${rebuiltQuestion} ${resolvedSlots.metric}`;
+        }
+
+        // Clear pending before running (avoid loops)
         await dbQuery('UPDATE users SET pending_clarification = NULL WHERE id = $1', [user.id]);
 
-        // Rebuild question with resolved slot
-        let rebuiltQuestion = pending.original_question;
-        if (pending.slot === 'year') rebuiltQuestion = `${pending.original_question} ${resolvedValue}`;
-        if (pending.slot === 'metric') {
-          const metricWord = resolvedValue.includes('m²') ? 'm2' : resolvedValue.includes('Gelir') || resolvedValue.includes('Revenue') || resolvedValue.includes('Revenu') ? 'gelir' : 'kontrat';
-          rebuiltQuestion = `${pending.original_question} ${metricWord}`;
-        }
-        if (pending.slot === 'expo') {
-          const isGeneral = resolvedValue.toLowerCase().startsWith('genel') || resolvedValue.toLowerCase().startsWith('general') || resolvedValue.toLowerCase().startsWith('général');
-          if (!isGeneral) {
-            rebuiltQuestion = `${resolvedValue} ${pending.original_question}`;
-          }
-          // else: run original as-is without expo filter
-        }
-        if (pending.slot === 'context') {
-          // If user chose "Genel" option (last option) → run original as-is
-          // Otherwise → prepend the expo context
-          const isGeneral = resolvedValue.toLowerCase().startsWith('genel') || resolvedValue.toLowerCase().startsWith('general') || resolvedValue.toLowerCase().startsWith('général');
-          if (!isGeneral) {
-            rebuiltQuestion = `${resolvedValue} ${pending.original_question}`;
-          }
-          // else: rebuiltQuestion stays as original_question (general query)
-        }
-
         const startTime = Date.now();
-
-        // Get conversation context for personality
         let lastMessageTime = null;
         try {
           const { lastMessageTime: lmt } = await getHistory(user?.phone || user?.whatsapp_phone);
@@ -272,6 +291,57 @@ async function handleMessage(text, user) {
         const result = await queryEngine.run(rebuiltQuestion, 0, lang, user);
         const durationMs = Date.now() - startTime;
 
+        // Multi-turn: if queryEngine returns another clarification → continue chain
+        if (result.intent === 'clarification' && result.clarification) {
+          const c = result.clarification;
+          let displayOptions = c.options;
+          if (c.slot === 'metric') {
+            if (lang === 'en' && c.options_en) displayOptions = c.options_en;
+            else if (lang === 'fr' && c.options_fr) displayOptions = c.options_fr;
+          }
+          const optionsList = displayOptions.map((o, i) => `${i + 1}. ${o}`).join('\n');
+          const questionTexts = {
+            year: { tr: 'Hangi edisyonu soruyorsun?', en: 'Which edition?', fr: 'Quelle édition?' },
+            metric: { tr: 'Neye göre sıralayayım?', en: 'Sort by what?', fr: 'Trier par quoi?' },
+            expo: { tr: 'Hangi fuar?', en: 'Which expo?', fr: 'Quel expo?' },
+          };
+          const q = (questionTexts[c.slot] || questionTexts.expo)[lang] || (questionTexts[c.slot] || questionTexts.expo).tr;
+          const clarificationText = `${q}\n${optionsList}`;
+
+          // Save new pending with accumulated resolved_slots
+          await dbQuery('UPDATE users SET pending_clarification = $1 WHERE id = $2', [
+            JSON.stringify({
+              original_question: pending.original_question,
+              original_intent: c.original_intent,
+              resolved_slots: resolvedSlots,
+              pending_slot: c.slot,
+              options: c.options,
+              options_en: c.options_en || null,
+              options_fr: c.options_fr || null,
+              created_at: new Date().toISOString(),
+            }),
+            user.id
+          ]);
+
+          const finalResponse = wrapWithPersonality(clarificationText, user, lang, false, lastMessageTime);
+          logMessage({
+            user_phone: user?.phone || user?.whatsapp_phone || null,
+            user_name: user?.name || null,
+            user_role: user?.role || null,
+            message_text: trimmed,
+            response_text: finalResponse,
+            intent: 'clarification',
+            input_tokens: result._usage?.total_input || 0,
+            output_tokens: result._usage?.total_output || 0,
+            model_intent: result._usage?.intent_model || null,
+            model_answer: null,
+            duration_ms: durationMs,
+            is_command: false,
+          });
+          return finalResponse;
+        }
+
+        // Normal answer — display it
         let response = result.answer || 'Sonuç bulunamadı.';
         const clDashLink = getDashboardLink(result.intent, result.entities);
         if (result.data && Array.isArray(result.data) && result.data.length > 5) {
@@ -367,14 +437,16 @@ async function handleMessage(text, user) {
       const q = (questionTexts[c.slot] || questionTexts.year)[lang] || (questionTexts[c.slot] || questionTexts.year).tr;
       const clarificationText = `${q}\n${optionsList}`;
 
-      // Save pending state
+      // Save pending state (multi-turn format)
       await dbQuery('UPDATE users SET pending_clarification = $1 WHERE id = $2', [
         JSON.stringify({
-          slot: c.slot,
-          options: c.options,
           original_question: trimmed,
           original_intent: c.original_intent,
-          original_entities: c.original_entities,
+          resolved_slots: {},
+          pending_slot: c.slot,
+          options: c.options,
+          options_en: c.options_en || null,
+          options_fr: c.options_fr || null,
           created_at: new Date().toISOString(),
         }),
         user.id
@@ -459,11 +531,11 @@ async function handleMessage(text, user) {
 
             await dbQuery('UPDATE users SET pending_clarification = $1 WHERE id = $2', [
               JSON.stringify({
-                slot: 'context',
-                options,
                 original_question: trimmed,
                 original_intent: intent,
-                original_entities: entities,
+                resolved_slots: {},
+                pending_slot: 'context',
+                options,
                 created_at: new Date().toISOString(),
               }),
               user.id

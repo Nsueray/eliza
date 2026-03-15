@@ -1244,30 +1244,24 @@ async function run(question, _depth = 0, lang, user) {
     };
   }
 
-  // Clarification check — ask instead of guessing
+  // Clarification check — multi-turn: ask until answer is clear
   const currentYear = new Date().getFullYear();
+  const normQ = question.toLowerCase();
 
-  // Ambiguity Gate — critical flags from semantic frame trigger clarification
-  // Priority: 1. metric  2. expo  3. year (max 1 clarification turn)
-  // Metric clarification — only for expo_agent_breakdown WITH an expo_name
-  if (entities && entities.missing_metric && intent === 'expo_agent_breakdown' && entities.expo_name) {
-    return {
-      intent: 'clarification',
-      clarification: {
-        slot: 'metric',
-        options: ['Gelir (€)', 'Alan (m²)', 'Sözleşme sayısı'],
-        options_en: ['Revenue (€)', 'Area (m²)', 'Contract count'],
-        options_fr: ['Revenu (€)', 'Surface (m²)', 'Nombre de contrats'],
-        original_question: question,
-        original_intent: intent,
-        original_entities: entities,
-      },
-      answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
-    };
+  // Detect missing expo for expo-agent intents (router doesn't set this flag)
+  // Skip if question already contains "genel"/"general" (resolved as general in previous turn)
+  if (entities && !entities.expo_name && intent === 'expo_agent_breakdown') {
+    if (!/\bgenel\b|\bgeneral\b|\bgénéral\b/.test(normQ)) {
+      entities.missing_expo = true;
+    }
   }
 
-  // Expo clarification — fetch all active expos from DB
-  if (entities && entities.missing_expo && ['country_count', 'exhibitors_by_country', 'expo_company_list'].includes(intent)) {
+  // Ambiguity Gate — critical flags trigger clarification
+  // Priority: 1. expo  2. metric  3. year (multi-turn: each turn resolves one slot)
+  const EXPO_CLARIFICATION_INTENTS = ['country_count', 'exhibitors_by_country', 'expo_company_list', 'expo_agent_breakdown'];
+
+  // 1. Expo clarification — fetch all active expos from DB
+  if (entities && entities.missing_expo && EXPO_CLARIFICATION_INTENTS.includes(intent)) {
     try {
       const upcomingExpos = await query(
         `SELECT e.name, EXTRACT(YEAR FROM e.start_date)::int AS year, MIN(e.start_date) AS sd
@@ -1280,7 +1274,6 @@ async function run(question, _depth = 0, lang, user) {
       );
       if (upcomingExpos.rows.length > 0) {
         // Use name directly — most expo names already include year (e.g., "SIEMA 2026")
-        // Only append year if not already in the name
         const expoOptions = upcomingExpos.rows.map(r => {
           const yearStr = String(r.year);
           return r.name.includes(yearStr) ? r.name : `${r.name} ${r.year}`;
@@ -1301,7 +1294,24 @@ async function run(question, _depth = 0, lang, user) {
     } catch { /* fallback */ }
   }
 
-  // Year clarification (lowest priority — only if metric and expo didn't trigger)
+  // 2. Metric clarification — only for expo_agent_breakdown WITH an expo_name
+  if (entities && entities.missing_metric && intent === 'expo_agent_breakdown' && entities.expo_name) {
+    return {
+      intent: 'clarification',
+      clarification: {
+        slot: 'metric',
+        options: ['Gelir (€)', 'Alan (m²)', 'Sözleşme sayısı'],
+        options_en: ['Revenue (€)', 'Area (m²)', 'Contract count'],
+        options_fr: ['Revenu (€)', 'Surface (m²)', 'Nombre de contrats'],
+        original_question: question,
+        original_intent: intent,
+        original_entities: entities,
+      },
+      answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
+    };
+  }
+
+  // 3. Year clarification (lowest priority)
   const YEAR_CLARIFICATION_INTENTS = ['expo_progress', 'expo_agent_breakdown', 'expo_company_list', 'country_count', 'price_per_m2', 'payment_status'];
   if (entities && entities.missing_year && entities.expo_name && YEAR_CLARIFICATION_INTENTS.includes(intent)) {
     try {
