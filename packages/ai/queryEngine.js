@@ -1266,18 +1266,31 @@ async function run(question, _depth = 0, lang, user) {
     };
   }
 
-  // Expo clarification
+  // Expo clarification — fetch all active expos from DB
   if (entities && entities.missing_expo && ['country_count', 'exhibitors_by_country', 'expo_company_list'].includes(intent)) {
     try {
       const upcomingExpos = await query(
-        `SELECT DISTINCT name FROM expos WHERE start_date > CURRENT_DATE ORDER BY start_date ASC LIMIT 10`
+        `SELECT e.name, EXTRACT(YEAR FROM e.start_date)::int AS year, MIN(e.start_date) AS sd
+         FROM expos e
+         WHERE e.start_date >= CURRENT_DATE
+           AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'
+         GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
+         ORDER BY sd ASC
+         LIMIT 10`
       );
       if (upcomingExpos.rows.length > 0) {
+        // Use name directly — most expo names already include year (e.g., "SIEMA 2026")
+        // Only append year if not already in the name
+        const expoOptions = upcomingExpos.rows.map(r => {
+          const yearStr = String(r.year);
+          return r.name.includes(yearStr) ? r.name : `${r.name} ${r.year}`;
+        });
+        const generalOption = `Genel (tüm fuarlar ${currentYear})`;
         return {
           intent: 'clarification',
           clarification: {
             slot: 'expo',
-            options: upcomingExpos.rows.map(r => r.name),
+            options: [...expoOptions, generalOption],
             original_question: question,
             original_intent: intent,
             original_entities: entities,

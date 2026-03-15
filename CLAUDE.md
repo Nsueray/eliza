@@ -922,9 +922,9 @@ Ambiguity flags (set by router.js extractEntities + Haiku INTENT_PROMPT):
 
 Clarification slots (4 types):
 1. year: expo query without year, multiple editions exist → "Hangi edisyon? 1. 2026 2. 2025"
-2. expo: expo-required intent without expo → "Hangi fuar? 1. SIEMA 2. Madesign ..."
+2. expo: expo-required intent without expo → DB'den tüm aktif fuarlar (12 ay içinde) + "Genel" seçeneği (max 10+1)
 3. metric: expo_agent_breakdown + expo_name + no metric → "Neye göre? 1. Gelir 2. m² 3. Sözleşme"
-4. context: bağımsız soru + history'de expo var → "Ne için? 1. SIEMA 2026 2. Genel"
+4. context: bağımsız soru + history'de expo var → DB'den tüm aktif fuarlar + "Genel" seçeneği (history expo en üstte)
 
 Clarification flow:
 1. extractIntent → entities with missing_* flags
@@ -941,7 +941,9 @@ Clarification flow:
 7. Rebuilt question goes through normal pipeline
 
 Metric resolve: "1"→gelir keyword, "2"→m2 keyword, "3"→kontrat keyword eklenir soruya
-Context resolve: "1"→expo+year prepend, "2" (Genel)→soruyu olduğu gibi çalıştır
+Context resolve: numara seçimi → expo prepend, "Genel" seçilirse → soruyu olduğu gibi çalıştır (expo filtresi olmadan)
+Expo resolve: numara seçimi → expo prepend, "Genel" seçilirse → soruyu olduğu gibi çalıştır
+Active expo query: start_date >= CURRENT_DATE AND <= CURRENT_DATE + 12 months, GROUP BY name+year, ORDER BY start_date ASC, LIMIT 10
 
 Pending state:
 - Stored in: users.pending_clarification JSONB

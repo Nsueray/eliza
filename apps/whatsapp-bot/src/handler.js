@@ -243,7 +243,13 @@ async function handleMessage(text, user) {
           const metricWord = resolvedValue.includes('m²') ? 'm2' : resolvedValue.includes('Gelir') || resolvedValue.includes('Revenue') || resolvedValue.includes('Revenu') ? 'gelir' : 'kontrat';
           rebuiltQuestion = `${pending.original_question} ${metricWord}`;
         }
-        if (pending.slot === 'expo') rebuiltQuestion = `${resolvedValue} ${pending.original_question}`;
+        if (pending.slot === 'expo') {
+          const isGeneral = resolvedValue.toLowerCase().startsWith('genel') || resolvedValue.toLowerCase().startsWith('general') || resolvedValue.toLowerCase().startsWith('général');
+          if (!isGeneral) {
+            rebuiltQuestion = `${resolvedValue} ${pending.original_question}`;
+          }
+          // else: run original as-is without expo filter
+        }
         if (pending.slot === 'context') {
           // If user chose "Genel" option (last option) → run original as-is
           // Otherwise → prepend the expo context
@@ -405,15 +411,45 @@ async function handleMessage(text, user) {
           const EXPO_BRANDS_LC = ['siema', 'mega clima', 'megaclima', 'foodexpo', 'food expo', 'buildexpo', 'build expo', 'plastexpo', 'plast expo', 'madesign', 'hvac', 'elect expo', 'electexpo'];
           const foundExpo = EXPO_BRANDS_LC.find(b => histText.includes(b));
           if (foundExpo) {
-            const expoDisplay = foundExpo.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
             const currentYear = new Date().getFullYear();
-            const expoOption = `${expoDisplay} ${currentYear}`;
-            const generalOptions = {
-              tr: ['Genel (tüm fuarlar ' + currentYear + ')'],
-              en: ['General (all expos ' + currentYear + ')'],
-              fr: ['Général (tous les salons ' + currentYear + ')'],
+
+            // Fetch all active expos from DB, put history expo first
+            const activeExposResult = await dbQuery(
+              `SELECT e.name, EXTRACT(YEAR FROM e.start_date)::int AS year, MIN(e.start_date) AS sd
+               FROM expos e
+               WHERE e.start_date >= CURRENT_DATE
+                 AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'
+               GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
+               ORDER BY sd ASC
+               LIMIT 10`
+            );
+
+            let expoOptions = [];
+            if (activeExposResult.rows.length > 0) {
+              // Use name directly — most expo names already include year (e.g., "SIEMA 2026")
+              expoOptions = activeExposResult.rows.map(r => {
+                const yearStr = String(r.year);
+                return r.name.includes(yearStr) ? r.name : `${r.name} ${r.year}`;
+              });
+              // Move history expo to top if found in list
+              const histExpoDisplay = foundExpo.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+              const histIdx = expoOptions.findIndex(o => o.toLowerCase().startsWith(histExpoDisplay.toLowerCase()));
+              if (histIdx > 0) {
+                const [item] = expoOptions.splice(histIdx, 1);
+                expoOptions.unshift(item);
+              }
+            } else {
+              // Fallback: history expo only
+              const expoDisplay = foundExpo.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+              expoOptions = [`${expoDisplay} ${currentYear}`];
+            }
+
+            const generalLabels = {
+              tr: `Genel (tüm fuarlar ${currentYear})`,
+              en: `General (all expos ${currentYear})`,
+              fr: `Général (tous les salons ${currentYear})`,
             };
-            const options = [expoOption, (generalOptions[lang] || generalOptions.tr)[0]];
+            const options = [...expoOptions, generalLabels[lang] || generalLabels.tr];
 
             // Return as clarification
             const questionTexts = { tr: 'Ne için soruyorsun?', en: 'Which context?', fr: 'Pour quel contexte ?' };
