@@ -1256,21 +1256,73 @@ async function run(question, _depth = 0, lang, user) {
     }
   }
 
+  // Detect missing year for expo_agent_breakdown without year
+  // Only expo_agent_breakdown triggers year clarification without expo_name
+  // Other intents (country_count, price_per_m2, etc.) default to current year
+  if (entities && !entities.year && !entities.missing_year && intent === 'expo_agent_breakdown') {
+    if (!entities.period && !entities.relative_days && !entities.month) {
+      entities.missing_year = true;
+    }
+  }
+
   // Ambiguity Gate — critical flags trigger clarification
-  // Priority: 1. expo  2. metric  3. year (multi-turn: each turn resolves one slot)
+  // Priority: 1. year  2. expo  3. metric (multi-turn: each turn resolves one slot)
+  const YEAR_CLARIFICATION_INTENTS = ['expo_progress', 'expo_agent_breakdown', 'expo_company_list', 'country_count', 'price_per_m2', 'payment_status'];
   const EXPO_CLARIFICATION_INTENTS = ['country_count', 'exhibitors_by_country', 'expo_company_list', 'expo_agent_breakdown'];
 
-  // 1. Expo clarification — fetch all active expos from DB
+  // 1. Year clarification (highest priority — year determines which expos are active)
+  if (entities && entities.missing_year && YEAR_CLARIFICATION_INTENTS.includes(intent)) {
+    try {
+      // If expo_name is set, get editions for that expo; otherwise get all available years
+      let editions;
+      if (entities.expo_name) {
+        editions = await query(
+          `SELECT DISTINCT EXTRACT(YEAR FROM e.start_date)::int AS year
+           FROM expos e WHERE e.name ILIKE $1 AND e.start_date IS NOT NULL
+           ORDER BY year DESC LIMIT 5`,
+          [`%${entities.expo_name}%`]
+        );
+      } else {
+        editions = await query(
+          `SELECT DISTINCT EXTRACT(YEAR FROM e.start_date)::int AS year
+           FROM expos e WHERE e.start_date IS NOT NULL
+           ORDER BY year DESC LIMIT 5`
+        );
+      }
+      if (editions.rows.length > 1) {
+        const options = editions.rows.map(r => String(r.year));
+        return {
+          intent: 'clarification',
+          clarification: {
+            slot: 'year',
+            options,
+            original_question: question,
+            original_intent: intent,
+            original_entities: entities,
+          },
+          answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
+        };
+      }
+      // Single edition/year → use it directly
+      if (editions.rows.length === 1) {
+        entities.year = editions.rows[0].year;
+        delete entities.missing_year;
+      }
+    } catch { /* fallback to default year */ }
+  }
+
+  // 2. Expo clarification — fetch expos from DB (filtered by resolved year)
   if (entities && entities.missing_expo && EXPO_CLARIFICATION_INTENTS.includes(intent)) {
     try {
+      const filterYear = entities.year || currentYear;
       const upcomingExpos = await query(
         `SELECT e.name, EXTRACT(YEAR FROM e.start_date)::int AS year, MIN(e.start_date) AS sd
          FROM expos e
-         WHERE e.start_date >= CURRENT_DATE
-           AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'
+         WHERE EXTRACT(YEAR FROM e.start_date) = $1
          GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
          ORDER BY sd ASC
-         LIMIT 10`
+         LIMIT 10`,
+        [filterYear]
       );
       if (upcomingExpos.rows.length > 0) {
         // Use name directly — most expo names already include year (e.g., "SIEMA 2026")
@@ -1278,7 +1330,7 @@ async function run(question, _depth = 0, lang, user) {
           const yearStr = String(r.year);
           return r.name.includes(yearStr) ? r.name : `${r.name} ${r.year}`;
         });
-        const generalOption = `Genel (tüm fuarlar ${currentYear})`;
+        const generalOption = `Genel (tüm fuarlar ${filterYear})`;
         return {
           intent: 'clarification',
           clarification: {
@@ -1294,7 +1346,7 @@ async function run(question, _depth = 0, lang, user) {
     } catch { /* fallback */ }
   }
 
-  // 2. Metric clarification — only for expo_agent_breakdown WITH an expo_name
+  // 3. Metric clarification (lowest priority) — only for expo_agent_breakdown WITH an expo_name
   if (entities && entities.missing_metric && intent === 'expo_agent_breakdown' && entities.expo_name) {
     return {
       intent: 'clarification',
@@ -1309,38 +1361,6 @@ async function run(question, _depth = 0, lang, user) {
       },
       answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
     };
-  }
-
-  // 3. Year clarification (lowest priority)
-  const YEAR_CLARIFICATION_INTENTS = ['expo_progress', 'expo_agent_breakdown', 'expo_company_list', 'country_count', 'price_per_m2', 'payment_status'];
-  if (entities && entities.missing_year && entities.expo_name && YEAR_CLARIFICATION_INTENTS.includes(intent)) {
-    try {
-      const editions = await query(
-        `SELECT DISTINCT EXTRACT(YEAR FROM e.start_date)::int AS year
-         FROM expos e WHERE e.name ILIKE $1 AND e.start_date IS NOT NULL
-         ORDER BY year DESC LIMIT 5`,
-        [`%${entities.expo_name}%`]
-      );
-      if (editions.rows.length > 1) {
-        const options = editions.rows.map(r => String(r.year));
-        return {
-          intent: 'clarification',
-          clarification: {
-            slot: 'year',
-            options,
-            original_question: question,
-            original_intent: intent,
-            original_entities: entities,
-          },
-          answer: null, data: [], _usage: { intent_input: intentUsage.input_tokens, intent_output: intentUsage.output_tokens, intent_model: intentUsage.model, answer_input: 0, answer_output: 0, answer_model: 'none', total_input: intentUsage.input_tokens, total_output: intentUsage.output_tokens },
-        };
-      }
-      // Single edition → use it directly
-      if (editions.rows.length === 1) {
-        entities.year = editions.rows[0].year;
-        delete entities.missing_year;
-      }
-    } catch { /* fallback to default year */ }
   }
 
   // Clean up ambiguity flags before buildQuery

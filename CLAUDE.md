@@ -176,9 +176,9 @@ Completed (cont. 2):
   - FRAME_PROMPT: structured JSON frame with task types, ambiguity_flags, answerability
   - Router fast path unchanged (0 API cost, confidence: 1.0)
   - Haiku fallback: semantic frame extraction with 14 few-shot examples
-  - Ambiguity gate: unanswerable → refuse, critical → clarification (priority: metric > expo > year), warning → defaults
+  - Ambiguity gate: unanswerable → refuse, critical → clarification (priority: year > expo > metric), warning → defaults
   - Backward-compatible entities mapping to buildQuery/generateAnswer
-  - Benchmark: 96% PASS (48/50, 0 FAIL, 2 WARN)
+  - Benchmark: 94% PASS (47/50, 0 FAIL, 3 WARN)
 
 In Progress:
 
@@ -832,7 +832,7 @@ Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)
 Runner: node packages/ai/benchmark.js
 Hedef: >= 90% PASS rate
 
-Son sonuc: 48 PASS / 0 FAIL / 2 WARN — %96 (Semantic Frame)
+Son sonuc: 47 PASS / 0 FAIL / 3 WARN — %94 (Semantic Frame + year-first clarification)
 
 Intent synonym mapping (benchmark tolerance):
 - exhibitors_by_country <-> country_count
@@ -920,10 +920,10 @@ Ambiguity flags (set by router.js extractEntities + Haiku INTENT_PROMPT):
 - missing_metric: no metric keyword (m2/gelir/kontrat) → metric clarification
 - missing_expo: expo-required intent but no expo name → expo clarification
 
-Clarification slots (4 types, priority: expo > metric > year):
-1. expo: expo-required intent without expo → DB'den tüm aktif fuarlar (12 ay içinde) + "Genel" seçeneği (max 10+1)
-2. metric: expo_agent_breakdown + expo_name + no metric → "Neye göre? 1. Gelir 2. m² 3. Sözleşme"
-3. year: expo query without year, multiple editions exist → "Hangi edisyon? 1. 2026 2. 2025"
+Clarification slots (4 types, priority: year > expo > metric):
+1. year: expo query without year, multiple editions exist → "Hangi edisyon? 1. 2026 2. 2025"
+2. expo: expo-required intent without expo → DB'den aktif fuarlar (resolved year'a göre filtrelenir) + "Genel" seçeneği (max 10+1)
+3. metric: expo_agent_breakdown + expo_name + no metric → "Neye göre? 1. Gelir 2. m² 3. Sözleşme"
 4. context: bağımsız soru + history'de expo var → DB'den tüm aktif fuarlar + "Genel" seçeneği (history expo en üstte)
 
 Clarification flow:
