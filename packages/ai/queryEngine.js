@@ -1216,7 +1216,7 @@ async function generateSQL(question, lang, user) {
 }
 
 // Main entry point
-async function run(question, _depth = 0, lang, user) {
+async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   // Check unavailability BEFORE any API call
   const unavail = checkUnavailability(question, lang || 'tr');
   if (unavail.unavailable) {
@@ -1248,8 +1248,34 @@ async function run(question, _depth = 0, lang, user) {
   const currentYear = new Date().getFullYear();
   const normQ = question.toLowerCase();
 
+  // Merge resolved entities from multi-turn clarification
+  // This ensures expo names from DB (not in EXPO_BRANDS) are recognized,
+  // and previously resolved slots aren't lost between turns.
+  if (resolvedEntities && entities) {
+    if (resolvedEntities.year && resolvedEntities.year !== 'all') {
+      entities.year = resolvedEntities.year;
+      delete entities.missing_year;
+    }
+    if (resolvedEntities.year === 'all') {
+      // "Tüm yıllar" — no year filter
+      delete entities.missing_year;
+      delete entities.year;
+    }
+    if (resolvedEntities.expo_name) {
+      entities.expo_name = resolvedEntities.expo_name;
+      delete entities.missing_expo;
+    }
+    if (resolvedEntities.expo_general) {
+      delete entities.missing_expo;
+    }
+    if (resolvedEntities.metric) {
+      delete entities.missing_metric;
+    }
+  }
+
   // Detect missing expo for expo-agent intents (router doesn't set this flag)
   // Skip if question already contains "genel"/"general" (resolved as general in previous turn)
+  // Skip if resolvedEntities already has expo_name or expo_general
   if (entities && !entities.expo_name && intent === 'expo_agent_breakdown') {
     if (!/\bgenel\b|\bgeneral\b|\bgénéral\b/.test(normQ)) {
       entities.missing_expo = true;
@@ -1290,12 +1316,14 @@ async function run(question, _depth = 0, lang, user) {
         );
       }
       if (editions.rows.length > 1) {
-        const options = editions.rows.map(r => String(r.year));
+        const options = [...editions.rows.map(r => String(r.year)), 'Tüm yıllar'];
         return {
           intent: 'clarification',
           clarification: {
             slot: 'year',
             options,
+            options_en: [...editions.rows.map(r => String(r.year)), 'All years'],
+            options_fr: [...editions.rows.map(r => String(r.year)), 'Toutes les années'],
             original_question: question,
             original_intent: intent,
             original_entities: entities,
@@ -1314,28 +1342,43 @@ async function run(question, _depth = 0, lang, user) {
   // 2. Expo clarification — fetch expos from DB (filtered by resolved year)
   if (entities && entities.missing_expo && EXPO_CLARIFICATION_INTENTS.includes(intent)) {
     try {
-      const filterYear = entities.year || currentYear;
-      const upcomingExpos = await query(
-        `SELECT e.name, EXTRACT(YEAR FROM e.start_date)::int AS year, MIN(e.start_date) AS sd
-         FROM expos e
-         WHERE EXTRACT(YEAR FROM e.start_date) = $1
-         GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
-         ORDER BY sd ASC
-         LIMIT 10`,
-        [filterYear]
-      );
+      const allYears = resolvedEntities && resolvedEntities.year === 'all';
+      const filterYear = allYears ? null : (entities.year || currentYear);
+      let upcomingExpos;
+      if (allYears) {
+        // "Tüm yıllar" — show expos from all years (recent first)
+        upcomingExpos = await query(
+          `SELECT e.name, EXTRACT(YEAR FROM e.start_date)::int AS year, MIN(e.start_date) AS sd
+           FROM expos e
+           WHERE e.start_date IS NOT NULL
+           GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
+           ORDER BY sd DESC
+           LIMIT 15`
+        );
+      } else {
+        upcomingExpos = await query(
+          `SELECT e.name, EXTRACT(YEAR FROM e.start_date)::int AS year, MIN(e.start_date) AS sd
+           FROM expos e
+           WHERE EXTRACT(YEAR FROM e.start_date) = $1
+             AND e.start_date IS NOT NULL
+           GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
+           ORDER BY sd ASC
+           LIMIT 15`,
+          [filterYear]
+        );
+      }
       if (upcomingExpos.rows.length > 0) {
         // Use name directly — most expo names already include year (e.g., "SIEMA 2026")
         const expoOptions = upcomingExpos.rows.map(r => {
           const yearStr = String(r.year);
           return r.name.includes(yearStr) ? r.name : `${r.name} ${r.year}`;
         });
-        const generalOption = `Genel (tüm fuarlar ${filterYear})`;
+        const generalLabel = allYears ? 'Genel (tüm fuarlar)' : `Genel (tüm fuarlar ${filterYear})`;
         return {
           intent: 'clarification',
           clarification: {
             slot: 'expo',
-            options: [...expoOptions, generalOption],
+            options: [...expoOptions, generalLabel],
             original_question: question,
             original_intent: intent,
             original_entities: entities,

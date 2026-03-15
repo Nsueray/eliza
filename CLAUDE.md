@@ -178,7 +178,7 @@ Completed (cont. 2):
   - Haiku fallback: semantic frame extraction with 14 few-shot examples
   - Ambiguity gate: unanswerable → refuse, critical → clarification (priority: year > expo > metric), warning → defaults
   - Backward-compatible entities mapping to buildQuery/generateAnswer
-  - Benchmark: 94% PASS (47/50, 0 FAIL, 3 WARN)
+  - Benchmark: 92% PASS (46/50, 0 FAIL, 4 WARN)
 
 In Progress:
 
@@ -832,7 +832,7 @@ Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)
 Runner: node packages/ai/benchmark.js
 Hedef: >= 90% PASS rate
 
-Son sonuc: 47 PASS / 0 FAIL / 3 WARN — %94 (Semantic Frame + year-first clarification)
+Son sonuc: 46 PASS / 0 FAIL / 4 WARN — %92 (multi-turn clarification fix)
 
 Intent synonym mapping (benchmark tolerance):
 - exhibitors_by_country <-> country_count
@@ -921,45 +921,55 @@ Ambiguity flags (set by router.js extractEntities + Haiku INTENT_PROMPT):
 - missing_expo: expo-required intent but no expo name → expo clarification
 
 Clarification slots (4 types, priority: year > expo > metric):
-1. year: expo query without year, multiple editions exist → "Hangi edisyon? 1. 2026 2. 2025"
-2. expo: expo-required intent without expo → DB'den aktif fuarlar (resolved year'a göre filtrelenir) + "Genel" seçeneği (max 10+1)
+1. year: expo query without year, multiple editions exist → "Hangi edisyon? 1. 2026 2. 2025 ... N. Tüm yıllar"
+2. expo: expo-required intent without expo → DB'den aktif fuarlar (resolved year'a göre filtrelenir) + "Genel" seçeneği (max 15+1)
 3. metric: expo_agent_breakdown + expo_name + no metric → "Neye göre? 1. Gelir 2. m² 3. Sözleşme"
 4. context: bağımsız soru + history'de expo var → DB'den tüm aktif fuarlar + "Genel" seçeneği (history expo en üstte)
 
 Clarification flow:
-1. extractIntent → entities with missing_* flags
-2. queryEngine.js run() checks flags BEFORE year defaults:
-   - missing_year + expo_name + YEAR_CLARIFICATION_INTENTS → DB query for editions → if >1, ask user
-   - missing_metric + expo_agent_breakdown + expo_name → metric clarification
-   - missing_expo + expo-required intent → list upcoming expos → ask user
-3. handler.js checks context ambiguity AFTER queryEngine.run():
-   - rewrite unchanged (bağımsız soru) + history'de expo var + intent in CONTEXT_AMBIGUOUS_INTENTS → context clarification
-   - CONTEXT_AMBIGUOUS_INTENTS: top_agents, agent_performance, expo_agent_breakdown, revenue_summary
-4. Return intent='clarification' with clarification object {slot, options, original_question, original_intent}
-5. handler.js saves pending state to users.pending_clarification (JSONB)
-6. Next message: handler checks pending, resolves answer (number/text match), rebuilds question
-7. Rebuilt question goes through normal pipeline
+1. extractSemanticFrame → entities with missing_* flags
+2. queryEngine.run() merges resolvedEntities from handler (multi-turn slots)
+3. Detects remaining missing_* flags BEFORE year defaults
+4. Priority checks: year → expo → metric
+5. handler.js checks context ambiguity AFTER queryEngine.run()
+6. Return intent='clarification' with clarification object
+7. handler.js saves pending state, next message resolves slot
+8. handler passes resolvedSlots to queryEngine.run() as resolvedEntities parameter
 
-Metric resolve: "1"→gelir keyword, "2"→m2 keyword, "3"→kontrat keyword eklenir soruya
+resolvedEntities mechanism:
+- queryEngine.run(question, depth, lang, user, resolvedEntities) — 5th parameter
+- After extracting intent/entities, merges resolvedEntities into entities
+- Resolves expo names from DB (not limited to EXPO_BRANDS) — prevents loop
+- Removes corresponding missing_* flags for already-resolved slots
+- year='all' → no year filter (Tüm yıllar seçimi)
+
 Multi-turn resolve flow:
 1. User picks option → resolved_slots'a ekle (expo_name, metric, year)
 2. Rebuilt question = original_question + tüm resolved_slots
-3. queryEngine.run(rebuilt) → başka clarification varsa → yeni pending (resolved_slots korunur)
-4. queryEngine.run(rebuilt) → cevap varsa → göster
-Expo resolve: expo seçimi → expo_name prepend, "Genel" → "genel" keyword eklenir
-Metric resolve: "1"→gelir, "2"→m2, "3"→kontrat keyword eklenir
-Year resolve: yıl numarası eklenir
-Active expo query: start_date >= CURRENT_DATE AND <= CURRENT_DATE + 12 months, GROUP BY name+year, ORDER BY start_date ASC, LIMIT 10
+3. queryEngine.run(rebuilt, resolvedSlots) → entities'e resolved slots merge edilir
+4. Kalan missing_* flags varsa → sıradaki clarification döner → yeni pending
+5. Tüm flags çözüldüyse → cevap
+
+Year resolve:
+- Numara veya yıl → resolvedSlots.year = parseInt
+- "hepsi"/"tümü"/"all"/"toplam"/"hep" → resolvedSlots.year = 'all' → no year filter
+- "Tüm yıllar" seçeneği year clarification'da son seçenek olarak gösterilir
+- options_en: "All years", options_fr: "Toutes les années"
+
+Expo resolve: expo seçimi → resolvedSlots.expo_name, "Genel" → resolvedSlots.expo_general = true
+Metric resolve: "1"→gelir, "2"→m2, "3"→kontrat
+Active expo query: EXTRACT(YEAR FROM e.start_date) = resolved_year, GROUP BY name+year, LIMIT 15
+Context expo query: EXTRACT(YEAR FROM e.start_date) = currentYear, GROUP BY name+year, LIMIT 15
 
 Pending state:
 - Stored in: users.pending_clarification JSONB
 - Format: { original_question, original_intent, resolved_slots, pending_slot, options, created_at }
-- resolved_slots accumulates across turns (e.g., { expo_name: "SIEMA 2026", metric: "gelir" })
+- resolved_slots accumulates across turns (e.g., { year: 2026, expo_name: "SIEMA 2026", metric: "gelir" })
 - Expire: 10 minutes
 - Clear on: successful resolution, expiry, unmatched reply (new question), or "iptal"/"cancel"
 - Multi-turn: unlimited turns until all slots resolved, each turn resolves one slot
 - Cancel: "iptal"/"cancel"/"annuler"/"vazgeç" clears pending → "Tamam, iptal edildi."
-- "Genel" selection: appends "genel" keyword to prevent infinite expo clarification loop
+- "Genel" selection: resolvedSlots.expo_general = true, appends "genel" keyword
 
 YEAR_CLARIFICATION_INTENTS: expo_progress, expo_agent_breakdown, expo_company_list, country_count, price_per_m2, payment_status
 Excluded from year clarification: rebooking_rate (cross-edition by nature), days_to_event, expo_list

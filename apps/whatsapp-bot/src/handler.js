@@ -220,14 +220,25 @@ async function handleMessage(text, user) {
       // Try to resolve: numbered reply or text match
       let resolvedValue = null;
       const num = parseInt(reply);
-      if (!isNaN(num) && num >= 1 && num <= options.length) {
+      const replyLower = reply.toLowerCase();
+
+      // "hepsi" / "all" keywords → "Tüm yıllar" for year slot
+      if (pendingSlot === 'year') {
+        const allYearsWords = ['hepsi', 'tümü', 'tumu', 'all', 'toplam', 'hep', 'toutes', 'tous'];
+        if (allYearsWords.includes(replyLower)) {
+          resolvedValue = options.find(o => o.includes('Tüm yıllar') || o.includes('All years') || o.includes('Toutes'));
+          if (!resolvedValue) resolvedValue = 'Tüm yıllar'; // fallback
+        }
+      }
+
+      if (!resolvedValue && !isNaN(num) && num >= 1 && num <= options.length) {
         resolvedValue = options[num - 1];
-      } else {
+      } else if (!resolvedValue) {
         // Exact or partial match
         resolvedValue = options.find(o =>
-          o.toLowerCase() === reply.toLowerCase() ||
-          o.toLowerCase().includes(reply.toLowerCase()) ||
-          reply.toLowerCase().includes(o.toLowerCase())
+          o.toLowerCase() === replyLower ||
+          o.toLowerCase().includes(replyLower) ||
+          replyLower.includes(o.toLowerCase())
         );
         // Year detection
         if (!resolvedValue && /^\d{4}$/.test(reply)) {
@@ -261,7 +272,8 @@ async function handleMessage(text, user) {
           resolvedSlots.metric = metricWord;
         }
         if (pendingSlot === 'year') {
-          resolvedSlots.year = parseInt(resolvedValue) || resolvedValue;
+          const isTumYillar = resolvedValue.includes('Tüm yıllar') || resolvedValue.includes('All years') || resolvedValue.includes('Toutes');
+          resolvedSlots.year = isTumYillar ? 'all' : (parseInt(resolvedValue) || resolvedValue);
         }
 
         // Build rebuilt question from original + all resolved slots
@@ -271,7 +283,7 @@ async function handleMessage(text, user) {
         } else if (resolvedSlots.expo_general) {
           rebuiltQuestion = `${rebuiltQuestion} genel`;
         }
-        if (resolvedSlots.year && !rebuiltQuestion.includes(String(resolvedSlots.year))) {
+        if (resolvedSlots.year && resolvedSlots.year !== 'all' && !rebuiltQuestion.includes(String(resolvedSlots.year))) {
           rebuiltQuestion = `${rebuiltQuestion} ${resolvedSlots.year}`;
         }
         if (resolvedSlots.metric) {
@@ -288,14 +300,16 @@ async function handleMessage(text, user) {
           lastMessageTime = lmt;
         } catch { /* ignore */ }
 
-        const result = await queryEngine.run(rebuiltQuestion, 0, lang, user);
+        // Pass resolvedSlots so queryEngine merges them into entities
+        // This prevents expo name mismatch (DB names vs EXPO_BRANDS) and flag loss
+        const result = await queryEngine.run(rebuiltQuestion, 0, lang, user, resolvedSlots);
         const durationMs = Date.now() - startTime;
 
         // Multi-turn: if queryEngine returns another clarification → continue chain
         if (result.intent === 'clarification' && result.clarification) {
           const c = result.clarification;
           let displayOptions = c.options;
-          if (c.slot === 'metric') {
+          if (c.slot === 'metric' || c.slot === 'year') {
             if (lang === 'en' && c.options_en) displayOptions = c.options_en;
             else if (lang === 'fr' && c.options_fr) displayOptions = c.options_fr;
           }
@@ -304,6 +318,7 @@ async function handleMessage(text, user) {
             year: { tr: 'Hangi edisyonu soruyorsun?', en: 'Which edition?', fr: 'Quelle édition?' },
             metric: { tr: 'Neye göre sıralayayım?', en: 'Sort by what?', fr: 'Trier par quoi?' },
             expo: { tr: 'Hangi fuar?', en: 'Which expo?', fr: 'Quel expo?' },
+            context: { tr: 'Ne için soruyorsun?', en: 'Which context?', fr: 'Pour quel contexte ?' },
           };
           const q = (questionTexts[c.slot] || questionTexts.expo)[lang] || (questionTexts[c.slot] || questionTexts.expo).tr;
           const clarificationText = `${q}\n${optionsList}`;
@@ -419,9 +434,9 @@ async function handleMessage(text, user) {
     if (intent === 'clarification' && result.clarification) {
       const c = result.clarification;
 
-      // Use language-specific options for metric clarification
+      // Use language-specific options for metric/year clarification
       let displayOptions = c.options;
-      if (c.slot === 'metric') {
+      if (c.slot === 'metric' || c.slot === 'year') {
         if (lang === 'en' && c.options_en) displayOptions = c.options_en;
         else if (lang === 'fr' && c.options_fr) displayOptions = c.options_fr;
       }
@@ -485,15 +500,16 @@ async function handleMessage(text, user) {
           if (foundExpo) {
             const currentYear = new Date().getFullYear();
 
-            // Fetch all active expos from DB, put history expo first
+            // Fetch all expos for current year from DB, put history expo first
             const activeExposResult = await dbQuery(
               `SELECT e.name, EXTRACT(YEAR FROM e.start_date)::int AS year, MIN(e.start_date) AS sd
                FROM expos e
-               WHERE e.start_date >= CURRENT_DATE
-                 AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'
+               WHERE EXTRACT(YEAR FROM e.start_date) = $1
+                 AND e.start_date IS NOT NULL
                GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
                ORDER BY sd ASC
-               LIMIT 10`
+               LIMIT 15`,
+              [currentYear]
             );
 
             let expoOptions = [];

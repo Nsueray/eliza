@@ -219,3 +219,24 @@ Rules:
 **Description:** getDashboardLink() had year hardcoded as 2026 and only mapped 5 expo intents. Agent/sales intents (top_agents, agent_performance, revenue_summary etc.) returned no link. 12 of 19 intents had no dashboard link — "... ve X sonuç daha" messages appeared without a URL.
 **Fix:** getDashboardLink(intent, entities) — accepts entities, uses entities.year dynamically (fallback: currentYear). 11 expo intents → /expos?year=YYYY, 7 sales intents → / (War Room). All 18 data intents now have links.
 **Files:** apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-023] Multi-turn clarification — 5 bugs (loop, order, resolve, morocco, hepsi)
+**Status:** FIXED (2026-03-15)
+**First seen:** 2026-03-15
+**Description:** Multi-turn clarification had 5 production bugs:
+1. "hepsi"/"tümü"/"all" not recognized in year slot → same question repeated
+2. Year resolved but expo/metric not asked → direct answer (flags lost between turns)
+3. Metric asked before expo in some cases (order wrong)
+4. Expo selection caused infinite loop (DB expo name not in EXPO_BRANDS → missing_expo re-set)
+5. Morocco/SIEMA expos missing from 2026 list (query used start_date >= CURRENT_DATE instead of year filter)
+**Root cause:** (1) No "Tüm yıllar" option or keyword mapping. (2,3,4) Handler rebuilt question and re-ran queryEngine from scratch — router couldn't extract DB expo names (not in EXPO_BRANDS), so missing_expo was set again causing loop or fallthrough. (5) Context clarification query and expo query used date-range filter instead of year-based filter, excluding past-date expos in current year. LIMIT 10 too low.
+**Fix:**
+- queryEngine.run() accepts 5th parameter `resolvedEntities` — merges resolved slots directly into entities after extraction, preventing flag loss and expo name mismatch
+- Year clarification adds "Tüm yıllar" / "All years" / "Toutes les années" as last option
+- Handler maps "hepsi"/"tümü"/"all"/"toplam"/"hep" to "Tüm yıllar"; year='all' → no year filter
+- Handler passes resolvedSlots to queryEngine.run() — expo names from DB recognized without EXPO_BRANDS match
+- Expo query changed from `start_date >= CURRENT_DATE` to `EXTRACT(YEAR FROM e.start_date) = $1`, LIMIT increased to 15
+- Context clarification query also changed to year-based filter
+**Files:** packages/ai/queryEngine.js, apps/whatsapp-bot/src/handler.js
