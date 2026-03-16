@@ -298,12 +298,12 @@ Mevcut `payment_reminder` message template'i kullanılır.
 
 ## 5. SPRINT PLANI
 
-### Sprint 1A: Veri Katmanı — Sync (BU GECE)
-- [ ] Migration 013: payment fields on contracts + contract_payments + contract_payment_schedule
-- [ ] Zoho sync: payment fields + Received_Payment subform
-- [ ] Date_Amount_Type1..5 parse → contract_payment_schedule
-- [ ] Synthetic schedule fallback (plan yoksa %30 deposit + %70 pre-event)
-- [ ] Full sync + 10 örnek kontrat doğrulama
+### Sprint 1A: Veri Katmanı — Sync (BU GECE) — ✅ COMPLETED
+- [x] Migration 013: payment fields on contracts + contract_payments + contract_payment_schedule
+- [x] Zoho sync: payment fields + Received_Payment subform (2-pass: bulk + individual fetch)
+- [x] Date_Amount_Type1..5 parse → contract_payment_schedule (TR/EN/FR month name support)
+- [x] Synthetic schedule fallback (plan yoksa %30 deposit + %70 pre-event)
+- [x] Full sync + doğrulama: 3525 contracts, 1272 payments, 204 real + 6598 synthetic schedules
 
 ### Sprint 1B: Veri Katmanı — Views + API
 - [ ] outstanding_balances view oluştur

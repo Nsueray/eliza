@@ -7,9 +7,10 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'eliza-dashboard-secret-key-change-in-production';
 const SALT_ROUNDS = 10;
 
-// POST /api/auth/migrate — run migration 011 (add auth columns + set CEO password)
+// POST /api/auth/migrate — run all pending migrations
 router.post('/migrate', async (req, res) => {
   try {
+    // Migration 011: auth columns
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP`);
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_permissions JSONB DEFAULT '{}'`);
@@ -22,7 +23,95 @@ router.post('/migrate', async (req, res) => {
     // Set agent permissions
     await query(`UPDATE users SET dashboard_permissions = '{"war_room":false,"expo_directory":false,"expo_detail":false,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":true}'::jsonb WHERE role = 'agent' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
 
-    res.json({ success: true, message: 'Migration 011 applied' });
+    // Migration 013: payment fields + tables + view
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS balance_eur DECIMAL(12,2)`);
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS paid_eur DECIMAL(12,2)`);
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS remaining_payment_eur DECIMAL(12,2)`);
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS due_date DATE`);
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS payment_done BOOLEAN`);
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS payment_method TEXT`);
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS validity TEXT`);
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS first_payment_eur DECIMAL(12,2)`);
+    await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS second_payment_eur DECIMAL(12,2)`);
+
+    await query(`CREATE TABLE IF NOT EXISTS contract_payments (
+      id SERIAL PRIMARY KEY,
+      contract_id INT NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+      af_number TEXT NOT NULL,
+      payment_date DATE,
+      amount_eur DECIMAL(12,2),
+      note TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_contract_payments_contract_id ON contract_payments(contract_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_contract_payments_af_number ON contract_payments(af_number)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_contract_payments_payment_date ON contract_payments(payment_date)`);
+
+    await query(`CREATE TABLE IF NOT EXISTS contract_payment_schedule (
+      id SERIAL PRIMARY KEY,
+      contract_id INT NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+      af_number TEXT NOT NULL,
+      installment_no INT,
+      due_date DATE,
+      planned_amount_eur DECIMAL(12,2),
+      payment_type TEXT,
+      note TEXT,
+      source_field TEXT,
+      is_synthetic BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_contract_payment_schedule_contract_id ON contract_payment_schedule(contract_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_contract_payment_schedule_af_number ON contract_payment_schedule(af_number)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_contract_payment_schedule_due_date ON contract_payment_schedule(due_date)`);
+
+    // outstanding_balances view
+    await query(`CREATE OR REPLACE VIEW outstanding_balances AS
+      SELECT
+        c.id, c.af_number, c.company_name, c.country,
+        c.sales_agent, c.sales_type,
+        e.name AS expo_name, e.country AS expo_country,
+        e.start_date AS expo_start_date,
+        c.contract_date,
+        c.revenue_eur AS contract_total_eur,
+        COALESCE(c.paid_eur, 0) AS paid_eur,
+        COALESCE(c.balance_eur, c.revenue_eur - COALESCE(c.paid_eur, 0)) AS balance_eur,
+        c.due_date,
+        c.payment_done,
+        CASE WHEN c.due_date < CURRENT_DATE AND COALESCE(c.balance_eur, 0) > 0 THEN true ELSE false END AS is_overdue,
+        CASE WHEN c.due_date IS NOT NULL THEN GREATEST(c.due_date - CURRENT_DATE, 0) ELSE NULL END AS days_to_due,
+        CASE WHEN c.due_date < CURRENT_DATE THEN CURRENT_DATE - c.due_date ELSE 0 END AS days_overdue,
+        CASE WHEN e.start_date IS NOT NULL THEN GREATEST(e.start_date::date - CURRENT_DATE, 0) ELSE NULL END AS days_to_expo,
+        CASE WHEN c.revenue_eur > 0 THEN ROUND((COALESCE(c.paid_eur, 0) / c.revenue_eur * 100)::numeric, 1) ELSE 0 END AS paid_percent,
+        (SELECT MIN(cp.payment_date) FROM contract_payments cp WHERE cp.contract_id = c.id) AS first_payment_date,
+        (SELECT MAX(cp.payment_date) FROM contract_payments cp WHERE cp.contract_id = c.id) AS last_payment_date,
+        CASE
+          WHEN c.payment_done = true THEN 'paid_complete'
+          WHEN COALESCE(c.paid_eur, 0) = 0 AND COALESCE(c.first_payment_eur, 0) > 0 THEN 'deposit_missing'
+          WHEN COALESCE(c.paid_eur, 0) = 0 THEN 'no_payment'
+          WHEN c.due_date < CURRENT_DATE AND COALESCE(c.balance_eur, 0) > 0 THEN 'overdue'
+          WHEN e.start_date IS NOT NULL AND (e.start_date::date - CURRENT_DATE) < 45 AND COALESCE(c.balance_eur, 0) > 0 THEN 'pre_event_balance_open'
+          WHEN COALESCE(c.paid_eur, 0) > 0 AND COALESCE(c.balance_eur, 0) > 0 THEN 'partial_paid'
+          ELSE 'ok'
+        END AS collection_stage,
+        (
+          CASE WHEN COALESCE(c.paid_eur, 0) = 0 THEN 3 ELSE 0 END +
+          CASE WHEN c.due_date < CURRENT_DATE THEN LEAST((CURRENT_DATE - c.due_date) / 15, 4) ELSE 0 END +
+          CASE WHEN COALESCE(c.balance_eur, 0) > 10000 THEN 2 WHEN COALESCE(c.balance_eur, 0) > 5000 THEN 1 ELSE 0 END
+        ) AS collection_risk_score,
+        (
+          CASE WHEN e.start_date IS NOT NULL AND (e.start_date::date - CURRENT_DATE) < 30 THEN 4
+               WHEN e.start_date IS NOT NULL AND (e.start_date::date - CURRENT_DATE) < 60 THEN 3
+               WHEN e.start_date IS NOT NULL AND (e.start_date::date - CURRENT_DATE) < 90 THEN 2
+               ELSE 0 END +
+          CASE WHEN c.revenue_eur > 20000 THEN 2 WHEN c.revenue_eur > 10000 THEN 1 ELSE 0 END
+        ) AS event_risk_score
+      FROM contracts c
+      JOIN expos e ON c.expo_id = e.id
+      WHERE c.status IN ('Valid', 'Transferred In')
+        AND COALESCE(c.balance_eur, 0) > 0
+        AND c.payment_done IS NOT TRUE`);
+
+    res.json({ success: true, message: 'Migrations 011 + 013 applied' });
   } catch (err) {
     console.error('Migration error:', err);
     res.status(500).json({ error: err.message });

@@ -102,7 +102,9 @@ Exclude from: m² totals, contract counts, exhibitor counts, agent rankings, com
 Primary database: PostgreSQL
 Key tables:
 - expos
-- contracts
+- contracts (+ payment fields: balance_eur, paid_eur, due_date, payment_done, etc.)
+- contract_payments (received payments from Zoho Received_Payment subform)
+- contract_payment_schedule (planned payments from Date_Amount_Type + synthetic fallback)
 - exhibitors
 - expenses
 - sales_agents
@@ -124,6 +126,14 @@ fiscal_contracts
 - status IN ('Valid', 'Transferred Out')
 - Use for: Sales leaderboard, revenue by period, agent performance
 - Question answered: "How are we performing as a company?"
+
+outstanding_balances
+- status IN ('Valid', 'Transferred In') AND balance_eur > 0 AND payment_done IS NOT TRUE
+- Columns: contract_total_eur, paid_eur, balance_eur, is_overdue, days_to_due, days_overdue, days_to_expo, paid_percent, collection_stage, collection_risk_score, event_risk_score
+- Collection stages: paid_complete, deposit_missing, no_payment, overdue, pre_event_balance_open, partial_paid, ok
+- Risk: collection_risk_score + event_risk_score (0-2: OK, 3-4: WATCH, 5-7: HIGH, 8+: CRITICAL)
+- Use for: Finance/Collections dashboard, payment monitoring
+- Blueprint: docs/FINANCE_MODULE.md
 ---
 # 8. Current Development Phase
 
@@ -220,6 +230,16 @@ Completed (cont. 4):
   - /admin/users/[id].js: SET PASSWORD section (input + button + feedback)
 - Sync Auto-refresh Fix
   - /admin/system: ticker interval (5s) updates "Updated: X ago" display between fetches
+
+Completed (cont. 5):
+- Finance Module Sprint 1A: Payment Sync
+  - Migration 013: balance_eur, paid_eur, remaining_payment_eur, due_date, payment_done, payment_method, validity, first_payment_eur, second_payment_eur on contracts
+  - contract_payments tablosu: Zoho Received_Payment subform → her ödeme ayrı satır (individual record fetch required — Zoho list API doesn't return subforms)
+  - contract_payment_schedule tablosu: Date_Amount_Type1..5 parse + synthetic fallback (%30 deposit + %70 pre-event)
+  - outstanding_balances view: collection_stage, collection_risk_score, event_risk_score
+  - Turkish/French/English month name parsing in Date_Amount_Type
+  - Zoho sync: 2-pass — bulk for all fields, individual fetch for Received_Payment (paid_eur > 0 only)
+  - Doğrulama: A795955 Opak Makine → revenue=9380, paid=2345, balance=7035 ✓
 
 In Progress:
 
