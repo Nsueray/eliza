@@ -188,8 +188,22 @@ async function handleMessage(text, user) {
       return wrapWithPersonality(response, user, lang, true);
     }
     if (lower === 'iptal' || lower === 'cancel' || lower === 'annuler') {
-      const response = await handleApproval(false);
-      return wrapWithPersonality(response, user, lang, true);
+      // Check if there's actually a pending draft before calling handleApproval
+      try {
+        await expireOldDrafts();
+        const draft = await getPendingDraft();
+        if (draft) {
+          const response = await handleApproval(false);
+          return wrapWithPersonality(response, user, lang, true);
+        }
+      } catch { /* no draft — fall through */ }
+      // No pending clarification (already handled above) and no pending draft
+      const noActionMsg = {
+        tr: 'İptal edilecek bir şey yok. Sormak istediğin bir şey var mı?',
+        en: 'Nothing to cancel. What would you like to know?',
+        fr: 'Rien à annuler. Que voulez-vous savoir ?',
+      };
+      return wrapWithPersonality(noActionMsg[lang] || noActionMsg.tr, user, lang, false);
     }
   }
 
@@ -504,9 +518,11 @@ async function handleMessage(text, user) {
 
     // Context ambiguity: independent question + expo in recent history
     // e.g., user asked about SIEMA, then "en iyi satışçı kim?" — do they mean SIEMA or general?
+    // Skip if time-scoped (period/relative_days/month) — "bugün kaç sözleşme?" is not ambiguous
     const CONTEXT_AMBIGUOUS_INTENTS = ['top_agents', 'agent_performance', 'expo_agent_breakdown', 'revenue_summary'];
     const rewriteUnchanged = questionForEngine === questionText; // rewrite didn't modify
-    if (rewriteUnchanged && CONTEXT_AMBIGUOUS_INTENTS.includes(intent) && !entities?.expo_name) {
+    const hasTimeScope = entities?.period || entities?.relative_days || entities?.month;
+    if (rewriteUnchanged && CONTEXT_AMBIGUOUS_INTENTS.includes(intent) && !entities?.expo_name && !hasTimeScope) {
       // Check if conversation history has an expo context
       try {
         const { messages: histMsgs } = await getHistory(user?.phone || user?.whatsapp_phone);

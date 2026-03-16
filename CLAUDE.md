@@ -204,6 +204,10 @@ Completed (cont. 4):
   - Unnecessary clarification fix: skip expo clarification when time-based entities (period/relative_days/month) present
   - Language detection: 15+ Turkish words added to detectLang (sozlesme, bunlar, listele, peki, etc.)
   - Rewrite bypass: ALWAYS_INDEPENDENT regex pre-check in rewriteQuestion() skips LLM for ranking/general patterns
+- Clarification Bug Fixes (ISSUE-026)
+  - Tüm yıllar loop: yearAlreadyResolved + expoAlreadyResolved guards prevent re-triggering after resolve
+  - Context ambiguity skip: hasTimeScope check — "bugün kaç sözleşme?" no longer triggers clarification
+  - Cancel no pending: CEO "iptal" checks for actual draft first, returns friendly message if nothing pending
 
 In Progress:
 
@@ -991,6 +995,7 @@ ISSUE-021: Dashboard linkler hardcoded 2026, sadece 5 expo intent → getDashboa
 ISSUE-022: "entities is not defined" crash — handler.js'te entities destructure edilmemişti → düzeltildi
 ISSUE-024: Clarification bugs (cancel→message draft, rewrite injecting context, SIEMA missing, LIMIT 15) + PDF export CDN failure → npm packages
 ISSUE-025: Answer quality batch — fuzzy expo matching, country aliases (30+ countries + demonym stripping), skip expo clarification with time filters, Turkish detectLang words, rewrite bypass for general questions
+ISSUE-026: Tüm yıllar loop (yearAlreadyResolved guard), bugün clarification (hasTimeScope in context ambiguity), iptal no pending (check draft first)
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

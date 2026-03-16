@@ -292,3 +292,22 @@ Rules:
 - (5) Added 15+ Turkish words to detectLang trWords array
 - (6) Added ALWAYS_INDEPENDENT regex pre-check in rewriteQuestion() — bypasses LLM entirely for ranking/general patterns
 **Files:** packages/ai/router.js, packages/ai/queryEngine.js, apps/whatsapp-bot/src/handler.js, packages/ai/conversationMemory.js
+
+---
+
+## [ISSUE-026] Clarification: Tüm yıllar loop, bugün clarification, iptal no pending
+**Status:** FIXED (2026-03-16)
+**First seen:** 2026-03-16
+**Description:** 3 clarification bugs after deploy:
+1. "Tüm yıllar" selection causes infinite loop — year clarification re-triggers
+2. "bugün kaç sözleşme var?" still triggers expo/context clarification
+3. "iptal" with no pending returns "Bekleyen mesaj taslağı yok." instead of friendly message
+**Root cause:**
+- (1) queryEngine.run() merges year='all' by deleting entities.year and entities.missing_year, but the detection block at line 1317 re-triggers missing_year because both are gone and resolvedEntities isn't checked
+- (2) revenue_summary is in handler.js CONTEXT_AMBIGUOUS_INTENTS — context clarification fires even when period='today' is present
+- (3) CEO "iptal" handler always calls handleApproval(false) which returns "Bekleyen mesaj taslağı yok." when no draft exists
+**Fix:**
+- (1) Added `yearAlreadyResolved` and `expoAlreadyResolved` guards — if resolvedEntities already has year or expo, detection blocks skip
+- (2) Added `hasTimeScope` check to context ambiguity block — skip when period/relative_days/month present
+- (3) CEO "iptal" now checks for pending draft first; if nothing pending, returns "İptal edilecek bir şey yok. Sormak istediğin bir şey var mı?"
+**Files:** packages/ai/queryEngine.js, apps/whatsapp-bot/src/handler.js

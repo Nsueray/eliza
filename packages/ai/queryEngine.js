@@ -1305,7 +1305,8 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   // Detect missing expo for expo-agent intents (router doesn't set this flag)
   // Skip if question already contains "genel"/"general" (resolved as general in previous turn)
   // Skip if resolvedEntities already has expo_name or expo_general
-  if (entities && !entities.expo_name && intent === 'expo_agent_breakdown') {
+  const expoAlreadyResolved = resolvedEntities && (resolvedEntities.expo_name || resolvedEntities.expo_general);
+  if (entities && !entities.expo_name && intent === 'expo_agent_breakdown' && !expoAlreadyResolved) {
     if (!/\bgenel\b|\bgeneral\b|\bgénéral\b/.test(normQ)) {
       entities.missing_expo = true;
     }
@@ -1314,7 +1315,9 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   // Detect missing year for expo_agent_breakdown without year
   // Only expo_agent_breakdown triggers year clarification without expo_name
   // Other intents (country_count, price_per_m2, etc.) default to current year
-  if (entities && !entities.year && !entities.missing_year && intent === 'expo_agent_breakdown') {
+  // Skip if year was already resolved (e.g., "Tüm yıllar" → year='all')
+  const yearAlreadyResolved = resolvedEntities && (resolvedEntities.year != null);
+  if (entities && !entities.year && !entities.missing_year && intent === 'expo_agent_breakdown' && !yearAlreadyResolved) {
     if (!entities.period && !entities.relative_days && !entities.month) {
       entities.missing_year = true;
     }
