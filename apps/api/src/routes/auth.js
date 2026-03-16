@@ -7,6 +7,27 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'eliza-dashboard-secret-key-change-in-production';
 const SALT_ROUNDS = 10;
 
+// POST /api/auth/migrate — run migration 011 (add auth columns + set CEO password)
+router.post('/migrate', async (req, res) => {
+  try {
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_permissions JSONB DEFAULT '{}'`);
+
+    // Set CEO permissions
+    await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"logs":true,"intelligence":true,"system":true,"users":true,"settings":true}'::jsonb WHERE role = 'ceo' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
+    // Set manager permissions
+    await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":false}'::jsonb WHERE role = 'manager' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
+    // Set agent permissions
+    await query(`UPDATE users SET dashboard_permissions = '{"war_room":false,"expo_directory":false,"expo_detail":false,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":false}'::jsonb WHERE role = 'agent' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
+
+    res.json({ success: true, message: 'Migration 011 applied' });
+  } catch (err) {
+    console.error('Migration error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
