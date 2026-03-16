@@ -551,6 +551,7 @@ export default function LogsPage() {
           border-radius: 6px;
           padding: 20px 16px;
           text-align: center;
+          box-shadow: var(--card-shadow);
         }
         .logs-chart-panel {
           background: var(--surface);
@@ -558,6 +559,7 @@ export default function LogsPage() {
           border-radius: 6px;
           padding: 24px;
           margin-bottom: 32px;
+          box-shadow: var(--card-shadow);
         }
         .logs-doughnut-row {
           display: flex;
@@ -573,6 +575,7 @@ export default function LogsPage() {
           border: 1px solid var(--border);
           border-radius: 6px;
           padding: 16px 20px;
+          box-shadow: var(--card-shadow);
         }
         .logs-tables-grid {
           display: grid;
@@ -587,8 +590,9 @@ export default function LogsPage() {
           border: 1px solid var(--border);
           border-radius: 8px;
           padding: 20px;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
           position: relative;
+          box-shadow: var(--card-shadow);
         }
         .msg-sep {
           border-top: 1px solid var(--border);

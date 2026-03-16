@@ -34,22 +34,26 @@
 
   /* Table hover */
   --row-hover: rgba(200,169,122,0.03);
+
+  /* Elevation */
+  --card-shadow: none;
 }
 
 /* ── 1b. Light Theme ── */
 [data-theme="light"] {
-  --bg: #F5F5F5;
+  --bg: #F0F1F3;
   --surface: #FFFFFF;
-  --surface-2: #FAFAFA;
-  --border: #E0E0E0;
+  --surface-2: #EAECEF;
+  --border: #C8CDD3;
   --text-primary: #1A1A1A;
-  --text-secondary: #666666;
+  --text-secondary: #555555;
   --accent: var(--accent-color, #C8A97A);
-  --accent-2: #4A9EBF;
+  --accent-2: #3A8EAF;
   --danger: #C0392B;
-  --warning: #D4A017;
-  --success: #2ECC71;
-  --row-hover: rgba(0,0,0,0.02);
+  --warning: #C49000;
+  --success: #1E9E56;
+  --row-hover: rgba(0,0,0,0.03);
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 /* ── 2. Reset + Base ── */
@@ -121,6 +125,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  box-shadow: var(--card-shadow);
 }
 .tbl th {
   font-family: var(--font-mono);
@@ -166,6 +171,7 @@ body {
   border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   padding: 20px 24px;
+  box-shadow: var(--card-shadow);
 }
 .summary-label {
   font-family: var(--font-mono);

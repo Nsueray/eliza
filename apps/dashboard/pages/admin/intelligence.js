@@ -190,6 +190,7 @@ export default function IntelligencePage() {
           display: flex;
           align-items: flex-start;
           gap: 12px;
+          box-shadow: var(--card-shadow);
         }
         .unavail-dot {
           display: inline-block;
@@ -220,6 +221,7 @@ export default function IntelligencePage() {
           border: 1px solid var(--border);
           border-radius: 6px;
           padding: 20px 16px;
+          box-shadow: var(--card-shadow);
         }
         .clar-val {
           font-family: var(--font-mono);

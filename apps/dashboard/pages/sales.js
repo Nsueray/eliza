@@ -456,6 +456,7 @@ export default function SalesPage() {
           border-radius: 4px;
           padding: 24px;
           height: 320px;
+          box-shadow: var(--card-shadow);
         }
 
         .no-data {

@@ -78,6 +78,7 @@ export default function SystemPage() {
           border: 1px solid var(--border);
           border-radius: var(--radius-lg);
           padding: 16px;
+          box-shadow: var(--card-shadow);
         }
         .svc-header {
           display: flex;
@@ -156,6 +157,7 @@ export default function SystemPage() {
           border-left: 3px solid var(--danger);
           border-radius: var(--radius);
           padding: 12px 16px;
+          box-shadow: var(--card-shadow);
         }
         .error-header {
           display: flex;
@@ -208,6 +210,7 @@ export default function SystemPage() {
           border: 1px solid var(--border);
           border-radius: var(--radius-lg);
           padding: 20px;
+          box-shadow: var(--card-shadow);
         }
         .empty-panel {
           padding: 32px;

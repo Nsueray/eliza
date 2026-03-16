@@ -280,6 +280,7 @@ export default function WarRoom() {
           border-left: 3px solid var(--accent);
           border-radius: 4px;
           padding: 24px 28px;
+          box-shadow: var(--card-shadow);
         }
         .kpi .kpi-label {
           font-size: 11px;
@@ -443,6 +444,7 @@ export default function WarRoom() {
           border: 1px solid var(--border);
           border-radius: 4px;
           overflow: hidden;
+          box-shadow: var(--card-shadow);
         }
         .expo-table th {
           font-family: var(--font-mono);
@@ -516,6 +518,7 @@ export default function WarRoom() {
           border: 1px solid var(--border);
           border-radius: 4px;
           padding: 24px;
+          box-shadow: var(--card-shadow);
         }
         .lb-chart { height: 340px; margin-bottom: 20px; }
         .lb-table {
