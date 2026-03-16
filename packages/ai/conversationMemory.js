@@ -20,9 +20,20 @@ FOLLOW-UP signals (rewrite needed):
 
 INDEPENDENT signals (do NOT rewrite):
 - Question has its own expo name, agent name, or country AND its own metric/question type
-- General business questions are ALWAYS independent even if previous context exists. Never inject expo names, years, or agent names into these. Examples: "en çok kim satmış?", "en iyi satışçı kim?", "kaç fuar var?", "toplam gelir ne?", "hangi fuarlar riskli?", "who sold the most?", "best agent?", "total revenue?", "how many expos?"
+- General business questions are ALWAYS independent even if previous context exists. Never inject expo names, years, or agent names into these.
 - Ranking/superlative questions without explicit context reference: "en çok", "en iyi", "en az", "best", "most", "least", "top"
 - Questions with new entities not in history
+
+ALWAYS INDEPENDENT patterns (NEVER rewrite these, regardless of history):
+- "en çok kim satmış?" / "who sold the most?" / "qui a le plus vendu?"
+- "en iyi satışçı kim?" / "best agent?" / "meilleur agent?"
+- "toplam gelir ne?" / "total revenue?" / "revenu total?"
+- "kaç fuar var?" / "how many expos?" / "combien d'expos?"
+- "hangi fuarlar riskli?" / "which expos at risk?"
+- "bugün kaç sözleşme?" / "today how many contracts?"
+- "bu ay ne kadar satıldı?" / "how much sold this month?"
+- Any question starting with "en çok", "en iyi", "en az", "kaç tane", "toplam"
+- Any question containing "kim satmış", "best agent", "top agent", "top sales"
 
 ENTITY TYPES:
 - Expo names: SIEMA, Mega Clima, Madesign, Foodexpo, Buildexpo, Plastexpo, etc.
@@ -129,6 +140,24 @@ async function rewriteQuestion(currentQuestion, history) {
 
   // No history or too little context → no rewrite needed
   if (!history || history.length < 2) return noRewrite;
+
+  // Pre-check: always-independent patterns skip LLM entirely
+  const qLower = currentQuestion.toLowerCase();
+  const ALWAYS_INDEPENDENT = [
+    /^en (cok|iyi|az|basarili|aktif)\b/,
+    /\ben (cok|iyi|az) kim\b/,
+    /\bkim satmis\b/,
+    /\btoplam gelir\b/,
+    /\btotal revenue\b/,
+    /\bbest agent\b/,
+    /\btop (agent|sales)\b/,
+    /\bwho sold the most\b/,
+    /\bkac fuar\b/,
+    /\bhow many expo/,
+    /\bhangi fuar.*risk/,
+  ];
+  const normQ = qLower.replace(/[çÇ]/g, 'c').replace(/[şŞ]/g, 's').replace(/[üÜ]/g, 'u').replace(/[ıİ]/g, 'i').replace(/[öÖ]/g, 'o').replace(/[ğĞ]/g, 'g');
+  if (ALWAYS_INDEPENDENT.some(re => re.test(normQ))) return noRewrite;
 
   // Format history for prompt
   const historyText = history.map(h => {

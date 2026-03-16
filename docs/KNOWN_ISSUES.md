@@ -263,3 +263,32 @@ Rules:
 - (4) Increased LIMIT from 15 to 30 in queryEngine.js (both all-years and year-filtered queries) and handler.js context ambiguity query
 - (5) Replaced CDN loadScript with npm packages (jspdf, jspdf-autotable, xlsx) using dynamic imports across all 3 dashboard pages (sales.js, expos.js, detail.js); removed loadScript functions
 **Files:** packages/ai/conversationMemory.js, apps/whatsapp-bot/src/handler.js, packages/ai/queryEngine.js, apps/dashboard/pages/sales.js, apps/dashboard/pages/expos.js, apps/dashboard/pages/expos/detail.js, apps/dashboard/package.json
+
+
+---
+
+## [ISSUE-025] Answer quality: fuzzy expo, country aliases, unnecessary clarification, language detection, rewrite
+**Status:** FIXED (2026-03-16)
+**First seen:** 2026-03-16
+**Description:** 6 WhatsApp bot answer quality bugs:
+1. Expo name fuzzy matching: "megaclima" doesn't match "Mega Clima" in DB (ILIKE '%megaclima%' fails)
+2. Country name normalization: "İtalyan"/"İtalya"/"Fransız" not recognized — only 7 countries mapped
+3. "cancel"/"iptal" during clarification goes to message draft handler (duplicate of ISSUE-024 fix verification)
+4. "bugün kaç sözleşme var?" triggers unnecessary expo clarification instead of answering directly
+5. Turkish follow-up questions ("bunlar hangi firmalar?") get English responses — missing words in detectLang
+6. Second "en çok kim satmış?" still gets context injected from conversation memory despite ISSUE-024 fix
+**Root cause:**
+- (1) buildQuery uses `ILIKE '%expo_name%'` but "megaclima" ≠ "Mega Clima" — no space normalization
+- (2) COUNTRY_KEYWORDS only had 7 countries; no demonym suffix stripping ("İtalyan" → "Italy")
+- (3) Already fixed in ISSUE-024 — verified working
+- (4) EXPO_CLARIFICATION_INTENTS triggered even when time-based entities (period, relative_days, month) present
+- (5) detectLang trWords missing: 'sozlesme', 'bunlar', 'listele', 'peki', etc.
+- (6) rewriteQuestion LLM still injected context for general questions despite REWRITE_PROMPT rules — needed pre-check bypass
+**Fix:**
+- (1) Added fuzzyExpoPattern() in queryEngine.js: normalizes compound expo names ("megaclima" → "%mega%clima%"); applied to all ILIKE patterns
+- (2) Expanded COUNTRY_KEYWORDS from 7 to 30+ countries with Turkish/French/English aliases; added resolveCountry() with demonym suffix stripping; normalize() removes U+0307 combining dot
+- (3) Verified — clarification cancel check runs before CEO approval check
+- (4) Added hasTimeFilter check before expo clarification — skips when period/relative_days/month present
+- (5) Added 15+ Turkish words to detectLang trWords array
+- (6) Added ALWAYS_INDEPENDENT regex pre-check in rewriteQuestion() — bypasses LLM entirely for ranking/general patterns
+**Files:** packages/ai/router.js, packages/ai/queryEngine.js, apps/whatsapp-bot/src/handler.js, packages/ai/conversationMemory.js

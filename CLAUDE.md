@@ -196,6 +196,15 @@ Completed (cont. 3):
   - API: PUT /api/auth/settings (debounced save)
   - Settings applied on login/load via AuthProvider
 
+Completed (cont. 4):
+- Answer Quality Batch Fix (ISSUE-025)
+  - Fuzzy expo matching: fuzzyExpoPattern() normalizes compound names ("megaclima" → "%mega%clima%")
+  - Country aliases: COUNTRY_KEYWORDS expanded 7→30+ countries, resolveCountry() with demonym suffix stripping
+  - Unicode fix: normalize() removes U+0307 combining dot above (İ→i̇ issue)
+  - Unnecessary clarification fix: skip expo clarification when time-based entities (period/relative_days/month) present
+  - Language detection: 15+ Turkish words added to detectLang (sozlesme, bunlar, listele, peki, etc.)
+  - Rewrite bypass: ALWAYS_INDEPENDENT regex pre-check in rewriteQuestion() skips LLM for ranking/general patterns
+
 In Progress:
 
 Pending:
@@ -981,6 +990,7 @@ ISSUE-020: Year filter eksik — expo/agent sorguları tüm yılların verisini 
 ISSUE-021: Dashboard linkler hardcoded 2026, sadece 5 expo intent → getDashboardLink(intent, entities) dinamik year + 18 intent mapped
 ISSUE-022: "entities is not defined" crash — handler.js'te entities destructure edilmemişti → düzeltildi
 ISSUE-024: Clarification bugs (cancel→message draft, rewrite injecting context, SIEMA missing, LIMIT 15) + PDF export CDN failure → npm packages
+ISSUE-025: Answer quality batch — fuzzy expo matching, country aliases (30+ countries + demonym stripping), skip expo clarification with time filters, Turkish detectLang words, rewrite bypass for general questions
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

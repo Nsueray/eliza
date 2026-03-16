@@ -3,7 +3,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { query } = require('../db/index.js');
 
-const { route, normalize } = require('./router.js');
+const { route, normalize, resolveCountry } = require('./router.js');
 
 const client = new Anthropic();
 const INTENT_MODEL = process.env.AI_INTENT_MODEL || 'claude-haiku-4-5-20251001';
@@ -18,6 +18,31 @@ const FORBIDDEN_KEYWORDS = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUN
 const INTERNAL_AGENT = 'ELAN EXPO';
 const EXCL_AGENT = `AND c.sales_agent != '${INTERNAL_AGENT}'`;
 const EXCL_AGENT_FC = `AND sales_agent != '${INTERNAL_AGENT}'`;
+
+/**
+ * Build a fuzzy ILIKE pattern for expo names.
+ * "Megaclima" → "%m%e%g%a%c%l%i%m%a%" won't work well.
+ * Instead: try splitting known brand patterns and adding % between words.
+ * e.g., "Megaclima" → "%mega%clima%" (matches "Mega Clima" in DB)
+ * Also handles "Mega Clima" → "%Mega Clima%" (direct match).
+ */
+function fuzzyExpoPattern(expoName) {
+  if (!expoName) return '%%';
+  // Known compound expo name patterns (space-insensitive matching)
+  const COMPOUND_PATTERNS = {
+    'megaclima': 'mega%clima',
+    'foodexpo': 'food%expo',
+    'buildexpo': 'build%expo',
+    'plastexpo': 'plast%expo',
+    'electexpo': 'elect%expo',
+  };
+  const lower = expoName.toLowerCase().replace(/\s+/g, '');
+  if (COMPOUND_PATTERNS[lower]) {
+    return `%${COMPOUND_PATTERNS[lower]}%`;
+  }
+  // Default: standard ILIKE with original name
+  return `%${expoName}%`;
+}
 
 // Unavailability registry — topics ELIZA cannot answer
 const METRIC_AVAILABILITY = {
@@ -401,7 +426,11 @@ async function extractSemanticFrame(question) {
   const entities = {};
   if (frame.expo_name) entities.expo_name = frame.expo_name;
   if (frame.agent_name) entities.agent_name = frame.agent_name;
-  if (frame.country) entities.country = frame.country;
+  if (frame.country) {
+    // Normalize country name: "İtalya" → "Italy", "Fransa" → "France"
+    const normalizedCountry = resolveCountry(normalize(frame.country));
+    entities.country = normalizedCountry || frame.country;
+  }
 
   // Year extraction from frame
   if (frame.expo_year) {
@@ -479,7 +508,7 @@ function buildQuery(intent, entities) {
         WHERE e.name ILIKE $1
           AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
         GROUP BY e.id ORDER BY e.start_date DESC LIMIT 5`,
-        params: [`%${e.expo_name || ''}%`, e.year || null],
+        params: [fuzzyExpoPattern(e.expo_name || ''), e.year || null],
       };
 
     case 'agent_performance': {
@@ -497,7 +526,7 @@ function buildQuery(intent, entities) {
             AND ($3::int IS NULL OR EXTRACT(YEAR FROM c.contract_date) = $3)
             AND ($4::int IS NULL OR EXTRACT(MONTH FROM c.contract_date) = $4)
           GROUP BY c.sales_agent`,
-          params: [`%${e.agent_name || ''}%`, `%${e.expo_name}%`, e.year || null, e.month || null],
+          params: [`%${e.agent_name || ''}%`, fuzzyExpoPattern(e.expo_name), e.year || null, e.month || null],
         };
       }
       return {
@@ -554,7 +583,7 @@ function buildQuery(intent, entities) {
           AND c.country IS NOT NULL
           ${EXCL_AGENT}
         GROUP BY c.country ORDER BY exhibitors DESC LIMIT 50`,
-        params: [`%${e.expo_name || ''}%`, e.year || null],
+        params: [fuzzyExpoPattern(e.expo_name || ''), e.year || null],
       };
 
     case 'exhibitors_by_country': {
@@ -569,7 +598,7 @@ function buildQuery(intent, entities) {
             AND e.start_date >= CURRENT_DATE
             ${EXCL_AGENT}
           ORDER BY c.m2 DESC LIMIT 50`,
-          params: [`%${e.country || ''}%`, `%${e.expo_name}%`],
+          params: [`%${e.country || ''}%`, fuzzyExpoPattern(e.expo_name)],
         };
       }
       return {
@@ -757,7 +786,7 @@ function buildQuery(intent, entities) {
           AND c.sales_agent IS NOT NULL
           ${EXCL_AGENT}
         GROUP BY c.sales_agent ORDER BY revenue_eur DESC LIMIT 20`,
-        params: [`%${e.expo_name || ''}%`, e.year || null],
+        params: [fuzzyExpoPattern(e.expo_name || ''), e.year || null],
       };
 
     case 'expo_company_list':
@@ -773,7 +802,7 @@ function buildQuery(intent, entities) {
           ${EXCL_AGENT}
         GROUP BY c.company_name, c.country
         ORDER BY revenue_eur DESC LIMIT 100`,
-        params: [`%${e.expo_name || ''}%`, e.year || null],
+        params: [fuzzyExpoPattern(e.expo_name || ''), e.year || null],
       };
 
     case 'monthly_trend': {
@@ -849,7 +878,7 @@ function buildQuery(intent, entities) {
             AND e.name ILIKE $1
             AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
           ORDER BY c.revenue_eur DESC LIMIT 50`,
-          params: [`%${e.expo_name}%`, e.year || null],
+          params: [fuzzyExpoPattern(e.expo_name), e.year || null],
         };
       }
       return {
@@ -882,7 +911,7 @@ function buildQuery(intent, entities) {
           GROUP BY c.company_name
           HAVING COUNT(DISTINCT e.edition_year) > 1
           ORDER BY editions DESC, total_revenue DESC LIMIT 30`,
-          params: [`%${e.expo_name}%`],
+          params: [fuzzyExpoPattern(e.expo_name)],
         };
       }
       if (hasCountry) {
@@ -932,7 +961,7 @@ function buildQuery(intent, entities) {
             AND e.name ILIKE $1
             AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
           GROUP BY c.sales_agent ORDER BY avg_price_per_m2 DESC LIMIT 20`,
-          params: [`%${e.expo_name}%`, e.year || null],
+          params: [fuzzyExpoPattern(e.expo_name), e.year || null],
         };
       }
       return {
@@ -961,7 +990,7 @@ function buildQuery(intent, entities) {
           WHERE name ILIKE $1
             AND start_date > CURRENT_DATE
           ORDER BY start_date ASC LIMIT 1`,
-          params: [`%${e.expo_name}%`],
+          params: [fuzzyExpoPattern(e.expo_name)],
         };
       }
       return {
@@ -1306,7 +1335,7 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
           `SELECT DISTINCT EXTRACT(YEAR FROM e.start_date)::int AS year
            FROM expos e WHERE e.name ILIKE $1 AND e.start_date IS NOT NULL
            ORDER BY year DESC LIMIT 5`,
-          [`%${entities.expo_name}%`]
+          [fuzzyExpoPattern(entities.expo_name)]
         );
       } else {
         editions = await query(
@@ -1340,7 +1369,10 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   }
 
   // 2. Expo clarification — fetch expos from DB (filtered by resolved year)
-  if (entities && entities.missing_expo && EXPO_CLARIFICATION_INTENTS.includes(intent)) {
+  // Skip if time-based entities exist (period, relative_days, month) — Bug fix:
+  // "bugün kaç sözleşme var?" shouldn't ask for expo, it's a time-scoped query
+  const hasTimeFilter = entities && (entities.period || entities.relative_days || entities.month);
+  if (entities && entities.missing_expo && EXPO_CLARIFICATION_INTENTS.includes(intent) && !hasTimeFilter) {
     try {
       const allYears = resolvedEntities && resolvedEntities.year === 'all';
       const filterYear = allYears ? null : (entities.year || currentYear);

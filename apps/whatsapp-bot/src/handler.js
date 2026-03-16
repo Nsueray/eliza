@@ -73,6 +73,8 @@ const LANG_ACCENT_MAP = {
 
 function normalizeLang(text) {
   let result = text.toLowerCase();
+  // Remove combining dot above (U+0307) — produced by İ → i + ̇
+  result = result.replace(/\u0307/g, '');
   for (const [accented, plain] of Object.entries(LANG_ACCENT_MAP)) {
     result = result.replaceAll(accented, plain);
   }
@@ -88,7 +90,7 @@ function detectLang(text) {
   const words = normalized.split(/\s+/);
 
   // All keywords are accent-normalized (ç→c, ş→s, ü→u, ı→i, ö→o, ğ→g)
-  const trWords = ['kac', 'nasil', 'nedir', 'ne', 'hangi', 'kim', 'toplam', 'satis', 'fuar', 'goster', 'bana', 'kontrat', 'yil', 'gelir', 'ulke', 'durumu', 'risk', 'iyi', 'kotu', 'hiz', 'hedef', 'gun', 'ver', 'soyle', 'mi', 'bu', 'icin', 'var', 'olan', 'kacinci', 'kadar', 'tane', 'sonuc', 'firma', 'agent'];
+  const trWords = ['kac', 'nasil', 'nedir', 'ne', 'hangi', 'kim', 'toplam', 'satis', 'fuar', 'goster', 'bana', 'kontrat', 'yil', 'gelir', 'ulke', 'durumu', 'risk', 'iyi', 'kotu', 'hiz', 'hedef', 'gun', 'ver', 'soyle', 'mi', 'bu', 'icin', 'var', 'olan', 'kacinci', 'kadar', 'tane', 'sonuc', 'firma', 'agent', 'sozlesme', 'bunlar', 'listele', 'sirala', 'peki', 'ile', 'ise', 'veya', 'ya', 'ayrica', 'orada', 'bugun', 'dun', 'satmis', 'yapilmis', 'gelen', 'katilimci', 'odeme'];
   const frWords = ['combien', 'quel', 'quels', 'comment', 'les', 'des', 'pour', 'dans', 'sont', 'avec', 'cette', 'exposition', 'ventes', 'contrats', 'revenu', 'montre', 'donne', 'meilleurs', 'jours', 'avant'];
   const enWords = ['how', 'what', 'which', 'who', 'top', 'best', 'worst', 'total', 'show', 'give', 'list', 'agents', 'revenue', 'contracts', 'sold', 'sales', 'many', 'much', 'this', 'year', 'month', 'risk', 'performance', 'progress'];
 

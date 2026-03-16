@@ -28,6 +28,8 @@ const TIME_MAP = [
 
 function normalize(text) {
   let result = text.toLowerCase();
+  // Remove combining dot above (U+0307) — produced by İ → i + ̇
+  result = result.replace(/\u0307/g, '');
   for (const [accented, plain] of Object.entries(ACCENT_MAP)) {
     result = result.replaceAll(accented, plain);
   }
@@ -52,15 +54,82 @@ const AGENT_NAMES = [
 ];
 
 // Country keywords (normalized form → canonical)
+// Includes Turkish, French, and common aliases + demonyms
 const COUNTRY_KEYWORDS = {
-  'turkiye': 'Turkey', 'turkey': 'Turkey', 'turquie': 'Turkey',
+  'turkiye': 'Turkey', 'turkey': 'Turkey', 'turquie': 'Turkey', 'turk': 'Turkey',
   'nijerya': 'Nigeria', 'nigeria': 'Nigeria',
   'fas': 'Morocco', 'morocco': 'Morocco', 'maroc': 'Morocco',
   'kenya': 'Kenya',
   'cezayir': 'Algeria', 'algeria': 'Algeria', 'algerie': 'Algeria',
   'cin': 'China', 'china': 'China', 'chine': 'China',
   'gana': 'Ghana', 'ghana': 'Ghana',
+  'italya': 'Italy', 'italy': 'Italy', 'italie': 'Italy', 'italien': 'Italy',
+  'fransa': 'France', 'france': 'France', 'fransiz': 'France',
+  'almanya': 'Germany', 'germany': 'Germany', 'allemagne': 'Germany',
+  'ispanya': 'Spain', 'spain': 'Spain', 'espagne': 'Spain',
+  'hindistan': 'India', 'india': 'India', 'inde': 'India',
+  'portekiz': 'Portugal', 'portugal': 'Portugal',
+  'isvec': 'Sweden', 'sweden': 'Sweden', 'suede': 'Sweden',
+  'macaristan': 'Hungary', 'hungary': 'Hungary', 'hongrie': 'Hungary',
+  'birlesmis arap emirlikleri': 'UAE', 'uae': 'UAE', 'emirats': 'UAE', 'bae': 'UAE',
+  'misir': 'Egypt', 'egypt': 'Egypt', 'egypte': 'Egypt',
+  'tunus': 'Tunisia', 'tunisia': 'Tunisia', 'tunisie': 'Tunisia',
+  'suudi arabistan': 'Saudi Arabia', 'saudi arabia': 'Saudi Arabia', 'arabie saoudite': 'Saudi Arabia',
+  'ingiltere': 'United Kingdom', 'united kingdom': 'United Kingdom', 'royaume-uni': 'United Kingdom', 'uk': 'United Kingdom',
+  'amerika': 'United States', 'united states': 'United States', 'usa': 'United States', 'etats-unis': 'United States', 'abd': 'United States',
+  'rusya': 'Russia', 'russia': 'Russia', 'russie': 'Russia',
+  'polonya': 'Poland', 'poland': 'Poland', 'pologne': 'Poland',
+  'yunanistan': 'Greece', 'greece': 'Greece', 'grece': 'Greece',
+  'iran': 'Iran',
+  'irak': 'Iraq', 'iraq': 'Iraq',
+  'pakistan': 'Pakistan',
+  'banglades': 'Bangladesh', 'bangladesh': 'Bangladesh',
+  'endonezya': 'Indonesia', 'indonesia': 'Indonesia', 'indonesie': 'Indonesia',
+  'malezya': 'Malaysia', 'malaysia': 'Malaysia', 'malaisie': 'Malaysia',
+  'guney afrika': 'South Africa', 'south africa': 'South Africa', 'afrique du sud': 'South Africa',
+  'senegal': 'Senegal',
+  'kamerun': 'Cameroon', 'cameroon': 'Cameroon', 'cameroun': 'Cameroon',
+  'fildisi sahili': 'Ivory Coast', 'ivory coast': 'Ivory Coast', "cote d'ivoire": 'Ivory Coast',
+  'libya': 'Libya', 'libye': 'Libya',
+  'liban': 'Lebanon', 'lebanon': 'Lebanon',
+  'urdun': 'Jordan', 'jordan': 'Jordan', 'jordanie': 'Jordan',
 };
+
+// Demonym suffixes for Turkish case suffixes and demonym forms
+const DEMONYM_SUFFIXES = [
+  'li', 'lu', 'lular', 'lilar', 'liler', 'luler',
+  'dan', 'den', 'tan', 'ten',
+  'da', 'de', 'ta', 'te',
+  'ya', 'ye', // dative: "İtalya'ya" → after accent norm "italyaya"
+  'an', 'en', // demonym: "İtalyan", "Mısırlı" already covered by 'li'
+  'ais', 'ois', // French demonyms: "français", "turquois"
+];
+
+/**
+ * Try to resolve a country from text, including demonym suffix stripping.
+ * Returns canonical country name or null.
+ */
+function resolveCountry(norm) {
+  // Direct match first
+  for (const [kw, country] of Object.entries(COUNTRY_KEYWORDS)) {
+    // Word boundary check to avoid partial matches
+    const regex = new RegExp(`\\b${kw}\\b`);
+    if (regex.test(norm)) return country;
+  }
+  // Suffix stripping: "italyan" → "italy" (after accent norm: "italyan")
+  const words = norm.split(/\s+/);
+  for (const word of words) {
+    for (const suffix of DEMONYM_SUFFIXES) {
+      if (word.length > suffix.length + 2 && word.endsWith(suffix)) {
+        const stem = word.slice(0, -suffix.length);
+        for (const [kw, country] of Object.entries(COUNTRY_KEYWORDS)) {
+          if (kw.startsWith(stem) || stem.startsWith(kw)) return country;
+        }
+      }
+    }
+  }
+  return null;
+}
 
 // Intent keyword rules — checked in priority order (first match wins)
 // keywords: array of arrays. Each inner array = set of phrases that ALL must match (AND).
@@ -409,12 +478,10 @@ function extractEntities(norm, original) {
     }
   }
 
-  // Country extraction (use normalized keys)
-  for (const [kw, country] of Object.entries(COUNTRY_KEYWORDS)) {
-    if (norm.includes(kw)) {
-      entities.country = country;
-      break;
-    }
+  // Country extraction (with demonym suffix stripping)
+  const resolvedCountry = resolveCountry(norm);
+  if (resolvedCountry) {
+    entities.country = resolvedCountry;
   }
 
   // Metric: risk
@@ -442,4 +509,4 @@ function extractEntities(norm, original) {
   return entities;
 }
 
-module.exports = { route, normalize };
+module.exports = { route, normalize, resolveCountry };
