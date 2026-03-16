@@ -85,214 +85,11 @@ function mapRecord(record, expoMap) {
     payment_done: record.Payment_Done ?? null,
     payment_method: record.Payment_Method || null,
     validity: record.Validity || null,
-    first_payment_eur: toEur(record.st_Payment),
-    second_payment_eur: toEur(record.nd_Payment),
-    // Subform and schedule fields (raw, processed later)
+    // Subform data (raw, processed in second pass)
     _received_payments: record.Received_Payment || null,
-    _date_amount_types: [
-      record.Date_Amount_Type || null,
-      record.Date_Amount_Type1 || null,
-      record.Date_Amount_Type2 || null,
-      record.Date_Amount_Type3 || null,
-      record.Date_Amount_Type4 || null,
-    ],
   };
 }
 
-// Turkish and French month names → month number
-const MONTH_NAMES = {
-  // Turkish
-  ocak: '01', subat: '02', mart: '03', nisan: '04', mayis: '05', haziran: '06',
-  temmuz: '07', agustos: '08', eylul: '09', ekim: '10', kasim: '11', aralik: '12',
-  // Turkish with accents (for completeness)
-  'şubat': '02', 'mayıs': '05', 'ağustos': '08', 'eylül': '09', 'kasım': '11', 'aralık': '12',
-  // French
-  janvier: '01', fevrier: '02', mars: '03', avril: '04', mai: '05', juin: '06',
-  juillet: '07', aout: '08', septembre: '09', octobre: '10', novembre: '11', decembre: '12',
-  'février': '02', 'août': '08', 'décembre': '12',
-  // English
-  january: '01', february: '02', march: '03', april: '04', may: '05', june: '06',
-  july: '07', august: '08', september: '09', october: '10', november: '11', december: '12',
-};
-
-/**
- * Parse Date_Amount_Type fields into payment schedule entries.
- * Zoho format varies:
- * - "15.04.2026 / 2.000 EUR / Deposit"
- * - "DD/MM/YYYY 2000 EUR Deposit"
- * - "9 mart 1750 euro" (Turkish month name)
- * - "Ocak 2026 - 1000 Euro"
- * We attempt multiple patterns and skip unparseable entries.
- */
-function parseDateAmountType(value, fieldName) {
-  if (!value || typeof value !== 'string' || value.trim().length === 0) return null;
-
-  const str = value.trim();
-
-  // Pre-check: Try Turkish/French month name pattern first
-  // "9 mart 1750 euro", "Ocak 2026 - 1000 Euro", "28 Mart 2022 / 1782.10 Euro"
-  const monthNamePattern = /(\d{1,2})?\s*(\w+)\s+(\d{4})?\s*[/\-]?\s*([\d.,]+)\s*(?:EUR|Euro|€)?/i;
-  const monthMatch = str.match(monthNamePattern);
-  if (monthMatch) {
-    const day = monthMatch[1] || '1';
-    const monthWord = monthMatch[2].toLowerCase()
-      .replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o')
-      .replace(/ü/g, 'u').replace(/ğ/g, 'g').replace(/ç/g, 'c')
-      .replace(/é/g, 'e').replace(/û/g, 'u').replace(/â/g, 'a');
-    const month = MONTH_NAMES[monthWord];
-    if (month) {
-      const year = monthMatch[3] || String(new Date().getFullYear());
-      let amountStr = monthMatch[4].replace(/\s/g, '');
-      // Parse amount with European format handling
-      if (amountStr.includes(',') && amountStr.includes('.')) {
-        if (amountStr.lastIndexOf(',') > amountStr.lastIndexOf('.')) {
-          amountStr = amountStr.replace(/\./g, '').replace(',', '.');
-        } else {
-          amountStr = amountStr.replace(/,/g, '');
-        }
-      } else if (amountStr.includes(',')) {
-        const afterComma = amountStr.split(',')[1];
-        amountStr = (afterComma && afterComma.length <= 2)
-          ? amountStr.replace(',', '.')
-          : amountStr.replace(/,/g, '');
-      }
-      const amount = parseFloat(amountStr);
-      if (amount > 0) {
-        const dateStr = `${year}-${month}-${day.padStart(2, '0')}`;
-        const parsedDate = new Date(dateStr);
-        if (!isNaN(parsedDate.getTime())) {
-          return {
-            due_date: dateStr,
-            planned_amount_eur: amount,
-            payment_type: 'installment',
-            note: null,
-            source_field: fieldName,
-          };
-        }
-      }
-    }
-  }
-
-  // Also try: "Month YYYY - AMOUNT" without day (e.g., "Ocak 2026 - 1000 Euro")
-  const monthYearFirst = /(\w+)\s+(\d{4})\s*[/\-]\s*([\d.,]+)\s*(?:EUR|Euro|€)?/i;
-  const myMatch = str.match(monthYearFirst);
-  if (myMatch) {
-    const monthWord = myMatch[1].toLowerCase()
-      .replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o')
-      .replace(/ü/g, 'u').replace(/ğ/g, 'g').replace(/ç/g, 'c')
-      .replace(/é/g, 'e').replace(/û/g, 'u').replace(/â/g, 'a');
-    const month = MONTH_NAMES[monthWord];
-    if (month) {
-      const year = myMatch[2];
-      let amountStr = myMatch[3].replace(/\s/g, '');
-      if (amountStr.includes(',') && amountStr.includes('.')) {
-        amountStr = (amountStr.lastIndexOf(',') > amountStr.lastIndexOf('.'))
-          ? amountStr.replace(/\./g, '').replace(',', '.')
-          : amountStr.replace(/,/g, '');
-      } else if (amountStr.includes(',')) {
-        const afterComma = amountStr.split(',')[1];
-        amountStr = (afterComma && afterComma.length <= 2)
-          ? amountStr.replace(',', '.')
-          : amountStr.replace(/,/g, '');
-      }
-      const amount = parseFloat(amountStr);
-      if (amount > 0) {
-        return {
-          due_date: `${year}-${month}-15`, // Mid-month default when no day
-          planned_amount_eur: amount,
-          payment_type: 'installment',
-          note: null,
-          source_field: fieldName,
-        };
-      }
-    }
-  }
-
-  // Try pattern: "DD.MM.YYYY / AMOUNT [EUR] / NOTE" or "DD/MM/YYYY / AMOUNT / NOTE"
-  // Also handle: "DD.MM.YYYY AMOUNT EUR NOTE"
-  const patterns = [
-    // Pattern 1: slash-separated "15.04.2026 / 2.000 EUR / Deposit"
-    /(\d{1,2}[./]\d{1,2}[./]\d{4})\s*[/\-]\s*([\d.,]+)\s*(?:EUR|€)?\s*[/\-]?\s*(.*)/i,
-    // Pattern 2: space-separated "15.04.2026 2000 EUR Deposit"
-    /(\d{1,2}[./]\d{1,2}[./]\d{4})\s+([\d.,]+)\s*(?:EUR|€)?\s*(.*)/i,
-    // Pattern 3: just amount and date "2000 EUR 15.04.2026"
-    /([\d.,]+)\s*(?:EUR|€)\s*(\d{1,2}[./]\d{1,2}[./]\d{4})\s*(.*)/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = str.match(pattern);
-    if (match) {
-      let dateStr, amountStr, note;
-
-      if (pattern === patterns[2]) {
-        // Pattern 3: amount first, then date
-        amountStr = match[1];
-        dateStr = match[2];
-        note = match[3] || '';
-      } else {
-        dateStr = match[1];
-        amountStr = match[2];
-        note = match[3] || '';
-      }
-
-      // Parse date (DD.MM.YYYY or DD/MM/YYYY)
-      const dateParts = dateStr.split(/[./]/);
-      if (dateParts.length !== 3) continue;
-      const [day, month, year] = dateParts;
-      const parsedDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-      if (isNaN(parsedDate.getTime())) continue;
-
-      // Parse amount (handle European format: 2.000,50 or 2,000.50)
-      let amount = amountStr.replace(/\s/g, '');
-      // European: "2.000,50" → "2000.50"
-      if (amount.includes(',') && amount.includes('.')) {
-        if (amount.lastIndexOf(',') > amount.lastIndexOf('.')) {
-          // European: 2.000,50
-          amount = amount.replace(/\./g, '').replace(',', '.');
-        } else {
-          // US: 2,000.50
-          amount = amount.replace(/,/g, '');
-        }
-      } else if (amount.includes(',')) {
-        // Could be European decimal "2000,50" or thousand sep "2,000"
-        const afterComma = amount.split(',')[1];
-        if (afterComma && afterComma.length <= 2) {
-          amount = amount.replace(',', '.'); // decimal
-        } else {
-          amount = amount.replace(/,/g, ''); // thousand
-        }
-      } else {
-        amount = amount.replace(/\./g, function(m, offset, s) {
-          // If last dot and has exactly 2 digits after → decimal
-          const afterDot = s.substring(offset + 1);
-          if (!afterDot.includes('.') && afterDot.length <= 2) return '.';
-          return ''; // thousand separator
-        });
-      }
-      const parsedAmount = parseFloat(amount);
-      if (isNaN(parsedAmount) || parsedAmount <= 0) continue;
-
-      // Detect payment type from note
-      const noteLower = (note || '').toLowerCase();
-      let paymentType = 'installment';
-      if (noteLower.includes('deposit') || noteLower.includes('kapora') || noteLower.includes('acompte')) {
-        paymentType = 'deposit';
-      } else if (noteLower.includes('final') || noteLower.includes('kalan') || noteLower.includes('solde')) {
-        paymentType = 'final';
-      }
-
-      return {
-        due_date: parsedDate.toISOString().split('T')[0],
-        planned_amount_eur: parsedAmount,
-        payment_type: paymentType,
-        note: note.trim() || null,
-        source_field: fieldName,
-      };
-    }
-  }
-
-  return null; // Couldn't parse
-}
 
 /**
  * Sync received payments (Zoho Received_Payment subform) for a contract.
@@ -324,88 +121,44 @@ async function syncReceivedPayments(contractId, afNumber, receivedPayments) {
 }
 
 /**
- * Sync payment schedule from Date_Amount_Type fields + synthetic fallback.
+ * Sync payment schedule — synthetic only (30% deposit + 70% pre-event).
+ * Date_Amount_Type fields are obsolete (pre-2025) and no longer parsed.
  */
-async function syncPaymentSchedule(contractId, afNumber, dateAmountTypes, contract) {
-  // Delete existing non-synthetic schedule entries
-  await query(
-    'DELETE FROM contract_payment_schedule WHERE contract_id = $1 AND is_synthetic = false',
-    [contractId]
-  );
-  // Also delete synthetic entries — they'll be regenerated if needed
-  await query(
-    'DELETE FROM contract_payment_schedule WHERE contract_id = $1 AND is_synthetic = true',
-    [contractId]
-  );
+async function syncPaymentSchedule(contractId, afNumber, contract) {
+  await query('DELETE FROM contract_payment_schedule WHERE contract_id = $1', [contractId]);
 
-  const fieldNames = [
-    'Date_Amount_Type', 'Date_Amount_Type1', 'Date_Amount_Type2',
-    'Date_Amount_Type3', 'Date_Amount_Type4',
-  ];
+  if (!contract.revenue_eur || contract.revenue_eur <= 0) return;
 
-  let installmentNo = 0;
-  let parsedAny = false;
+  const depositAmount = Math.round(contract.revenue_eur * 0.30 * 100) / 100;
+  const finalAmount = Math.round(contract.revenue_eur * 0.70 * 100) / 100;
 
-  for (let i = 0; i < dateAmountTypes.length; i++) {
-    const value = dateAmountTypes[i];
-    if (!value) continue;
-
-    const parsed = parseDateAmountType(value, fieldNames[i]);
-    if (!parsed) {
-      console.log(`  [schedule] Could not parse ${fieldNames[i]}: "${value}" for ${afNumber}`);
-      continue;
-    }
-
-    installmentNo++;
-    parsedAny = true;
-
-    await query(
-      `INSERT INTO contract_payment_schedule
-       (contract_id, af_number, installment_no, due_date, planned_amount_eur, payment_type, note, source_field, is_synthetic)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)`,
-      [
-        contractId, afNumber, installmentNo,
-        parsed.due_date, parsed.planned_amount_eur, parsed.payment_type,
-        parsed.note, parsed.source_field,
-      ]
-    );
+  let depositDue = null;
+  if (contract.contract_date) {
+    const d = new Date(contract.contract_date);
+    d.setDate(d.getDate() + 30);
+    depositDue = d.toISOString().split('T')[0];
   }
 
-  // Synthetic schedule fallback: if no real schedule parsed
-  if (!parsedAny && contract.revenue_eur && contract.revenue_eur > 0) {
-    const depositAmount = Math.round(contract.revenue_eur * 0.30 * 100) / 100;
-    const finalAmount = Math.round(contract.revenue_eur * 0.70 * 100) / 100;
-
-    // Deposit: contract_date + 30 days
-    let depositDue = null;
-    if (contract.contract_date) {
-      const d = new Date(contract.contract_date);
-      d.setDate(d.getDate() + 30);
-      depositDue = d.toISOString().split('T')[0];
-    }
-
-    // Final: expo start_date - 30 days
-    let finalDue = null;
-    if (contract.expo_start_date) {
-      const d = new Date(contract.expo_start_date);
-      d.setDate(d.getDate() - 30);
-      finalDue = d.toISOString().split('T')[0];
-    }
-
-    await query(
-      `INSERT INTO contract_payment_schedule
-       (contract_id, af_number, installment_no, due_date, planned_amount_eur, payment_type, note, source_field, is_synthetic)
-       VALUES ($1, $2, 1, $3, $4, 'deposit', 'Synthetic: 30% deposit', 'synthetic', true)`,
-      [contractId, afNumber, depositDue, depositAmount]
-    );
-
-    await query(
-      `INSERT INTO contract_payment_schedule
-       (contract_id, af_number, installment_no, due_date, planned_amount_eur, payment_type, note, source_field, is_synthetic)
-       VALUES ($1, $2, 2, $3, $4, 'final', 'Synthetic: 70% pre-event', 'synthetic', true)`,
-      [contractId, afNumber, finalDue, finalAmount]
-    );
+  let finalDue = null;
+  if (contract.expo_start_date) {
+    const d = new Date(contract.expo_start_date);
+    d.setDate(d.getDate() - 30);
+    finalDue = d.toISOString().split('T')[0];
   }
+
+  await query(
+    `INSERT INTO contract_payment_schedule
+     (contract_id, af_number, installment_no, due_date, planned_amount_eur, payment_type, note, source_field, is_synthetic)
+     VALUES ($1, $2, 1, $3, $4, 'deposit', 'Synthetic: 30% deposit', 'synthetic', true)`,
+    [contractId, afNumber, depositDue, depositAmount]
+  );
+
+  await query(
+    `INSERT INTO contract_payment_schedule
+     (contract_id, af_number, installment_no, due_date, planned_amount_eur, payment_type, note, source_field, is_synthetic)
+     VALUES ($1, $2, 2, $3, $4, 'final', 'Synthetic: 70% pre-event', 'synthetic', true)`,
+    [contractId, afNumber, finalDue, finalAmount]
+  );
 }
 
 async function syncSalesOrders() {
@@ -446,8 +199,8 @@ async function syncSalesOrders() {
     }
 
     const result = await query(
-      `INSERT INTO contracts (af_number, company_name, country, sales_agent, m2, revenue, contract_date, sales_type, expo_id, currency, exchange_rate, revenue_eur, status, balance_eur, paid_eur, remaining_payment_eur, due_date, payment_done, payment_method, validity, first_payment_eur, second_payment_eur)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+      `INSERT INTO contracts (af_number, company_name, country, sales_agent, m2, revenue, contract_date, sales_type, expo_id, currency, exchange_rate, revenue_eur, status, balance_eur, paid_eur, remaining_payment_eur, due_date, payment_done, payment_method, validity)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
        ON CONFLICT (af_number) DO UPDATE SET
          company_name = EXCLUDED.company_name, country = EXCLUDED.country,
          sales_agent = EXCLUDED.sales_agent, m2 = EXCLUDED.m2,
@@ -458,8 +211,7 @@ async function syncSalesOrders() {
          balance_eur = EXCLUDED.balance_eur, paid_eur = EXCLUDED.paid_eur,
          remaining_payment_eur = EXCLUDED.remaining_payment_eur,
          due_date = EXCLUDED.due_date, payment_done = EXCLUDED.payment_done,
-         payment_method = EXCLUDED.payment_method, validity = EXCLUDED.validity,
-         first_payment_eur = EXCLUDED.first_payment_eur, second_payment_eur = EXCLUDED.second_payment_eur
+         payment_method = EXCLUDED.payment_method, validity = EXCLUDED.validity
        RETURNING id`,
       [
         mapped.af_number,
@@ -482,8 +234,6 @@ async function syncSalesOrders() {
         mapped.payment_done,
         mapped.payment_method,
         mapped.validity,
-        mapped.first_payment_eur,
-        mapped.second_payment_eur,
       ]
     );
 
@@ -501,10 +251,10 @@ async function syncSalesOrders() {
         console.error(`  [payments] Error syncing payments for ${mapped.af_number}: ${err.message}`);
       }
 
-      // Sync payment schedule (Date_Amount_Type fields + synthetic fallback)
+      // Sync payment schedule (synthetic: 30% deposit + 70% pre-event)
       try {
         await syncPaymentSchedule(
-          contractId, mapped.af_number, mapped._date_amount_types,
+          contractId, mapped.af_number,
           {
             revenue_eur: mapped.revenue_eur,
             contract_date: mapped.contract_date,

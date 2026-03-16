@@ -305,18 +305,29 @@ Mevcut `payment_reminder` message template'i kullanılır.
 - [x] Synthetic schedule fallback (plan yoksa %30 deposit + %70 pre-event)
 - [x] Full sync + doğrulama: 3525 contracts, 1272 payments, 204 real + 6598 synthetic schedules
 
-### Sprint 1B: Veri Katmanı — Views + API
-- [ ] outstanding_balances view oluştur
-- [ ] API: GET /api/finance/summary
-- [ ] API: GET /api/finance/action-list
-- [ ] API: GET /api/finance/aging
+### Sprint 1B: Veri Katmanı — Views + API — ✅ COMPLETED
+- [x] outstanding_balances view (updated: deposit_missing uses contract_payment_schedule subquery)
+- [x] API: GET /api/finance/summary (8 KPIs: contract_value, collected, outstanding, overdue, due_next_30, collection_rate, at_risk, no_payment_count)
+- [x] API: GET /api/finance/action-list (filterable, sortable, paginated, suggested_action)
+- [x] API: GET /api/finance/aging (6 buckets: Current, 1-7d, 8-15d, 16-30d, 31-60d, 60+)
+- [x] API: GET /api/finance/upcoming (scheduled payments within N days)
+- [x] API: GET /api/finance/by-expo (expo-level aggregates)
+- [x] API: GET /api/finance/by-agent (agent-level aggregates)
+- [x] API: GET /api/finance/contract/:id/detail (single contract with payments + schedule)
+- [x] API: GET /api/finance/recent-activity (recent payment events)
+- [x] Cancelled fields cleanup: removed st_Payment, nd_Payment, Date_Amount_Type* from sync
 
-### Sprint 2: Dashboard Sayfası
-- [ ] /finance sayfası — KPI cards + aksiyon listesi + aging
-- [ ] Yaklaşan tahsilatlar + son hareketler
-- [ ] Fuar bazlı + agent bazlı alacak tabloları
-- [ ] Edition/Fiscal toggle
-- [ ] Export: Copy/CSV/Excel/PDF per-table
+### Sprint 2: Dashboard Sayfası — ✅ COMPLETED
+- [x] /finance sayfası — 8 KPI cards (2 rows x 4) + collection action list table
+- [x] Filter chips: stage (6 options) + risk (4 levels) + search
+- [x] Company detail drawer (slide-in 480px, payment schedule + received payments)
+- [x] A/R aging chart (Chart.js bar) + upcoming collections table (7d/14d/30d/60d toggle)
+- [x] Outstanding by expo + by agent tables (side by side, sortable)
+- [x] Recent payments table
+- [x] Edition/Fiscal toggle
+- [x] Export: Copy/CSV/Excel per-table
+- [x] Nav.js: "Finance" link added after "Sales" with permission key
+- [x] Dashboard permissions: "finance" module added (CEO+Manager=true, Agent=false)
 
 ### Sprint 3: WhatsApp + Aksiyon
 - [ ] 3 temel WhatsApp sorgu

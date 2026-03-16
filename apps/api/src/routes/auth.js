@@ -17,11 +17,11 @@ router.post('/migrate', async (req, res) => {
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'`);
 
     // Set CEO permissions (all access)
-    await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"logs":true,"intelligence":true,"system":true,"users":true,"settings":true}'::jsonb WHERE role = 'ceo' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
+    await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"finance":true,"logs":true,"intelligence":true,"system":true,"users":true,"settings":true}'::jsonb WHERE role = 'ceo' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
     // Set manager permissions
-    await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":true}'::jsonb WHERE role = 'manager' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
+    await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"finance":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":true}'::jsonb WHERE role = 'manager' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
     // Set agent permissions
-    await query(`UPDATE users SET dashboard_permissions = '{"war_room":false,"expo_directory":false,"expo_detail":false,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":true}'::jsonb WHERE role = 'agent' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
+    await query(`UPDATE users SET dashboard_permissions = '{"war_room":false,"expo_directory":false,"expo_detail":false,"sales":true,"finance":false,"logs":false,"intelligence":false,"system":false,"users":false,"settings":true}'::jsonb WHERE role = 'agent' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
 
     // Migration 013: payment fields + tables + view
     await query(`ALTER TABLE contracts ADD COLUMN IF NOT EXISTS balance_eur DECIMAL(12,2)`);
@@ -86,7 +86,11 @@ router.post('/migrate', async (req, res) => {
         (SELECT MAX(cp.payment_date) FROM contract_payments cp WHERE cp.contract_id = c.id) AS last_payment_date,
         CASE
           WHEN c.payment_done = true THEN 'paid_complete'
-          WHEN COALESCE(c.paid_eur, 0) = 0 AND COALESCE(c.first_payment_eur, 0) > 0 THEN 'deposit_missing'
+          WHEN COALESCE(c.paid_eur, 0) = 0 AND EXISTS (
+            SELECT 1 FROM contract_payment_schedule cps
+            WHERE cps.contract_id = c.id AND cps.payment_type = 'deposit'
+              AND cps.due_date < CURRENT_DATE
+          ) THEN 'deposit_missing'
           WHEN COALESCE(c.paid_eur, 0) = 0 THEN 'no_payment'
           WHEN c.due_date < CURRENT_DATE AND COALESCE(c.balance_eur, 0) > 0 THEN 'overdue'
           WHEN e.start_date IS NOT NULL AND (e.start_date::date - CURRENT_DATE) < 45 AND COALESCE(c.balance_eur, 0) > 0 THEN 'pre_event_balance_open'
@@ -111,7 +115,11 @@ router.post('/migrate', async (req, res) => {
         AND COALESCE(c.balance_eur, 0) > 0
         AND c.payment_done IS NOT TRUE`);
 
-    res.json({ success: true, message: 'Migrations 011 + 013 applied' });
+    // Ensure CEO has finance permission (added in Sprint 1B)
+    await query(`UPDATE users SET dashboard_permissions = dashboard_permissions || '{"finance":true}'::jsonb WHERE role = 'ceo'`);
+    await query(`UPDATE users SET dashboard_permissions = dashboard_permissions || '{"finance":true}'::jsonb WHERE role = 'manager' AND dashboard_permissions IS NOT NULL AND dashboard_permissions != '{}'::jsonb`);
+
+    res.json({ success: true, message: 'Migrations 011 + 013 + 014 applied' });
   } catch (err) {
     console.error('Migration error:', err);
     res.status(500).json({ error: err.message });

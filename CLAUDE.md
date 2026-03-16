@@ -233,13 +233,35 @@ Completed (cont. 4):
 
 Completed (cont. 5):
 - Finance Module Sprint 1A: Payment Sync
-  - Migration 013: balance_eur, paid_eur, remaining_payment_eur, due_date, payment_done, payment_method, validity, first_payment_eur, second_payment_eur on contracts
+  - Migration 013: balance_eur, paid_eur, remaining_payment_eur, due_date, payment_done, payment_method, validity on contracts
   - contract_payments tablosu: Zoho Received_Payment subform → her ödeme ayrı satır (individual record fetch required — Zoho list API doesn't return subforms)
-  - contract_payment_schedule tablosu: Date_Amount_Type1..5 parse + synthetic fallback (%30 deposit + %70 pre-event)
+  - contract_payment_schedule tablosu: synthetic only (%30 deposit + %70 pre-event)
   - outstanding_balances view: collection_stage, collection_risk_score, event_risk_score
-  - Turkish/French/English month name parsing in Date_Amount_Type
   - Zoho sync: 2-pass — bulk for all fields, individual fetch for Received_Payment (paid_eur > 0 only)
-  - Doğrulama: A795955 Opak Makine → revenue=9380, paid=2345, balance=7035 ✓
+  - Obsolete fields removed: st_Payment, nd_Payment, Date_Amount_Type1..5 (pre-2025, no longer synced)
+  - first_payment_eur, second_payment_eur columns still in DB but not populated
+- Finance Module Sprint 1B: API + Sprint 2: Dashboard
+  - Migration 014: updated outstanding_balances view (deposit_missing now uses contract_payment_schedule subquery)
+  - 8 finance API endpoints (apps/api/src/routes/finance.js):
+    - GET /api/finance/summary — KPI aggregates (contract_value, collected, outstanding, overdue, due_next_30, collection_rate, at_risk, no_payment_count)
+    - GET /api/finance/action-list — filterable/sortable action list with suggested_action
+    - GET /api/finance/aging — 6 aging buckets (Current, 1-7d, 8-15d, 16-30d, 31-60d, 60+)
+    - GET /api/finance/upcoming — scheduled payments due within N days
+    - GET /api/finance/by-expo — expo-level outstanding aggregates
+    - GET /api/finance/by-agent — agent-level outstanding aggregates
+    - GET /api/finance/contract/:id/detail — single contract with schedule + payments
+    - GET /api/finance/recent-activity — recent payment events
+  - Dashboard: /finance — Collections Cockpit
+    - 8 KPI cards (2 rows x 4)
+    - Collection Action List: sortable table with stage/risk filter chips + search
+    - Company detail drawer (480px slide-in): contract info, payment schedule, received payments
+    - A/R Aging chart (Chart.js bar) + Upcoming Collections table (7d/14d/30d/60d toggle)
+    - Outstanding by Expo + by Agent tables (side by side, sortable)
+    - Recent Payments table
+    - Edition/Fiscal mode toggle
+    - Export: Copy/CSV/Excel per-table
+  - Nav.js: "Finance" link added after "Sales" (permission: finance)
+  - Dashboard permissions: "finance" module (CEO+Manager=true, Agent=false)
 
 In Progress:
 
@@ -284,7 +306,7 @@ Access control implemented:
 
 Dashboard Permissions (granular module access):
 - Stored in: users.dashboard_permissions JSONB
-- Modules: war_room, expo_directory, expo_detail, sales, logs, intelligence, system, users, settings
+- Modules: war_room, expo_directory, expo_detail, sales, finance, logs, intelligence, system, users, settings
 - CEO: all true (forced, cannot be changed)
 - Manager default: war_room, expo_directory, expo_detail, sales, settings = true
 - Agent default: sales, settings = true
@@ -515,11 +537,12 @@ Pages:
 - /expos?year=2026&expo=SIEMA&country=Morocco → Expo Directory (sortable, filterable, export: Copy/CSV/Excel/PDF)
 - /expos/detail?name=SIEMA&year=2026 → Expo Detail (agents, companies, countries, monthly trend, export)
 - /sales → Fiscal Sales (period filters, KPIs with change%, agent/expo/country tables, trend chart, export)
+- /finance → Collections Cockpit (KPI cards, action list, aging chart, upcoming, expo/agent tables, drawer, export)
 - /login → Login page (email/phone + password)
 - /settings → User settings (change password, logout)
 
 Navigation (all pages — unified via components/Nav.js):
-- Order: War Room | Expo Directory | Sales | Logs | Intelligence | System | Users | Settings
+- Order: War Room | Expo Directory | Sales | Finance | Logs | Intelligence | System | Users | Settings
 - Active page highlighted with accent color
 - Nav component: components/Nav.js (single source of truth)
 
@@ -539,7 +562,7 @@ Auth System:
 - Remember me: 30 day token vs 24h default
 - CEO can set passwords via POST /api/auth/set-password
 - Migration: packages/db/migrations/011_user_auth.sql (password_hash, last_login, dashboard_permissions)
-- dashboard_permissions JSONB: { war_room, expo_directory, expo_detail, sales, logs, intelligence, system, users, settings }
+- dashboard_permissions JSONB: { war_room, expo_directory, expo_detail, sales, finance, logs, intelligence, system, users, settings }
 - Initial CEO password: eliza2026 (change in production)
 
 Expo Directory → Detail:
@@ -564,11 +587,33 @@ API endpoints used:
 - GET /api/fiscal/by-expo?period=year → expo breakdown for fiscal period
 - GET /api/fiscal/by-country?period=year → country breakdown for fiscal period
 - GET /api/fiscal/trend?period=year&granularity=monthly → sales trend (daily/monthly)
+- GET /api/finance/summary?mode=edition|fiscal → 8 finance KPIs (contract_value, collected, outstanding, overdue, due_next_30, collection_rate, at_risk, no_payment_count)
+- GET /api/finance/action-list?mode&stage&risk&expo&agent&search&sort&order&limit&offset → outstanding_balances rows + suggested_action
+- GET /api/finance/aging?mode=edition|fiscal → 6 aging buckets
+- GET /api/finance/upcoming?days=30&mode → scheduled payments due within N days
+- GET /api/finance/by-expo?mode → expo-level outstanding aggregates
+- GET /api/finance/by-agent?mode → agent-level outstanding aggregates
+- GET /api/finance/contract/:id/detail → single contract with payment schedule + actual payments
+- GET /api/finance/recent-activity?limit=20 → recent payment events
 
 Charts:
 - Sales Leaderboard: horizontal bar chart (top 10) — always visible
 - Expo Detail Monthly Sales: vertical bar chart (revenue/contracts toggle)
 - Fiscal Sales Trend: vertical bar chart (revenue/contracts toggle, daily/monthly auto-select)
+- Finance A/R Aging: vertical bar chart (6 color-coded buckets)
+
+Finance Page (/finance):
+- Collections Cockpit — default: Edition mode (upcoming expos)
+- 8 KPI cards: Contract Value, Collected, Outstanding, Overdue, Due Next 30d, Collection Rate, At-Risk, No Payment
+- Collection Action List: main table with stage/risk filter chips + company search
+- Company detail drawer: 480px slide-in from right, contract info + payment schedule + received payments
+- A/R Aging chart + Upcoming Collections table (7d/14d/30d/60d toggle) — side by side
+- Outstanding by Expo + by Agent tables — side by side, sortable
+- Recent Payments table
+- Export: Copy/CSV/Excel per-table
+- Stage badge colors: deposit_missing (#9B59B6), no_payment (#C0392B), overdue (#E67E22), pre_event_balance_open (#D4A017), partial_paid (#4A9EBF)
+- Risk badge colors: CRITICAL (#C0392B), HIGH (#E67E22), WATCH (#D4A017), OK (#2ECC71)
+- Mode filter: edition (expo_start_date within 12 months) vs fiscal (contract_date current year)
 
 Design:
 - Design system: styles/design-system.css (single source of truth)

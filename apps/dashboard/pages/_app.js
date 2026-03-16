@@ -10,6 +10,7 @@ const ROUTE_PERMISSIONS = {
   "/expos": "expo_directory",
   "/expos/detail": "expo_detail",
   "/sales": "sales",
+  "/finance": "finance",
   "/admin/logs": "logs",
   "/admin/intelligence": "intelligence",
   "/admin/system": "system",

@@ -14,6 +14,7 @@ const logRoutes = require('./routes/logs');
 const intelligenceRoutes = require('./routes/intelligence');
 const systemRoutes = require('./routes/system');
 const fiscalRoutes = require('./routes/fiscal');
+const financeRoutes = require('./routes/finance');
 const authRoutes = require('./routes/auth');
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api/logs', logRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/fiscal', fiscalRoutes);
+app.use('/api/finance', financeRoutes);
 app.use('/api/auth', authRoutes);
 
 app.listen(PORT, () => {

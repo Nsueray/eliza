@@ -3,18 +3,18 @@ const router = express.Router();
 const { query } = require('../../../../packages/db/index.js');
 
 const ALL_PERMISSIONS = {
-  war_room: true, expo_directory: true, expo_detail: true, sales: true,
+  war_room: true, expo_directory: true, expo_detail: true, sales: true, finance: true,
   logs: true, intelligence: true, system: true, users: true, settings: true,
 };
 
 const ROLE_DEFAULTS = {
   ceo: ALL_PERMISSIONS,
   manager: {
-    war_room: true, expo_directory: true, expo_detail: true, sales: true,
+    war_room: true, expo_directory: true, expo_detail: true, sales: true, finance: true,
     logs: false, intelligence: false, system: false, users: false, settings: true,
   },
   agent: {
-    war_room: false, expo_directory: false, expo_detail: false, sales: true,
+    war_room: false, expo_directory: false, expo_detail: false, sales: true, finance: false,
     logs: false, intelligence: false, system: false, users: false, settings: true,
   },
 };
