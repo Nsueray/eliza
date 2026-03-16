@@ -192,4 +192,38 @@ router.post('/set-password', async (req, res) => {
   }
 });
 
+// POST /api/auth/init-password (first-time password setup — only works if password_hash is NULL)
+router.post('/init-password', async (req, res) => {
+  try {
+    const { identifier, new_password } = req.body;
+    if (!identifier || !new_password) {
+      return res.status(400).json({ error: 'identifier and new_password required' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Find user with NULL password_hash
+    const result = await query(
+      `SELECT id, name, email FROM users
+       WHERE (LOWER(email) = LOWER($1) OR whatsapp_phone = $1)
+         AND is_active = true
+         AND password_hash IS NULL`,
+      [identifier.trim()]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No user found or password already set' });
+    }
+
+    const hash = await bcrypt.hash(new_password, SALT_ROUNDS);
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, result.rows[0].id]);
+
+    res.json({ success: true, user: result.rows[0].name });
+  } catch (err) {
+    console.error('Init password error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

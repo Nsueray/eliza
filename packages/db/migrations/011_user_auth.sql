@@ -5,6 +5,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_permissions JSONB DEFAULT '{}';
 
+-- Set CEO initial password (eliza2026)
+UPDATE users SET password_hash = '$2b$10$DoKelcKpaQ0mvOa5dq9H1e4l4co1QYcyHBPJPICeahed2naaxwfBG'
+  WHERE role = 'ceo' AND password_hash IS NULL;
+
 -- Set CEO default permissions (all access)
 UPDATE users SET dashboard_permissions = '{
   "war_room": true,
