@@ -526,7 +526,7 @@ export default function LogsPage() {
   return (
     <>
       <Head><title>ELIZA | Logs</title></Head>
-      <style jsx>{`
+      <style jsx global>{`
         select option { background: var(--surface); color: var(--text-primary); }
 
         .logs-summary-grid {
