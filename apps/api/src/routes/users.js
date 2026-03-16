@@ -116,6 +116,7 @@ router.put('/:id', async (req, res) => {
       sales_agent_name, is_manager, language, is_active, nicknames,
       data_scope, visible_years,
       can_see_expenses, can_take_notes, can_use_message_generator, can_see_financials,
+      password_hash,
     } = req.body;
 
     // Business rule: CEO always gets 'all' scope
@@ -134,9 +135,10 @@ router.put('/:id', async (req, res) => {
         is_manager = COALESCE($8, is_manager),
         language = COALESCE($9, language),
         is_active = COALESCE($10, is_active),
-        nicknames = $11
+        nicknames = $11,
+        password_hash = COALESCE($13, password_hash)
       WHERE id = $12
-    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager, language, is_active, nicknames || null, req.params.id]);
+    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager, language, is_active, nicknames || null, req.params.id, password_hash || null]);
 
     await query(`
       UPDATE user_permissions SET
