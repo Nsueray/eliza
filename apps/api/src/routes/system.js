@@ -64,4 +64,34 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// GET /api/system/sync-status — Recent sync logs
+router.get('/sync-status', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT id, sync_type, module, started_at, completed_at,
+             records_synced, records_updated, status, error_message
+      FROM sync_log
+      ORDER BY started_at DESC
+      LIMIT 20
+    `);
+    res.json({ syncs: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/system/sync-now — Trigger manual sync
+router.post('/sync-now', async (req, res) => {
+  try {
+    const { runSync } = require('../../../../packages/zoho-sync/scheduler');
+    // Run async — don't block the response
+    runSync('manual').catch((err) => {
+      console.error('Manual sync failed:', err.message);
+    });
+    res.json({ success: true, message: 'Sync triggered. Check /api/system/sync-status for results.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

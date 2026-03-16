@@ -30,7 +30,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ELIZA API running', version: 'b5e2c04', timestamp: new Date() });
+  res.json({ status: 'ELIZA API running', version: 'c7f1d03', timestamp: new Date() });
 });
 
 app.use('/api/expos', expoRoutes);
@@ -49,4 +49,17 @@ app.use('/api/auth', authRoutes);
 
 app.listen(PORT, () => {
   console.log(`ELIZA API running on port ${PORT}`);
+
+  // Start Zoho sync scheduler (if credentials are configured)
+  if (process.env.ZOHO_CLIENT_ID && process.env.ZOHO_REFRESH_TOKEN) {
+    try {
+      const { startSyncScheduler } = require('../../../packages/zoho-sync/scheduler');
+      startSyncScheduler();
+      console.log('Zoho sync scheduler started');
+    } catch (err) {
+      console.error('Failed to start sync scheduler:', err.message);
+    }
+  } else {
+    console.log('Zoho sync scheduler skipped (no credentials)');
+  }
 });

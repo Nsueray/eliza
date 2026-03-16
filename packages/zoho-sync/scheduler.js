@@ -1,7 +1,10 @@
 /**
  * Zoho Sync Scheduler — runs incremental sync every 15 minutes.
- * Usage: node packages/zoho-sync/scheduler.js
- * Or:    npm run sync:start (from root)
+ *
+ * Usage:
+ *   Standalone:  node packages/zoho-sync/scheduler.js
+ *   From root:   npm run sync:start
+ *   Embedded:    require('./scheduler').startSyncScheduler()
  */
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
@@ -64,9 +67,13 @@ async function runSync(syncType) {
   console.log(`[${new Date().toISOString()}] Sync cycle finished\n`);
 }
 
-// Run initial sync on startup
-runSync('full').then(() => {
-  console.log('Initial full sync complete. Scheduling incremental every 15 minutes.\n');
+function startSyncScheduler() {
+  // Run initial sync (non-blocking — don't await)
+  runSync('full').then(() => {
+    console.log('Initial full sync complete. Scheduling incremental every 15 minutes.');
+  }).catch((err) => {
+    console.error('Initial sync failed:', err.message);
+  });
 
   // Schedule: every 15 minutes
   cron.schedule('*/15 * * * *', () => {
@@ -74,6 +81,12 @@ runSync('full').then(() => {
       console.error('Scheduled sync failed:', err.message);
     });
   });
+}
 
+// Allow standalone execution: node packages/zoho-sync/scheduler.js
+if (require.main === module) {
+  startSyncScheduler();
   console.log('Scheduler running. Press Ctrl+C to stop.');
-});
+}
+
+module.exports = { startSyncScheduler, runSync };
