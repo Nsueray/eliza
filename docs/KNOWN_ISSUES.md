@@ -311,3 +311,17 @@ Rules:
 - (2) Added `hasTimeScope` check to context ambiguity block — skip when period/relative_days/month present
 - (3) CEO "iptal" now checks for pending draft first; if nothing pending, returns "İptal edilecek bir şey yok. Sormak istediğin bir şey var mı?"
 **Files:** packages/ai/queryEngine.js, apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-027] Compound expo queries lose expo filter
+**Status:** FIXED (2026-03-16)
+**First seen:** 2026-03-16
+**Description:** "madesign 2026 fuarına toplam kaç sözleşme, kaç m2 var ve geliri ne kadar?" returns 136 contracts (all 2026 fiscal) instead of 9 (Madesign only). Expo filter lost.
+**Root cause:** Haiku FRAME_PROMPT classifies multi-metric expo questions as "compound" (because of "ve") instead of "expo_progress". expo_progress already returns all metrics (m², revenue, contracts). When compound sub-queries run, parent entities (expo_name, year) aren't passed through.
+**Fix:**
+- Added explicit COMPOUND vs SINGLE INTENT rule to FRAME_PROMPT and INTENT_PROMPT: same entity + multiple metrics = single intent (expo_progress), NOT compound
+- Added 3 few-shot examples showing multi-metric expo questions → expo_progress
+- Router: added multi-metric patterns to expo_progress (e.g., ['kac sozlesme', 'm2'], ['kac kontrat', 'gelir'])
+- Safety net: compound handling now inherits parent entities (expo_name, year, agent_name, country) into sub-queries
+**Files:** packages/ai/queryEngine.js, packages/ai/router.js

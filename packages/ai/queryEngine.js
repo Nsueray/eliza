@@ -172,9 +172,12 @@ Q: how many contracts in SIEMA → {"intent":"expo_progress","entities":{"expo_n
 Q: combien d'agents → {"intent":"general_stats","entities":{"metric":"count"}}
 Q: SIEMA'da kaç ülke var → {"intent":"country_count","entities":{"expo_name":"SIEMA","metric":"count"}}
 
-If the question contains multiple distinct questions (connected by "ve", "and", "also", "ayrıca", "+"), set intent to "compound" and list sub-questions:
+COMPOUND vs SINGLE INTENT: If multiple METRICS (m², revenue, contracts) are asked about the SAME entity, use a single intent (expo_progress or agent_performance), NOT compound. These queries already return all metrics.
+Only use "compound" when the question has DIFFERENT entities or DIFFERENT intent types:
 Q: elif ulke breakdown ve emircan expo breakdown → {"intent":"compound","entities":{"questions":["elif ulke breakdown","emircan expo breakdown"]}}
-Limit to max 2 sub-questions.
+Q: madesign 2026 kaç sözleşme, kaç m2, geliri ne kadar? → {"intent":"expo_progress","entities":{"expo_name":"Madesign","year":2026}}
+Q: SIEMA 2026 toplam gelir ve kontrat sayısı? → {"intent":"expo_progress","entities":{"expo_name":"SIEMA","year":2026}}
+Limit compound to max 2 sub-questions.
 
 AMBIGUITY DETECTION RULES:
 - If expo name is mentioned but NO year specified, add "missing_year": true to entities
@@ -287,7 +290,11 @@ company_search, days_to_event, general_stats, compound
 
 IMPORTANT COUNT RULE: When the question asks "how many" / "kaç tane" / "combien" and expects a NUMBER answer (not a list), set metric to "count".
 
-If the question contains multiple distinct questions (connected by "ve", "and", "also", "ayrıca"), set maps_to_intent to "compound".
+COMPOUND vs SINGLE INTENT RULE:
+- If the question asks for multiple METRICS (m², revenue, contracts) about the SAME entity (expo or agent), this is NOT compound. It is a single intent (expo_progress or agent_performance) because these queries already return all metrics.
+- Only set maps_to_intent to "compound" when the question asks about DIFFERENT entities or DIFFERENT intent types (e.g., "elif ülke breakdown ve emircan expo breakdown").
+- Example: "SIEMA 2026 kaç sözleşme, kaç m2, geliri ne kadar?" → expo_progress (NOT compound)
+- Example: "elif kaç satmış ve emircan kaç satmış?" → compound (different agents)
 
 Output ONLY valid JSON, nothing else:
 {
@@ -352,7 +359,16 @@ Q: "Hedefinden en uzak expo hangisi?"
 {"language":"tr","task":"rank_top","subject":"expo","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"progress","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":85,"maps_to_intent":"expo_list"}
 
 Q: "Which expos are currently at risk?"
-{"language":"en","task":"exception","subject":"expo","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"risk","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":90,"maps_to_intent":"expo_list"}`;
+{"language":"en","task":"exception","subject":"expo","expo_name":null,"expo_year":null,"agent_name":null,"country":null,"metric":"risk","time_scope":null,"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":90,"maps_to_intent":"expo_list"}
+
+Q: "madesign 2026 fuarına toplam kaç sözleşme, kaç m2 var ve geliri ne kadar?"
+{"language":"tr","task":"detail","subject":"expo","expo_name":"Madesign","expo_year":2026,"agent_name":null,"country":null,"metric":null,"time_scope":{"type":"year","value":2026},"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":95,"maps_to_intent":"expo_progress"}
+
+Q: "SIEMA 2026 toplam gelir, m2 ve kontrat sayısı?"
+{"language":"tr","task":"detail","subject":"expo","expo_name":"SIEMA","expo_year":2026,"agent_name":null,"country":null,"metric":null,"time_scope":{"type":"year","value":2026},"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":95,"maps_to_intent":"expo_progress"}
+
+Q: "Mega Clima 2026 how many contracts, m2, and revenue?"
+{"language":"en","task":"detail","subject":"expo","expo_name":"Mega Clima","expo_year":2026,"agent_name":null,"country":null,"metric":null,"time_scope":{"type":"year","value":2026},"group_by":null,"ambiguity_flags":[],"answerability":"answerable","unavailable_reason":null,"confidence":95,"maps_to_intent":"expo_progress"}`;
 
 // Valid intents for backward compatibility
 const VALID_INTENTS = [
@@ -1474,22 +1490,35 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
 
   // Handle compound questions (max depth 1 to prevent recursion)
   if (intent === 'compound' && entities?.questions && _depth === 0) {
+    // Inherit parent entities (expo_name, year, agent_name, country) into sub-queries
+    // so that "madesign 2026 kaç m2 ve geliri?" passes expo filter to sub-queries
+    const parentEntities = {};
+    if (entities.expo_name) parentEntities.expo_name = entities.expo_name;
+    if (entities.year) parentEntities.year = entities.year;
+    if (entities.agent_name) parentEntities.agent_name = entities.agent_name;
+    if (entities.country) parentEntities.country = entities.country;
+
     const subItems = entities.questions.slice(0, 2);
     const results = await Promise.all(subItems.map(async (q) => {
       // If LLM returned structured {intent, entities}, use them directly
       if (typeof q === 'object' && q.intent) {
-        const built = buildQuery(q.intent, q.entities || {});
+        // Merge parent entities into sub-query entities (sub-query values take precedence)
+        const ent = { ...parentEntities, ...(q.entities || {}) };
+        const built = buildQuery(q.intent, ent);
         const scoped = applyScope(built.sql, built.params, q.intent, user);
         const validatedSQL = validateSQL(scoped.sql);
         const result = await query(validatedSQL, scoped.params);
-        const ent = q.entities || {};
         const label = [ent.agent_name, ent.expo_name, q.intent.replace(/_/g, ' ')].filter(Boolean).join(' — ');
         const contextQ = `${q.intent}: ${Object.entries(ent).filter(([,v]) => v).map(([k,v]) => `${k}=${v}`).join(', ')}`;
         const answerResult = await generateAnswer(contextQ, result.rows, lang);
         return { intent: q.intent, data: result.rows, answer: answerResult.text, label };
       }
-      // If string, run recursively
-      const r = await run(String(q), 1, lang, user);
+      // If string, prepend parent context so sub-query inherits expo/year
+      let subQ = String(q);
+      if (parentEntities.expo_name && !subQ.toLowerCase().includes(parentEntities.expo_name.toLowerCase())) {
+        subQ = `${parentEntities.expo_name} ${parentEntities.year || ''} ${subQ}`.trim();
+      }
+      const r = await run(subQ, 1, lang, user);
       return { ...r, label: String(q) };
     }));
     const combinedAnswer = results.map((r, i) => `[${i + 1}] ${r.label}\n${r.answer}`).join('\n\n');

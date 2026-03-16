@@ -208,6 +208,7 @@ const RULES = [
   },
 
   // 5. expo_progress — "SIEMA nasıl gidiyor?", "SIEMA 2026 kaç m² satılmış?"
+  // Also matches multi-metric expo questions: "kaç sözleşme, kaç m2, geliri ne kadar?"
   {
     intent: 'expo_progress',
     keywords: [
@@ -218,6 +219,12 @@ const RULES = [
       ['how is', 'expo'],
       ['how is', 'doing'],
       ['comment va', 'expo'],
+      ['kac sozlesme', 'm2'],
+      ['kac sozlesme', 'gelir'],
+      ['kac kontrat', 'm2'],
+      ['kac kontrat', 'gelir'],
+      ['contracts', 'm2', 'revenue'],
+      ['contrats', 'm2', 'revenu'],
     ],
   },
 

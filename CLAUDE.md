@@ -208,6 +208,11 @@ Completed (cont. 4):
   - Tüm yıllar loop: yearAlreadyResolved + expoAlreadyResolved guards prevent re-triggering after resolve
   - Context ambiguity skip: hasTimeScope check — "bugün kaç sözleşme?" no longer triggers clarification
   - Cancel no pending: CEO "iptal" checks for actual draft first, returns friendly message if nothing pending
+- Compound Expo Query Fix (ISSUE-027)
+  - Multi-metric expo questions ("kaç sözleşme, kaç m2, geliri?") now map to expo_progress, not compound
+  - FRAME_PROMPT + INTENT_PROMPT: explicit rule — same entity + multiple metrics = single intent
+  - Router: added multi-metric patterns ['kac sozlesme', 'm2'], ['kac kontrat', 'gelir'] to expo_progress
+  - Compound safety net: parent entities (expo_name, year) inherited by sub-queries
 
 In Progress:
 
@@ -996,6 +1001,7 @@ ISSUE-022: "entities is not defined" crash — handler.js'te entities destructur
 ISSUE-024: Clarification bugs (cancel→message draft, rewrite injecting context, SIEMA missing, LIMIT 15) + PDF export CDN failure → npm packages
 ISSUE-025: Answer quality batch — fuzzy expo matching, country aliases (30+ countries + demonym stripping), skip expo clarification with time filters, Turkish detectLang words, rewrite bypass for general questions
 ISSUE-026: Tüm yıllar loop (yearAlreadyResolved guard), bugün clarification (hasTimeScope in context ambiguity), iptal no pending (check draft first)
+ISSUE-027: Compound expo queries — multi-metric questions ("kaç sözleşme, m2, geliri?") mapped to expo_progress not compound; parent entities inherited in sub-queries
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js
