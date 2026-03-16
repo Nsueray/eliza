@@ -64,17 +64,62 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// GET /api/system/sync-status — Recent sync logs
+// GET /api/system/sync-status — Recent sync logs + summary
 router.get('/sync-status', async (req, res) => {
   try {
-    const result = await query(`
+    const syncsResult = await query(`
       SELECT id, sync_type, module, started_at, completed_at,
              records_synced, records_updated, status, error_message
       FROM sync_log
       ORDER BY started_at DESC
       LIMIT 20
     `);
-    res.json({ syncs: result.rows });
+
+    // Last successful sync
+    const lastSuccessResult = await query(`
+      SELECT completed_at FROM sync_log
+      WHERE status = 'success'
+      ORDER BY completed_at DESC
+      LIMIT 1
+    `);
+
+    // Records synced today
+    const todayResult = await query(`
+      SELECT
+        COALESCE(SUM(records_synced), 0) + COALESCE(SUM(records_updated), 0) AS records_today,
+        COUNT(*) AS total_syncs_today
+      FROM sync_log
+      WHERE started_at >= CURRENT_DATE
+    `);
+
+    // Active: any sync in last 20 minutes
+    const activeResult = await query(`
+      SELECT COUNT(*) AS recent
+      FROM sync_log
+      WHERE started_at >= NOW() - INTERVAL '20 minutes'
+    `);
+
+    const lastSyncAt = lastSuccessResult.rows[0]?.completed_at || null;
+    let lastSyncAgo = null;
+    if (lastSyncAt) {
+      const diffMs = Date.now() - new Date(lastSyncAt).getTime();
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) lastSyncAgo = 'just now';
+      else if (diffMin < 60) lastSyncAgo = `${diffMin} min ago`;
+      else if (diffMin < 1440) lastSyncAgo = `${Math.floor(diffMin / 60)} hour${Math.floor(diffMin / 60) > 1 ? 's' : ''} ago`;
+      else lastSyncAgo = `${Math.floor(diffMin / 1440)} day${Math.floor(diffMin / 1440) > 1 ? 's' : ''} ago`;
+    }
+
+    res.json({
+      summary: {
+        last_sync_at: lastSyncAt,
+        last_sync_ago: lastSyncAgo,
+        records_today: parseInt(todayResult.rows[0]?.records_today) || 0,
+        is_active: parseInt(activeResult.rows[0]?.recent) > 0,
+        total_syncs_today: parseInt(todayResult.rows[0]?.total_syncs_today) || 0,
+      },
+      syncs: syncsResult.rows,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -84,11 +129,12 @@ router.get('/sync-status', async (req, res) => {
 router.post('/sync-now', async (req, res) => {
   try {
     const { runSync } = require('../../../../packages/zoho-sync/scheduler');
+    const syncType = req.query.type === 'full' ? 'full' : 'incremental';
     // Run async — don't block the response
-    runSync('manual').catch((err) => {
-      console.error('Manual sync failed:', err.message);
+    runSync(syncType).catch((err) => {
+      console.error(`Manual ${syncType} sync failed:`, err.message);
     });
-    res.json({ success: true, message: 'Sync triggered. Check /api/system/sync-status for results.' });
+    res.json({ success: true, type: syncType, message: `${syncType.charAt(0).toUpperCase() + syncType.slice(1)} sync triggered. Check /api/system/sync-status for results.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

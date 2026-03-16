@@ -30,7 +30,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ELIZA API running', version: 'c7f1d03', timestamp: new Date() });
+  res.json({ status: 'ELIZA API running', version: 'd8e2f04', timestamp: new Date() });
 });
 
 app.use('/api/expos', expoRoutes);

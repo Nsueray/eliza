@@ -166,8 +166,9 @@ Completed (cont.):
   - /admin/logs: redesigned with message cards, filters, charts (Doughnut + Bar)
   - /admin/intelligence: router rules, intent stats, benchmark, clarification stats
   - /admin/system: service health, DB tables, sync status, errors
+  - Sync Dashboard: summary cards (last sync, records today, scheduler status), manual sync button (incremental/full), sync log table with expand/collapse errors, auto-refresh 30s, export (Copy/CSV/Excel)
   - Shared navigation: Logs | Intelligence | System | Users | War Room
-  - API: /api/intelligence/* (4 endpoints), /api/system/status
+  - API: /api/intelligence/* (4 endpoints), /api/system/status, /api/system/sync-status (with summary), /api/system/sync-now?type=full|incremental
   - /api/logs enhanced: status/date_range filters, rewritten_question, byModelIntent
 
 Completed (cont. 2):
@@ -922,7 +923,7 @@ Admin Panel sayfaları:
 - /admin → kullanıcı listesi (Users)
 - /admin/logs → mesaj logları (redesigned: cards, filters, charts)
 - /admin/intelligence → ELIZA Intelligence Panel (router rules, intent stats, benchmark, clarifications)
-- /admin/system → System Status (services, DB tables, sync, errors)
+- /admin/system → System Status + Sync Dashboard (sync summary cards, manual sync, log table with export, auto-refresh 30s, services, DB tables, errors)
 - /admin/users/new → yeni kullanıcı formu
 - /admin/users/[id] → düzenleme formu
 - /login → Login sayfası (email/phone + password, remember me)
@@ -936,6 +937,8 @@ API endpoints (new):
 - GET /api/intelligence/benchmark
 - GET /api/intelligence/clarification-stats?days=30
 - GET /api/system/status
+- GET /api/system/sync-status → { summary: { last_sync_at, last_sync_ago, records_today, is_active, total_syncs_today }, syncs: [...] }
+- POST /api/system/sync-now?type=full|incremental → trigger manual sync
 - GET /api/logs enhanced: ?status=error/clarification/success&date_range=today/yesterday/7d/30d
 - POST /api/auth/login → { identifier, password, remember } → { token, user }
 - GET /api/auth/me → { user } (token-based)
