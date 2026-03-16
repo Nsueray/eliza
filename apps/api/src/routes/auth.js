@@ -13,6 +13,7 @@ router.post('/migrate', async (req, res) => {
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT`);
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP`);
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_permissions JSONB DEFAULT '{}'`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'`);
 
     // Set CEO permissions
     await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"logs":true,"intelligence":true,"system":true,"users":true,"settings":true}'::jsonb WHERE role = 'ceo' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
@@ -38,7 +39,7 @@ router.post('/login', async (req, res) => {
 
     // Find user by email or phone
     const result = await query(
-      `SELECT u.*, up.data_scope, up.visible_years,
+      `SELECT u.*, u.settings, up.data_scope, up.visible_years,
               up.can_see_expenses, up.can_take_notes,
               up.can_use_message_generator, up.can_see_financials
        FROM users u
@@ -86,6 +87,7 @@ router.post('/login', async (req, res) => {
         office: user.office,
         dashboard_permissions: user.dashboard_permissions || {},
         data_scope: user.data_scope,
+        settings: user.settings || {},
       },
     });
   } catch (err) {
@@ -111,7 +113,7 @@ router.get('/me', async (req, res) => {
     }
 
     const result = await query(
-      `SELECT u.id, u.name, u.email, u.role, u.office, u.dashboard_permissions,
+      `SELECT u.id, u.name, u.email, u.role, u.office, u.dashboard_permissions, u.settings,
               up.data_scope, up.visible_years
        FROM users u
        LEFT JOIN user_permissions up ON up.user_id = u.id
@@ -126,6 +128,48 @@ router.get('/me', async (req, res) => {
     res.json({ user: result.rows[0] });
   } catch (err) {
     console.error('Auth me error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/auth/settings — update current user's settings
+router.put('/settings', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const { settings } = req.body;
+    if (!settings || typeof settings !== 'object') {
+      return res.status(400).json({ error: 'settings object required' });
+    }
+
+    // Whitelist allowed keys
+    const allowed = ['theme', 'accent_color', 'table_density', 'language', 'timezone'];
+    const clean = {};
+    for (const key of allowed) {
+      if (settings[key] !== undefined) clean[key] = settings[key];
+    }
+
+    // Merge with existing settings
+    await query(
+      `UPDATE users SET settings = COALESCE(settings, '{}'::jsonb) || $1::jsonb WHERE id = $2`,
+      [JSON.stringify(clean), payload.userId]
+    );
+
+    const result = await query('SELECT settings FROM users WHERE id = $1', [payload.userId]);
+    res.json({ success: true, settings: result.rows[0]?.settings || {} });
+  } catch (err) {
+    console.error('Update settings error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

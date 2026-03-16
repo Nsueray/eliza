@@ -3,8 +3,8 @@
    Single source of truth for all dashboard styles
    ═══════════════════════════════════════════════════════ */
 
-/* ── 1. CSS Variables ── */
-:root {
+/* ── 1. CSS Variables (Dark — default) ── */
+:root, [data-theme="dark"] {
   /* Colors */
   --bg: #080B10;
   --surface: #0E1318;
@@ -12,7 +12,7 @@
   --border: #1E2A35;
   --text-primary: #E8EDF2;
   --text-secondary: #5A7080;
-  --accent: #C8A97A;
+  --accent: var(--accent-color, #C8A97A);
   --accent-2: #4A9EBF;
   --danger: #C0392B;
   --warning: #D4A017;
@@ -31,6 +31,25 @@
   --radius: 4px;
   --radius-sm: 2px;
   --radius-lg: 6px;
+
+  /* Table hover */
+  --row-hover: rgba(200,169,122,0.03);
+}
+
+/* ── 1b. Light Theme ── */
+[data-theme="light"] {
+  --bg: #F5F5F5;
+  --surface: #FFFFFF;
+  --surface-2: #FAFAFA;
+  --border: #E0E0E0;
+  --text-primary: #1A1A1A;
+  --text-secondary: #666666;
+  --accent: var(--accent-color, #C8A97A);
+  --accent-2: #4A9EBF;
+  --danger: #C0392B;
+  --warning: #D4A017;
+  --success: #2ECC71;
+  --row-hover: rgba(0,0,0,0.02);
 }
 
 /* ── 2. Reset + Base ── */
@@ -41,6 +60,7 @@ body {
   font-family: var(--font-sans);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.3s, color 0.3s;
 }
 
 /* ── 3. Page Layout ── */
@@ -129,7 +149,7 @@ body {
 .tbl td.r { text-align: right; }
 .tbl td.muted { color: var(--text-secondary); }
 .tbl tr:last-child td { border-bottom: none; }
-.tbl tr:hover td { background: rgba(200,169,122,0.03); }
+.tbl tr:hover td { background: var(--row-hover); }
 
 /* ── 7. Summary Cards ── */
 .summary-row {
@@ -211,7 +231,7 @@ body {
   transition: all 0.2s;
   font-weight: 500;
 }
-.btn-primary:hover { background: #B8994A; border-color: #B8994A; }
+.btn-primary:hover { opacity: 0.85; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-danger {
@@ -370,7 +390,23 @@ select.input {
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* ── 14. Responsive ── */
+/* ── 14. Table Density: Compact ── */
+[data-density="compact"] .tbl th,
+[data-density="compact"] .tbl td {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+[data-density="compact"] .tbl th {
+  font-size: 9px;
+}
+[data-density="compact"] .summary-val {
+  font-size: 20px;
+}
+[data-density="compact"] .summary-card {
+  padding: 14px 18px;
+}
+
+/* ── 15. Responsive ── */
 @media (max-width: 768px) {
   .page { padding: var(--page-padding-mobile); }
   .page-hdr { flex-direction: column; align-items: flex-start; gap: 12px; }

@@ -180,6 +180,21 @@ Completed (cont. 2):
   - Backward-compatible entities mapping to buildQuery/generateAnswer
   - Benchmark: 92% PASS (46/50, 0 FAIL, 4 WARN)
 
+Completed (cont. 3):
+- Dashboard Design System + Login (Phase 11b)
+  - CSS design system: single source of truth (styles/design-system.css)
+  - JWT auth: login, me, change-password, set-password, init-password
+  - AuthProvider/AuthGuard in _app.js, login page
+  - Migration 011: password_hash, last_login, dashboard_permissions
+  - Nav component: unified navigation across all pages
+- Dashboard Settings (Theme, Accent, Density)
+  - Theme: dark/light toggle via data-theme attribute
+  - Accent color: 6 color options via --accent-color CSS property
+  - Table density: comfortable/compact via data-density attribute
+  - Migration 012: users.settings JSONB column
+  - API: PUT /api/auth/settings (debounced save)
+  - Settings applied on login/load via AuthProvider
+
 In Progress:
 
 Pending:
@@ -498,12 +513,25 @@ Charts:
 
 Design:
 - Design system: styles/design-system.css (single source of truth)
-- Dark theme: #080B10 background, #0E1318 surface, #141B22 surface-2
-- Accent: #C8A97A gold, #4A9EBF blue
+- Theme system: data-theme attribute on <html> — "dark" (default) or "light"
+  - Dark: #080B10 bg, #0E1318 surface, #141B22 surface-2
+  - Light: #F5F5F5 bg, #FFFFFF surface, #FAFAFA surface-2
+- Accent color: --accent-color CSS custom property, 6 options (gold/blue/green/purple/red/teal)
+- Table density: data-density attribute — "comfortable" (default) or "compact"
 - Fonts: var(--font-mono) "DM Mono", var(--font-sans) "DM Sans"
 - Animated KPI counters on load
 - Risk Radar panel with hover tooltips
 - All admin pages now responsive (mobile-friendly)
+
+Settings Page (/settings):
+- Profile: name, role, office (read-only cards)
+- Appearance: theme toggle (dark/light), accent color (6 swatches), table density (comfortable/compact)
+- Language & Region: language + timezone (coming soon — disabled)
+- Security: change password + logout
+- Settings saved to users.settings JSONB column (migration 012)
+- API: PUT /api/auth/settings — debounced save (500ms)
+- Applied on login + page load via AuthProvider → applySettings()
+- User-bound (not browser-bound) — same settings across all devices
 
 Export:
 - Per-table: Each table has own Copy/CSV/Excel buttons (export-btn-sm)
