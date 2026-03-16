@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import Nav from "@/components/Nav";
 import { Doughnut, Bar } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from "chart.js";
 
@@ -91,12 +91,9 @@ function SummaryCards({ data }) {
     { label: "Clarifications", value: fmtNum(data.clarification_count), icon: "CLR" },
   ];
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 32 }}>
+    <div className="logs-summary-grid">
       {cards.map(c => (
-        <div key={c.label} style={{
-          background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "20px 16px",
-          textAlign: "center",
-        }}>
+        <div key={c.label} className="logs-summary-card">
           <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, color: "var(--accent-2)", marginBottom: 8 }}>{c.icon}</div>
           <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 22, fontWeight: 500, color: "var(--accent)" }}>{c.value}</div>
           <div style={{
@@ -147,12 +144,9 @@ function IntentRoutingChart({ data }) {
   };
 
   return (
-    <div style={{
-      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6,
-      padding: 24, marginBottom: 32,
-    }}>
+    <div className="logs-chart-panel">
       <SectionHeader>Intent Routing</SectionHeader>
-      <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+      <div className="logs-doughnut-row">
         <div style={{ width: 200, height: 200, flexShrink: 0 }}>
           <Doughnut data={chartData} options={options} />
         </div>
@@ -228,10 +222,7 @@ function DailyChart({ data }) {
   };
 
   return (
-    <div style={{
-      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6,
-      padding: 24, marginBottom: 32,
-    }}>
+    <div className="logs-chart-panel">
       <SectionHeader>Daily Messages (30 Days)</SectionHeader>
       <div style={{ height: 200 }}>
         <Bar data={chartData} options={options} />
@@ -246,36 +237,22 @@ function UserTable({ data }) {
   return (
     <div>
       <SectionHeader>By User</SectionHeader>
-      <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
+      <table className="tbl">
         <thead>
           <tr>
             {["User", "Role", "Messages", "Tokens", "Avg. Duration"].map(h => (
-              <th key={h} style={{
-                fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)",
-                letterSpacing: 1.5, textTransform: "uppercase", textAlign: "left",
-                padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)",
-              }}>{h}</th>
+              <th key={h}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.map((u, i) => (
             <tr key={i}>
-              <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 13 }}>
-                {u.user_name || u.user_phone || "\u2014"}
-              </td>
-              <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12, color: "var(--text-secondary)" }}>
-                {u.user_role || "\u2014"}
-              </td>
-              <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontFamily: '"DM Mono", monospace' }}>
-                {fmtNum(u.messages)}
-              </td>
-              <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>
-                {fmtNum(u.tokens)}
-              </td>
-              <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)" }}>
-                {u.avg_ms ? `${fmtNum(u.avg_ms)}ms` : "\u2014"}
-              </td>
+              <td>{u.user_name || u.user_phone || "\u2014"}</td>
+              <td className="mono muted">{u.user_role || "\u2014"}</td>
+              <td className="mono">{fmtNum(u.messages)}</td>
+              <td className="mono" style={{ color: "var(--accent)" }}>{fmtNum(u.tokens)}</td>
+              <td className="mono muted">{u.avg_ms ? `${fmtNum(u.avg_ms)}ms` : "\u2014"}</td>
             </tr>
           ))}
         </tbody>
@@ -290,30 +267,20 @@ function IntentTable({ data }) {
   return (
     <div>
       <SectionHeader>Intent Distribution</SectionHeader>
-      <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
+      <table className="tbl">
         <thead>
           <tr>
             {["Intent", "Count", "Tokens"].map(h => (
-              <th key={h} style={{
-                fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)",
-                letterSpacing: 1.5, textTransform: "uppercase", textAlign: "left",
-                padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)",
-              }}>{h}</th>
+              <th key={h}>{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {data.map((row, i) => (
             <tr key={i}>
-              <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 12, fontFamily: '"DM Mono", monospace' }}>
-                {row.intent || "\u2014"}
-              </td>
-              <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontFamily: '"DM Mono", monospace' }}>
-                {fmtNum(row.count)}
-              </td>
-              <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>
-                {fmtNum(row.tokens)}
-              </td>
+              <td className="mono">{row.intent || "\u2014"}</td>
+              <td className="mono">{fmtNum(row.count)}</td>
+              <td className="mono" style={{ color: "var(--accent)" }}>{fmtNum(row.tokens)}</td>
             </tr>
           ))}
         </tbody>
@@ -328,11 +295,9 @@ function ModelUsageCards({ data }) {
   return (
     <div style={{ marginBottom: 32 }}>
       <SectionHeader>Model Usage</SectionHeader>
-      <div style={{ display: "flex", gap: 16 }}>
+      <div className="logs-model-row">
         {data.map((m, i) => (
-          <div key={i} style={{
-            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "16px 20px",
-          }}>
+          <div key={i} className="logs-model-card">
             <div style={{ fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)", marginBottom: 4 }}>{m.model}</div>
             <div style={{ fontSize: 18, fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>{fmtNum(m.tokens)} token</div>
             <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{fmtNum(m.calls)} calls</div>
@@ -384,10 +349,7 @@ function MessageCard({ log }) {
   else if (isClarification) borderLeft = "3px solid var(--accent-2)";
 
   return (
-    <div style={{
-      background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8,
-      padding: 20, marginBottom: 12, borderLeft, position: "relative",
-    }}>
+    <div className="msg-card" style={{ borderLeft }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -406,13 +368,11 @@ function MessageCard({ log }) {
       </div>
 
       {/* Separator */}
-      <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0" }} />
+      <div className="msg-sep" />
 
       {/* Message */}
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-          Message
-        </div>
+        <div className="msg-field-label">Message</div>
         <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text-primary)" }}>
           {log.message_text || "\u2014"}
         </div>
@@ -420,9 +380,7 @@ function MessageCard({ log }) {
 
       {/* Rewrite */}
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-          Rewrite
-        </div>
+        <div className="msg-field-label">Rewrite</div>
         <div style={{ fontSize: 13, lineHeight: 1.6, color: hasRewrite ? "var(--accent-2)" : "var(--text-secondary)" }}>
           {hasRewrite ? log.rewritten_question : "\u2014"}
         </div>
@@ -431,15 +389,11 @@ function MessageCard({ log }) {
       {/* Intent + Model row */}
       <div style={{ display: "flex", gap: 24, alignItems: "center", marginBottom: 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1 }}>
-            Intent
-          </span>
+          <span className="msg-field-label" style={{ marginBottom: 0 }}>Intent</span>
           <IntentBadge intent={log.intent} isCommand={log.is_command} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1 }}>
-            Model
-          </span>
+          <span className="msg-field-label" style={{ marginBottom: 0 }}>Model</span>
           <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--text-primary)" }}>
             {log.model_intent || "\u2014"}
           </span>
@@ -447,23 +401,21 @@ function MessageCard({ log }) {
       </div>
 
       {/* Separator */}
-      <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0" }} />
+      <div className="msg-sep" />
 
       {/* Response */}
       <div style={{ marginBottom: 4 }}>
-        <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-          Response
-        </div>
+        <div className="msg-field-label">Response</div>
         <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>
           {log.response_text || "\u2014"}
         </div>
       </div>
 
       {/* Separator */}
-      <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0" }} />
+      <div className="msg-sep" />
 
       {/* Footer */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="msg-footer">
         <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)" }}>
           <span>Duration: {log.duration_ms ? `${fmtNum(log.duration_ms)}ms` : "\u2014"}</span>
           <span>Tokens: {fmtNum(log.total_tokens)}</span>
@@ -488,15 +440,7 @@ function FilterSelect({ value, onChange, options, placeholder }) {
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      style={{
-        fontFamily: '"DM Mono", monospace', fontSize: 11, padding: "8px 12px",
-        background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4,
-        color: "var(--text-primary)", cursor: "pointer", minWidth: 140,
-        appearance: "none", WebkitAppearance: "none",
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235A7080'/%3E%3C/svg%3E")`,
-        backgroundRepeat: "no-repeat", backgroundPosition: "right 10px center",
-        paddingRight: 28,
-      }}
+      className="logs-filter-select"
     >
       <option value="">{placeholder}</option>
       {options.map(opt => (
@@ -576,15 +520,6 @@ export default function LogsPage() {
 
   const totalPages = Math.ceil(total / limit);
 
-  const navLinks = [
-    { href: "/admin/logs", label: "Logs", active: true },
-    { href: "/admin/intelligence", label: "Intelligence", active: false },
-    { href: "/admin/system", label: "System", active: false },
-    { href: "/admin", label: "Users", active: false },
-    { href: "/", label: "War Room \u2192", active: false },
-    { href: "/sales", label: "Sales", active: false },
-  ];
-
   const statusOptions = [
     { value: "success", label: "Success" },
     { value: "error", label: "Error" },
@@ -601,43 +536,192 @@ export default function LogsPage() {
   return (
     <>
       <Head><title>ELIZA | Logs</title></Head>
-      <style jsx global>{`
-        :root {
-          --bg: #080B10; --surface: #0E1318; --surface-2: #141B22;
-          --border: #1E2A35; --text-primary: #E8EDF2; --text-secondary: #5A7080;
-          --accent: #C8A97A; --accent-2: #4A9EBF;
-          --danger: #C0392B; --warning: #D4A017; --success: #2ECC71;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: var(--bg); color: var(--text-primary); font-family: "DM Sans", -apple-system, sans-serif; min-height: 100vh; }
+      <style jsx>{`
         select option { background: var(--surface); color: var(--text-primary); }
+
+        .logs-summary-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 12px;
+          margin-bottom: 32px;
+        }
+        .logs-summary-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 20px 16px;
+          text-align: center;
+        }
+        .logs-chart-panel {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 24px;
+          margin-bottom: 32px;
+        }
+        .logs-doughnut-row {
+          display: flex;
+          align-items: center;
+          gap: 32px;
+        }
+        .logs-model-row {
+          display: flex;
+          gap: 16px;
+        }
+        .logs-model-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 16px 20px;
+        }
+        .logs-tables-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
+          margin-bottom: 32px;
+        }
+
+        /* Message card */
+        .msg-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 20px;
+          margin-bottom: 12px;
+          position: relative;
+        }
+        .msg-sep {
+          border-top: 1px solid var(--border);
+          margin: 12px 0;
+        }
+        .msg-field-label {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 4px;
+        }
+        .msg-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        /* Filter dropdown */
+        .logs-filter-select {
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+          padding: 8px 28px 8px 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          color: var(--text-primary);
+          cursor: pointer;
+          min-width: 140px;
+          appearance: none;
+          -webkit-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235A7080'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 10px center;
+        }
+
+        /* Tab switcher */
+        .logs-tab {
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 8px 20px;
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          font-weight: 400;
+        }
+        .logs-tab.active {
+          background: var(--accent);
+          color: var(--bg);
+          font-weight: 600;
+        }
+
+        /* Filter bar */
+        .logs-filter-bar {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        /* Pagination */
+        .logs-page-btn {
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+          padding: 6px 16px;
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          background: transparent;
+          cursor: pointer;
+        }
+        .logs-page-btn:disabled {
+          cursor: default;
+        }
+
+        /* Clear filters button */
+        .logs-clear-btn {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          padding: 8px 14px;
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .logs-summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+          .logs-doughnut-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .logs-tables-grid {
+            grid-template-columns: 1fr;
+          }
+          .logs-model-row {
+            flex-wrap: wrap;
+          }
+          .logs-filter-bar {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .logs-filter-select {
+            min-width: unset;
+            width: 100%;
+          }
+          .msg-footer {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+          }
+        }
+        @media (max-width: 480px) {
+          .logs-summary-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
 
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 48px" }}>
-        {/* Header */}
-        <div style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          paddingBottom: 24, borderBottom: "1px solid var(--accent)", marginBottom: 32,
-        }}>
-          <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 28, fontWeight: 500, letterSpacing: 6 }}>
-            ELIZA<span style={{ color: "var(--accent)" }}>.</span>
-          </div>
-          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-            {navLinks.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{
-                  fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2,
-                  textTransform: "uppercase", textDecoration: "none",
-                  color: link.active ? "var(--accent)" : "var(--text-secondary)",
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
+      <div className="page">
+        <Nav subtitle="Logs" />
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
@@ -648,13 +732,7 @@ export default function LogsPage() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              style={{
-                fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase",
-                padding: "8px 20px", border: "1px solid var(--border)", borderRadius: 4,
-                background: tab === t.key ? "var(--accent)" : "transparent",
-                color: tab === t.key ? "var(--bg)" : "var(--text-secondary)",
-                cursor: "pointer", fontWeight: tab === t.key ? 600 : 400,
-              }}
+              className={`logs-tab${tab === t.key ? " active" : ""}`}
             >
               {t.label}
             </button>
@@ -674,7 +752,7 @@ export default function LogsPage() {
             <DailyChart data={summary.daily} />
 
             {/* D) User + Intent Tables side by side */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
+            <div className="logs-tables-grid">
               <UserTable data={summary.byUser} />
               <IntentTable data={summary.byIntent} />
             </div>
@@ -688,9 +766,7 @@ export default function LogsPage() {
         {tab === "messages" && (
           <>
             {/* Filter Bar */}
-            <div style={{
-              display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap", alignItems: "center",
-            }}>
+            <div className="logs-filter-bar">
               <FilterSelect
                 value={filterUser}
                 onChange={setFilterUser}
@@ -718,12 +794,7 @@ export default function LogsPage() {
               {(filterUser || filterIntent || filterStatus || filterDateRange) && (
                 <button
                   onClick={() => { setFilterUser(""); setFilterIntent(""); setFilterStatus(""); setFilterDateRange(""); }}
-                  style={{
-                    fontFamily: '"DM Mono", monospace', fontSize: 10, padding: "8px 14px",
-                    border: "1px solid var(--border)", borderRadius: 4, background: "transparent",
-                    color: "var(--text-secondary)", cursor: "pointer", letterSpacing: 1,
-                    textTransform: "uppercase",
-                  }}
+                  className="logs-clear-btn"
                 >
                   Clear Filters
                 </button>
@@ -735,7 +806,7 @@ export default function LogsPage() {
 
             {/* Message Cards */}
             {loading ? (
-              <div style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}>Loading...</div>
+              <div className="loading">Loading...</div>
             ) : logs.length === 0 ? (
               <div style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', fontSize: 13 }}>
                 No messages found.
@@ -752,14 +823,10 @@ export default function LogsPage() {
                     <button
                       onClick={() => setPage(Math.max(1, page - 1))}
                       disabled={page === 1}
-                      style={{
-                        fontFamily: '"DM Mono", monospace', fontSize: 11, padding: "6px 16px",
-                        border: "1px solid var(--border)", borderRadius: 4, background: "transparent",
-                        color: page === 1 ? "var(--border)" : "var(--text-secondary)",
-                        cursor: page === 1 ? "default" : "pointer",
-                      }}
+                      className="logs-page-btn"
+                      style={{ color: page === 1 ? "var(--border)" : "var(--text-secondary)" }}
                     >
-                      \u2190
+                      {"\u2190"}
                     </button>
                     <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--text-secondary)", alignSelf: "center" }}>
                       {page} / {totalPages}
@@ -767,14 +834,10 @@ export default function LogsPage() {
                     <button
                       onClick={() => setPage(Math.min(totalPages, page + 1))}
                       disabled={page === totalPages}
-                      style={{
-                        fontFamily: '"DM Mono", monospace', fontSize: 11, padding: "6px 16px",
-                        border: "1px solid var(--border)", borderRadius: 4, background: "transparent",
-                        color: page === totalPages ? "var(--border)" : "var(--text-secondary)",
-                        cursor: page === totalPages ? "default" : "pointer",
-                      }}
+                      className="logs-page-btn"
+                      style={{ color: page === totalPages ? "var(--border)" : "var(--text-secondary)" }}
                     >
-                      \u2192
+                      {"\u2192"}
                     </button>
                   </div>
                 )}

@@ -10,6 +10,7 @@ import {
   Legend,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
+import Nav from "@/components/Nav";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -208,63 +209,19 @@ export default function WarRoom() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <style jsx global>{`
-        :root {
-          --bg: #080B10;
-          --surface: #0E1318;
-          --surface-2: #141B22;
-          --border: #1E2A35;
-          --text-primary: #E8EDF2;
-          --text-secondary: #5A7080;
-          --accent: #C8A97A;
-          --accent-2: #4A9EBF;
-          --danger: #C0392B;
-          --warning: #D4A017;
-          --success: #2ECC71;
+      <style jsx>{`
+        /* WAR ROOM — CLOCK */
+        .wr-clock {
+          text-align: right;
+          margin-bottom: 24px;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-          background: var(--bg);
-          color: var(--text-primary);
-          font-family: "DM Sans", -apple-system, sans-serif;
-          min-height: 100vh;
-          -webkit-font-smoothing: antialiased;
-        }
-
-        .wr { max-width: 1400px; margin: 0 auto; padding: 32px 48px; }
-
-        /* HEADER */
-        .hdr {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          padding-bottom: 24px;
-          border-bottom: 1px solid var(--accent);
-          margin-bottom: 32px;
-        }
-        .hdr-brand {
-          font-family: "DM Mono", monospace;
-          font-size: 32px;
-          font-weight: 500;
-          color: var(--text-primary);
-          letter-spacing: 8px;
-        }
-        .hdr-brand .dot { color: var(--accent); }
-        .hdr-sub {
-          font-size: 11px;
-          color: var(--text-secondary);
-          letter-spacing: 3px;
-          text-transform: uppercase;
-          margin-top: 4px;
-        }
-        .hdr-right { text-align: right; }
-        .hdr-clock {
-          font-family: "DM Mono", monospace;
+        .wr-clock-time {
+          font-family: var(--font-mono);
           font-size: 24px;
           color: var(--text-primary);
           font-weight: 400;
         }
-        .hdr-date {
+        .wr-clock-date {
           font-size: 12px;
           color: var(--text-secondary);
           margin-top: 4px;
@@ -277,7 +234,7 @@ export default function WarRoom() {
           margin-bottom: 8px;
         }
         .mode-tab {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 12px;
           letter-spacing: 3px;
           text-transform: uppercase;
@@ -302,7 +259,7 @@ export default function WarRoom() {
 
         /* SECTION TITLE */
         .sec-title {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           color: var(--text-secondary);
           letter-spacing: 3px;
@@ -310,7 +267,7 @@ export default function WarRoom() {
           margin-bottom: 16px;
         }
 
-        /* KPI CARDS */
+        /* KPI CARDS — War Room uses 3-column layout with larger values */
         .kpi-row {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -332,7 +289,7 @@ export default function WarRoom() {
           margin-bottom: 12px;
         }
         .kpi .kpi-val {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 30px;
           color: var(--text-primary);
           font-weight: 500;
@@ -347,7 +304,7 @@ export default function WarRoom() {
           margin-bottom: 16px;
         }
         .risk-toggle {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           letter-spacing: 2px;
           text-transform: uppercase;
@@ -369,7 +326,7 @@ export default function WarRoom() {
           background: rgba(200,169,122,0.08);
         }
         .risk-badge {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           font-weight: 500;
           letter-spacing: 1px;
@@ -392,7 +349,7 @@ export default function WarRoom() {
           border: 1px solid #1E2A35;
           border-radius: 4px;
           padding: 12px 16px;
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 12px;
           color: var(--text-primary);
           white-space: nowrap;
@@ -437,7 +394,7 @@ export default function WarRoom() {
           border: 1px solid #1E2A35;
           border-radius: 4px;
           padding: 10px 14px;
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           font-weight: 400;
           letter-spacing: 0;
@@ -462,7 +419,7 @@ export default function WarRoom() {
           gap: 16px;
         }
         .view-tab {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           letter-spacing: 2px;
           text-transform: uppercase;
@@ -488,7 +445,7 @@ export default function WarRoom() {
           overflow: hidden;
         }
         .expo-table th {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           color: var(--text-secondary);
           letter-spacing: 1.5px;
@@ -506,7 +463,7 @@ export default function WarRoom() {
           color: var(--text-primary);
         }
         .expo-table td.mono {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 12px;
         }
         .expo-table td.r { text-align: right; }
@@ -517,7 +474,7 @@ export default function WarRoom() {
           opacity: 0.45;
         }
         .badge-done {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 9px;
           letter-spacing: 1px;
           color: var(--text-secondary);
@@ -546,7 +503,7 @@ export default function WarRoom() {
           transition: width 0.6s ease;
         }
         .prog-pct {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           min-width: 36px;
           text-align: right;
@@ -566,7 +523,7 @@ export default function WarRoom() {
           border-collapse: collapse;
         }
         .lb-table th {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           color: var(--text-secondary);
           letter-spacing: 1.5px;
@@ -583,13 +540,13 @@ export default function WarRoom() {
           color: var(--text-primary);
         }
         .lb-table td.rank {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           color: var(--accent);
           font-weight: 500;
           width: 40px;
         }
         .lb-table td.mono {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 12px;
         }
         .lb-table td.r { text-align: right; }
@@ -607,7 +564,7 @@ export default function WarRoom() {
           background: var(--surface);
           border: 1px solid var(--accent);
           color: var(--accent);
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 18px;
           cursor: pointer;
           display: flex;
@@ -649,7 +606,7 @@ export default function WarRoom() {
           align-items: center;
         }
         .chat-head-title {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 12px;
           letter-spacing: 3px;
           text-transform: uppercase;
@@ -672,7 +629,7 @@ export default function WarRoom() {
           border-bottom: 1px solid var(--border);
         }
         .chat-chip {
-          font-family: "DM Sans", sans-serif;
+          font-family: var(--font-sans);
           font-size: 11px;
           padding: 5px 12px;
           border-radius: 3px;
@@ -710,17 +667,17 @@ export default function WarRoom() {
           color: var(--text-primary);
           line-height: 1.7;
         }
-        .chat-a .ans-heading {
+        .chat-a :global(.ans-heading) {
           display: block;
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 12px;
           color: var(--accent);
           letter-spacing: 1px;
           margin: 8px 0 4px;
         }
-        .chat-a strong { color: var(--accent); font-weight: 500; }
+        .chat-a :global(strong) { color: var(--accent); font-weight: 500; }
         .chat-time {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 10px;
           color: var(--text-secondary);
           margin-top: 6px;
@@ -733,7 +690,7 @@ export default function WarRoom() {
           font-size: 11px;
         }
         .chat-data-table th {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 9px;
           color: var(--accent);
           letter-spacing: 1px;
@@ -746,14 +703,14 @@ export default function WarRoom() {
           padding: 5px 8px;
           color: var(--text-primary);
           border-bottom: 1px solid rgba(30,42,53,0.4);
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
         }
         .chat-data-table tr:nth-child(even) td {
           background: rgba(14,19,24,0.5);
         }
         .chat-thinking {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 12px;
           color: var(--accent);
           padding: 8px 0;
@@ -769,7 +726,7 @@ export default function WarRoom() {
         }
         .chat-input {
           flex: 1;
-          font-family: "DM Sans", sans-serif;
+          font-family: var(--font-sans);
           font-size: 13px;
           padding: 14px 20px;
           border: none;
@@ -779,7 +736,7 @@ export default function WarRoom() {
         }
         .chat-input::placeholder { color: var(--text-secondary); }
         .chat-send {
-          font-family: "DM Mono", monospace;
+          font-family: var(--font-mono);
           font-size: 11px;
           letter-spacing: 1px;
           padding: 14px 20px;
@@ -800,11 +757,6 @@ export default function WarRoom() {
         }
 
         @media (max-width: 768px) {
-          .wr { padding: 16px; }
-          .hdr { flex-direction: column; align-items: flex-start; gap: 12px; }
-          .hdr-brand { font-size: 22px; letter-spacing: 4px; }
-          .hdr-clock { font-size: 18px; }
-          .hdr-right { text-align: left; }
           .mode-tabs { gap: 20px; }
           .kpi-row { grid-template-columns: 1fr; gap: 12px; }
           .kpi .kpi-val { font-size: 24px; }
@@ -814,28 +766,17 @@ export default function WarRoom() {
           .lb-table th, .lb-table td { padding: 6px 8px; font-size: 11px; }
           .chat-panel { width: calc(100vw - 32px); right: 16px; bottom: 80px; }
           .chat-fab { bottom: 20px; right: 20px; width: 44px; height: 44px; font-size: 16px; }
+          .wr-clock-time { font-size: 18px; }
         }
       `}</style>
 
-      <div className="wr">
-        {/* HEADER */}
-        <div className="hdr">
-          <div>
-            <div className="hdr-brand">ELIZA<span className="dot">.</span></div>
-            <div className="hdr-sub">War Room</div>
-          </div>
-          <div className="hdr-right">
-            <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
-              <a href="/expos?year=2026" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Expo Directory</a>
-              <a href="/sales" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Sales</a>
-              <a href="/admin/logs" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Logs</a>
-              <a href="/admin/intelligence" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Intelligence</a>
-              <a href="/admin/system" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>System</a>
-              <a href="/admin" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Users</a>
-            </div>
-            <div className="hdr-clock">{clock}</div>
-            <div className="hdr-date">{dateStr}</div>
-          </div>
+      <div className="page">
+        <Nav subtitle="War Room" />
+
+        {/* CLOCK */}
+        <div className="wr-clock">
+          <div className="wr-clock-time">{clock}</div>
+          <div className="wr-clock-date">{dateStr}</div>
         </div>
 
         {/* MODE TABS */}

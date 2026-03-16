@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import Nav from "@/components/Nav";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
@@ -198,70 +199,7 @@ export default function ExposPage() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <style jsx global>{`
-        :root {
-          --bg: #080B10;
-          --surface: #0E1318;
-          --surface-2: #141B22;
-          --border: #1E2A35;
-          --text-primary: #E8EDF2;
-          --text-secondary: #5A7080;
-          --accent: #C8A97A;
-          --accent-2: #4A9EBF;
-          --danger: #C0392B;
-          --warning: #D4A017;
-          --success: #2ECC71;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-          background: var(--bg);
-          color: var(--text-primary);
-          font-family: "DM Sans", -apple-system, sans-serif;
-          min-height: 100vh;
-          -webkit-font-smoothing: antialiased;
-        }
-
-        .page { max-width: 1400px; margin: 0 auto; padding: 32px 48px; }
-
-        .page-hdr {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          padding-bottom: 24px;
-          border-bottom: 1px solid var(--accent);
-          margin-bottom: 32px;
-        }
-        .page-brand {
-          font-family: "DM Mono", monospace;
-          font-size: 32px;
-          font-weight: 500;
-          color: var(--text-primary);
-          letter-spacing: 8px;
-        }
-        .page-brand .dot { color: var(--accent); }
-        .page-sub {
-          font-size: 11px;
-          color: var(--text-secondary);
-          letter-spacing: 3px;
-          text-transform: uppercase;
-          margin-top: 4px;
-        }
-        .page-nav {
-          display: flex;
-          gap: 24px;
-          align-items: center;
-        }
-        .nav-link {
-          font-family: "DM Mono", monospace;
-          font-size: 11px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: var(--text-secondary);
-          text-decoration: none;
-          transition: color 0.2s;
-        }
-        .nav-link:hover { color: var(--accent); }
-
+      <style jsx>{`
         .toolbar {
           display: flex;
           justify-content: space-between;
@@ -308,109 +246,12 @@ export default function ExposPage() {
         }
         .year-tab:hover:not(.active) { border-color: var(--text-secondary); color: var(--text-primary); }
 
-        .export-bar {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-        }
-        .export-btn {
-          font-family: "DM Mono", monospace;
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          padding: 6px 14px;
-          border: 1px solid var(--border);
-          background: transparent;
-          color: var(--text-secondary);
-          cursor: pointer;
-          border-radius: 3px;
-          transition: all 0.2s;
-          white-space: nowrap;
-        }
-        .export-btn:hover { border-color: var(--accent); color: var(--accent); }
-        .export-feedback {
-          font-family: "DM Mono", monospace;
-          font-size: 10px;
-          color: var(--success);
-          letter-spacing: 1px;
-          animation: fadeIn 0.2s ease;
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .summary-row {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
-          margin-bottom: 32px;
-        }
-        .summary-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-left: 3px solid var(--accent);
-          border-radius: 4px;
-          padding: 20px 24px;
-        }
-        .summary-label {
-          font-size: 10px;
-          color: var(--text-secondary);
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          margin-bottom: 8px;
-        }
-        .summary-val {
-          font-family: "DM Mono", monospace;
-          font-size: 24px;
-          color: var(--text-primary);
-          font-weight: 500;
-        }
-
         .expo-count {
           font-family: "DM Mono", monospace;
           font-size: 11px;
           color: var(--text-secondary);
           letter-spacing: 1px;
         }
-
-        .tbl {
-          width: 100%;
-          border-collapse: collapse;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        .tbl th {
-          font-family: "DM Mono", monospace;
-          font-size: 10px;
-          color: var(--text-secondary);
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          text-align: left;
-          padding: 12px 16px;
-          border-bottom: 1px solid var(--border);
-          background: var(--surface-2);
-          cursor: pointer;
-          user-select: none;
-          white-space: nowrap;
-          transition: color 0.2s;
-        }
-        .tbl th:hover { color: var(--accent); }
-        .tbl th.r { text-align: right; }
-        .tbl td {
-          font-size: 13px;
-          padding: 12px 16px;
-          border-bottom: 1px solid var(--border);
-          color: var(--text-primary);
-        }
-        .tbl td.mono {
-          font-family: "DM Mono", monospace;
-          font-size: 12px;
-        }
-        .tbl td.r { text-align: right; }
-        .tbl td.muted { color: var(--text-secondary); }
-        .tbl tr:last-child td { border-bottom: none; }
-        .tbl tr:hover td { background: rgba(200,169,122,0.03); }
-        .tbl .completed { opacity: 0.45; }
 
         .badge-done {
           font-family: "DM Mono", monospace;
@@ -463,36 +304,18 @@ export default function ExposPage() {
           font-size: 13px;
         }
 
+        .tbl .completed { opacity: 0.45; }
+
         @media (max-width: 768px) {
-          .page { padding: 16px; }
-          .page-hdr { flex-direction: column; align-items: flex-start; gap: 12px; }
-          .page-brand { font-size: 22px; letter-spacing: 4px; }
           .toolbar { flex-direction: column; align-items: stretch; }
           .search-input { width: 100%; }
-          .summary-row { grid-template-columns: 1fr; gap: 10px; }
-          .summary-val { font-size: 20px; }
-          .tbl { font-size: 11px; display: block; overflow-x: auto; }
-          .tbl th, .tbl td { padding: 8px 10px; white-space: nowrap; }
           .prog-bar-wrap { width: 50px; }
         }
       `}</style>
 
       <div className="page">
         {/* HEADER */}
-        <div className="page-hdr">
-          <div>
-            <div className="page-brand">ELIZA<span className="dot">.</span></div>
-            <div className="page-sub">Expo Directory</div>
-          </div>
-          <div className="page-nav" style={{ display: 'flex', gap: 16 }}>
-            <a href="/" className="nav-link">War Room</a>
-            <a href="/sales" className="nav-link">Sales</a>
-            <a href="/admin/logs" className="nav-link">Logs</a>
-            <a href="/admin/intelligence" className="nav-link">Intelligence</a>
-            <a href="/admin/system" className="nav-link">System</a>
-            <a href="/admin" className="nav-link">Users</a>
-          </div>
-        </div>
+        <Nav subtitle="Expo Directory" />
 
         {/* TOOLBAR */}
         <div className="toolbar">
@@ -521,14 +344,14 @@ export default function ExposPage() {
         {/* EXPORT BAR */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16, gap: 8, alignItems: "center" }}>
           {copyFeedback && <span className="export-feedback">{copyFeedback}</span>}
-          <button className="export-btn" onClick={handleCopyTable}>Copy</button>
-          <button className="export-btn" onClick={handleExportCSV}>CSV</button>
-          <button className="export-btn" onClick={handleExportExcel}>Excel</button>
-          <button className="export-btn" onClick={handleExportPDF}>PDF</button>
+          <button className="btn" onClick={handleCopyTable}>Copy</button>
+          <button className="btn" onClick={handleExportCSV}>CSV</button>
+          <button className="btn" onClick={handleExportExcel}>Excel</button>
+          <button className="btn" onClick={handleExportPDF}>PDF</button>
         </div>
 
         {/* SUMMARY */}
-        <div className="summary-row">
+        <div className="summary-row cols-3">
           <div className="summary-card">
             <div className="summary-label">Total Revenue</div>
             <div className="summary-val">{fmtEur(totals.revenue_eur)}</div>

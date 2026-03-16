@@ -1,0 +1,393 @@
+/* ═══════════════════════════════════════════════════════
+   ELIZA Design System
+   Single source of truth for all dashboard styles
+   ═══════════════════════════════════════════════════════ */
+
+/* ── 1. CSS Variables ── */
+:root {
+  /* Colors */
+  --bg: #080B10;
+  --surface: #0E1318;
+  --surface-2: #141B22;
+  --border: #1E2A35;
+  --text-primary: #E8EDF2;
+  --text-secondary: #5A7080;
+  --accent: #C8A97A;
+  --accent-2: #4A9EBF;
+  --danger: #C0392B;
+  --warning: #D4A017;
+  --success: #2ECC71;
+
+  /* Typography */
+  --font-mono: "DM Mono", monospace;
+  --font-sans: "DM Sans", -apple-system, sans-serif;
+
+  /* Spacing */
+  --page-max-width: 1400px;
+  --page-padding: 32px 48px;
+  --page-padding-mobile: 16px;
+
+  /* Border radius */
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 6px;
+}
+
+/* ── 2. Reset + Base ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 3. Page Layout ── */
+.page {
+  max-width: var(--page-max-width);
+  margin: 0 auto;
+  padding: var(--page-padding);
+}
+
+/* ── 4. Header ── */
+.page-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--accent);
+  margin-bottom: 32px;
+}
+.page-brand {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 8px;
+}
+.page-brand .dot { color: var(--accent); }
+.page-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* ── 5. Navigation ── */
+.page-nav {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+.nav-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-link:hover { color: var(--accent); }
+.nav-link.active { color: var(--accent); font-weight: 500; }
+
+/* ── 6. Tables ── */
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.tbl th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.tbl th:hover { color: var(--accent); }
+.tbl th.r { text-align: right; }
+.tbl td {
+  font-size: 13px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+.tbl td.mono { font-family: var(--font-mono); font-size: 12px; }
+.tbl td.r { text-align: right; }
+.tbl td.muted { color: var(--text-secondary); }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: rgba(200,169,122,0.03); }
+
+/* ── 7. Summary Cards ── */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.summary-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.summary-row.cols-6 { grid-template-columns: repeat(6, 1fr); }
+.summary-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+}
+.summary-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.summary-val {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.summary-val .change-up { color: var(--success); font-size: 12px; margin-left: 6px; }
+.summary-val .change-down { color: var(--danger); font-size: 12px; margin-left: 6px; }
+
+/* ── 8. Buttons ── */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.active { border-color: var(--accent); color: var(--accent); background: rgba(200,169,122,0.08); }
+
+.btn-sm {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+.btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-primary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 10px 24px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: all 0.2s;
+  font-weight: 500;
+}
+.btn-primary:hover { background: #B8994A; border-color: #B8994A; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-danger {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 1px solid rgba(192,57,43,0.3);
+  background: transparent;
+  color: var(--danger);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+.btn-danger:hover { border-color: var(--danger); background: rgba(192,57,43,0.08); }
+
+.btn-success {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border: 1px solid rgba(46,204,113,0.3);
+  background: transparent;
+  color: var(--success);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+.btn-success:hover { border-color: var(--success); background: rgba(46,204,113,0.08); }
+
+/* ── 9. Form Inputs ── */
+.input {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.input::placeholder { color: var(--text-secondary); }
+.input:focus { border-color: var(--accent); }
+
+.input-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: block;
+}
+
+select.input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235A7080' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+/* ── 10. Section Titles ── */
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.section-hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  margin-top: 40px;
+}
+
+/* ── 11. Badges ── */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+.badge-success {
+  color: var(--success);
+  background: rgba(46,204,113,0.1);
+  border: 1px solid rgba(46,204,113,0.3);
+}
+.badge-danger {
+  color: var(--danger);
+  background: rgba(192,57,43,0.1);
+  border: 1px solid rgba(192,57,43,0.3);
+}
+.badge-warning {
+  color: var(--warning);
+  background: rgba(212,160,23,0.1);
+  border: 1px solid rgba(212,160,23,0.3);
+}
+.badge-accent {
+  color: var(--accent);
+  background: rgba(200,169,122,0.1);
+  border: 1px solid rgba(200,169,122,0.3);
+}
+.badge-blue {
+  color: var(--accent-2);
+  background: rgba(74,158,191,0.1);
+  border: 1px solid rgba(74,158,191,0.3);
+}
+
+/* ── 12. Utility ── */
+.loading {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.text-mono { font-family: var(--font-mono); }
+.text-muted { color: var(--text-secondary); }
+.text-accent { color: var(--accent); }
+.text-sm { font-size: 12px; }
+.text-xs { font-size: 10px; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.gap-8 { gap: 8px; }
+.gap-16 { gap: 16px; }
+.mt-16 { margin-top: 16px; }
+.mt-32 { margin-top: 32px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.mb-32 { margin-bottom: 32px; }
+
+/* ── 13. Export Bar ── */
+.export-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.export-feedback {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--success);
+  letter-spacing: 1px;
+  margin-left: 8px;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── 14. Responsive ── */
+@media (max-width: 768px) {
+  .page { padding: var(--page-padding-mobile); }
+  .page-hdr { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .page-brand { font-size: 22px; letter-spacing: 4px; }
+  .page-nav { flex-wrap: wrap; gap: 12px; }
+  .summary-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .summary-row.cols-6 { grid-template-columns: repeat(2, 1fr); }
+  .summary-val { font-size: 18px; }
+  .tbl { font-size: 11px; display: block; overflow-x: auto; }
+  .tbl th, .tbl td { padding: 8px 10px; white-space: nowrap; }
+  .export-bar { flex-wrap: wrap; }
+  .section-hdr { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+
+@media (max-width: 480px) {
+  .summary-row { grid-template-columns: 1fr; }
+  .summary-row.cols-6 { grid-template-columns: 1fr; }
+  .page-nav { gap: 8px; }
+  .nav-link { font-size: 10px; letter-spacing: 1px; }
+}

@@ -102,33 +102,19 @@ export default function EditUser() {
     if (res.ok) router.push("/admin");
   }
 
-  if (loading || !config) return <div style={{ padding: 48, color: "#5A7080", background: "#080B10", minHeight: "100vh" }}>Loading...</div>;
+  if (loading || !config) return <div className="loading" style={{ marginTop: "40vh" }}>Loading...</div>;
 
   return (
     <>
       <Head><title>ELIZA | Edit User</title></Head>
-      <style jsx global>{`
-        :root {
-          --bg: #080B10; --surface: #0E1318; --surface-2: #141B22;
-          --border: #1E2A35; --text-primary: #E8EDF2; --text-secondary: #5A7080;
-          --accent: #C8A97A; --danger: #C0392B; --success: #2ECC71;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: var(--bg); color: var(--text-primary); font-family: "DM Sans", -apple-system, sans-serif; min-height: 100vh; }
-      `}</style>
 
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "32px 48px" }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingBottom: 24, borderBottom: "1px solid var(--accent)", marginBottom: 32 }}>
+      <div className="page" style={{ maxWidth: 800 }}>
+        <div className="page-hdr">
           <div>
-            <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 28, fontWeight: 500, letterSpacing: 6 }}>
-              ELIZA<span style={{ color: "var(--accent)" }}>.</span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Edit User — {form.name}</div>
+            <div className="page-brand">ELIZA<span className="dot">.</span></div>
+            <div className="page-sub">Edit User &mdash; {form.name}</div>
           </div>
-          <Link href="/admin" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "var(--text-secondary)", textDecoration: "none" }}>
-            ← Back
-          </Link>
+          <Link href="/admin" className="nav-link">&larr; Back</Link>
         </div>
 
         {error && (
@@ -141,28 +127,15 @@ export default function EditUser() {
 
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 32 }}>
           <div style={{ display: "flex", gap: 12 }}>
-            <button onClick={save} disabled={saving} style={{
-              fontFamily: '"DM Mono", monospace', fontSize: 12, letterSpacing: 1, textTransform: "uppercase",
-              padding: "12px 32px", background: "var(--accent)", color: "var(--bg)", border: "none",
-              borderRadius: 4, cursor: "pointer", fontWeight: 500, opacity: saving ? 0.5 : 1,
-            }}>
+            <button onClick={save} disabled={saving} className="btn-primary">
               {saving ? "Saving..." : "Update"}
             </button>
-            <Link href="/admin" style={{
-              fontFamily: '"DM Mono", monospace', fontSize: 12, letterSpacing: 1, textTransform: "uppercase",
-              padding: "12px 32px", background: "transparent", color: "var(--text-secondary)",
-              border: "1px solid var(--border)", borderRadius: 4, textDecoration: "none",
-              display: "flex", alignItems: "center",
-            }}>
+            <Link href="/admin" className="btn" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
               Cancel
             </Link>
           </div>
           {form.is_active && (
-            <button onClick={deactivate} style={{
-              fontFamily: '"DM Mono", monospace', fontSize: 12, letterSpacing: 1, textTransform: "uppercase",
-              padding: "12px 32px", background: "rgba(192,57,43,0.1)", color: "var(--danger)",
-              border: "1px solid rgba(192,57,43,0.3)", borderRadius: 4, cursor: "pointer",
-            }}>
+            <button onClick={deactivate} className="btn-danger" style={{ padding: "10px 24px" }}>
               Deactivate
             </button>
           )}

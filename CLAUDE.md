@@ -441,13 +441,32 @@ Pages:
 - /expos?year=2026&expo=SIEMA&country=Morocco → Expo Directory (sortable, filterable, export: Copy/CSV/Excel/PDF)
 - /expos/detail?name=SIEMA&year=2026 → Expo Detail (agents, companies, countries, monthly trend, export)
 - /sales → Fiscal Sales (period filters, KPIs with change%, agent/expo/country tables, trend chart, export)
+- /login → Login page (email/phone + password)
+- /settings → User settings (change password, logout)
 
-Navigation (all pages):
-- War Room header: Expo Directory | Sales | Logs | Intelligence | System | Users
-- Expo Directory header: War Room | Sales | Logs | Intelligence | System | Users
-- Expo Detail header: War Room | Expo Directory | Sales | Logs | Intelligence | System | Users
-- Sales header: War Room | Expo Directory | Logs | Intelligence | System | Users
-- Admin pages: Logs | Intelligence | System | Users | War Room | Sales
+Navigation (all pages — unified via components/Nav.js):
+- Order: War Room | Expo Directory | Sales | Logs | Intelligence | System | Users | Settings
+- Active page highlighted with accent color
+- Nav component: components/Nav.js (single source of truth)
+
+Design System:
+- CSS: styles/design-system.css (single source for all tokens, classes, responsive)
+- No more per-page CSS variable declarations or duplicate styles
+- Classes: .page, .page-hdr, .page-brand, .nav-link, .tbl, .summary-row, .summary-card, .btn, .btn-sm, .btn-primary, .btn-danger, .btn-success, .badge, .badge-success, .badge-danger, .input, .input-label, .section-title, .section-hdr, .loading, .export-bar, .export-feedback
+- Responsive: @media (max-width: 768px) and @media (max-width: 480px) in design-system.css
+- Page-specific styles: kept in <style jsx> blocks (not global)
+
+Auth System:
+- Login: /login → POST /api/auth/login → JWT token → localStorage
+- Session: Bearer token in Authorization header
+- AuthProvider: lib/auth.js wraps _app.js
+- AuthGuard: redirects to /login if no token
+- Password: bcrypt, min 6 chars
+- Remember me: 30 day token vs 24h default
+- CEO can set passwords via POST /api/auth/set-password
+- Migration: packages/db/migrations/011_user_auth.sql (password_hash, last_login, dashboard_permissions)
+- dashboard_permissions JSONB: { war_room, expo_directory, expo_detail, sales, logs, intelligence, system, users, settings }
+- Initial CEO password: eliza2026 (change in production)
 
 Expo Directory → Detail:
 - Table rows clickable → navigates to /expos/detail?name=X&year=Y
@@ -478,11 +497,13 @@ Charts:
 - Fiscal Sales Trend: vertical bar chart (revenue/contracts toggle, daily/monthly auto-select)
 
 Design:
-- Dark theme: #080B10 background, #0E1318 surface
-- Accent: #C8A97A gold
-- Fonts: DM Mono (numbers/headers), DM Sans (labels)
+- Design system: styles/design-system.css (single source of truth)
+- Dark theme: #080B10 background, #0E1318 surface, #141B22 surface-2
+- Accent: #C8A97A gold, #4A9EBF blue
+- Fonts: var(--font-mono) "DM Mono", var(--font-sans) "DM Sans"
 - Animated KPI counters on load
 - Risk Radar panel with hover tooltips
+- All admin pages now responsive (mobile-friendly)
 
 Export:
 - Per-table: Each table has own Copy/CSV/Excel buttons (export-btn-sm)
@@ -692,8 +713,8 @@ Veri Formatlama:
 
 Expo Directory (/expos) Features:
 - Query params: ?year=2026&expo=SIEMA&country=Morocco&agent=Elif → auto pre-fill search filter
-- Export bar: Copy (clipboard tab-separated) | CSV | Excel (SheetJS CDN) | PDF (jsPDF CDN)
-- Excel/PDF lazy-loaded from CDN on first click, fallback to CSV if CDN fails
+- Export bar: Copy (clipboard tab-separated) | CSV | Excel | PDF
+- Excel/PDF via npm packages (xlsx, jspdf, jspdf-autotable) with dynamic import()
 - PDF: landscape, ELIZA branded header, date + filter info, dark header with gold text
 - Satir arasi bos satir ile ayrilir
 - Table rows clickable → navigates to Expo Detail page
@@ -863,7 +884,10 @@ Admin Panel sayfaları:
 - /admin/system → System Status (services, DB tables, sync, errors)
 - /admin/users/new → yeni kullanıcı formu
 - /admin/users/[id] → düzenleme formu
-- Navigation: Logs | Intelligence | System | Users | War Room (shared header)
+- /login → Login sayfası (email/phone + password, remember me)
+- /settings → Kullanıcı ayarları (şifre değiştirme, logout)
+- Navigation: Nav component (War Room | Expo Directory | Sales | Logs | Intelligence | System | Users | Settings)
+- All admin pages now use design-system.css classes (responsive, mobile-friendly)
 
 API endpoints (new):
 - GET /api/intelligence/router-rules
@@ -872,6 +896,10 @@ API endpoints (new):
 - GET /api/intelligence/clarification-stats?days=30
 - GET /api/system/status
 - GET /api/logs enhanced: ?status=error/clarification/success&date_range=today/yesterday/7d/30d
+- POST /api/auth/login → { identifier, password, remember } → { token, user }
+- GET /api/auth/me → { user } (token-based)
+- POST /api/auth/change-password → { old_password, new_password }
+- POST /api/auth/set-password → { user_id, password } (CEO only)
 
 # 28. Benchmark
 Dosya: docs/benchmark/questions.json (50 soru, 10 kategori)

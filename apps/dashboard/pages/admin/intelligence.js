@@ -1,46 +1,8 @@
 import Head from "next/head";
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import Nav from "@/components/Nav";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
-
-const navStyle = {
-  fontFamily: '"DM Mono", monospace',
-  fontSize: 11,
-  letterSpacing: 2,
-  textTransform: "uppercase",
-  color: "var(--text-secondary)",
-  textDecoration: "none",
-};
-
-const activeNavStyle = { ...navStyle, color: "var(--accent)", fontWeight: 500 };
-
-const sectionHeader = {
-  fontFamily: '"DM Mono", monospace',
-  fontSize: 11,
-  color: "var(--text-secondary)",
-  letterSpacing: 3,
-  textTransform: "uppercase",
-  marginBottom: 16,
-};
-
-const thStyle = {
-  fontFamily: '"DM Mono", monospace',
-  fontSize: 10,
-  color: "var(--text-secondary)",
-  letterSpacing: 1.5,
-  textTransform: "uppercase",
-  textAlign: "left",
-  padding: "10px 14px",
-  borderBottom: "1px solid var(--border)",
-  background: "var(--surface-2)",
-};
-
-const tdStyle = {
-  padding: "10px 14px",
-  borderBottom: "1px solid var(--border)",
-  fontSize: 12,
-};
 
 function intentBadge(intent) {
   const colors = {
@@ -159,80 +121,203 @@ export default function IntelligencePage() {
   return (
     <>
       <Head><title>ELIZA | Intelligence</title></Head>
-      <style jsx global>{`
-        :root {
-          --bg: #080B10; --surface: #0E1318; --surface-2: #141B22;
-          --border: #1E2A35; --text-primary: #E8EDF2; --text-secondary: #5A7080;
-          --accent: #C8A97A; --accent-2: #4A9EBF;
-          --danger: #C0392B; --warning: #D4A017; --success: #2ECC71;
+      <style jsx>{`
+        .intent-tbl td.bar-cell {
+          text-align: right;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: var(--bg); color: var(--text-primary); font-family: "DM Sans", -apple-system, sans-serif; min-height: 100vh; }
+        .bar-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+        }
+        .bar-fill {
+          display: inline-block;
+          height: 6px;
+          border-radius: 3px;
+        }
+        .bar-fill.router { background: var(--success); }
+        .bar-fill.haiku { background: var(--accent); }
+        .bar-label {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          min-width: 32px;
+        }
+        .category-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 16px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          cursor: pointer;
+          user-select: none;
+        }
+        .category-header.open {
+          border-radius: 4px 4px 0 0;
+        }
+        .category-header.closed {
+          border-radius: 4px;
+        }
+        .category-label {
+          font-family: var(--font-mono);
+          font-size: 12px;
+          letter-spacing: 1px;
+        }
+        .category-count {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
+        .category-table {
+          width: 100%;
+          border-collapse: collapse;
+          background: var(--surface-2);
+          border: 1px solid var(--border);
+          border-top: none;
+          border-radius: 0 0 4px 4px;
+        }
+        .unavail-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          gap: 12px;
+        }
+        .unavail-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 16px;
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .unavail-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--danger);
+          margin-top: 4px;
+          flex-shrink: 0;
+        }
+        .unavail-name {
+          font-family: var(--font-mono);
+          font-size: 12px;
+          font-weight: 500;
+          margin-bottom: 4px;
+        }
+        .unavail-reason {
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+        .clar-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 16px;
+        }
+        .clar-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 20px 16px;
+        }
+        .clar-val {
+          font-family: var(--font-mono);
+          font-size: 22px;
+          font-weight: 500;
+        }
+        .clar-label {
+          font-size: 11px;
+          color: var(--text-secondary);
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          margin-top: 4px;
+          font-family: var(--font-mono);
+        }
+        .slot-val {
+          font-family: var(--font-mono);
+          font-size: 16px;
+          font-weight: 500;
+          color: var(--accent-2);
+        }
+        .slot-label {
+          font-size: 10px;
+          color: var(--text-secondary);
+          font-family: var(--font-mono);
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
+        .empty-state {
+          padding: 32px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          color: var(--text-secondary);
+          text-align: center;
+        }
+        .expo-brands-row {
+          display: flex;
+          gap: 32px;
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+        .brands-label {
+          font-family: var(--font-mono);
+          font-size: 10px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          color: var(--text-secondary);
+          margin-right: 8px;
+        }
       `}</style>
 
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "32px 48px" }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingBottom: 24, borderBottom: "1px solid var(--accent)", marginBottom: 32 }}>
-          <div>
-            <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 28, fontWeight: 500, letterSpacing: 6 }}>
-              ELIZA<span style={{ color: "var(--accent)" }}>.</span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>Intelligence Panel</div>
-          </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <Link href="/admin/logs" style={navStyle}>Logs</Link>
-            <Link href="/admin/intelligence" style={activeNavStyle}>Intelligence</Link>
-            <Link href="/admin/system" style={navStyle}>System</Link>
-            <Link href="/admin" style={navStyle}>Users</Link>
-            <Link href="/" style={navStyle}>War Room &rarr;</Link>
-            <Link href="/sales" style={navStyle}>Sales</Link>
-          </div>
-        </div>
+      <div className="page">
+        <Nav subtitle="Intelligence" />
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: 48, color: "var(--text-secondary)" }}>Loading...</div>
+          <div className="loading">Loading...</div>
         ) : (
           <>
             {/* A) Router Rules */}
-            <div style={{ marginBottom: 48 }}>
-              <div style={sectionHeader}>
+            <div className="mb-32">
+              <div className="section-title mb-16">
                 Router Rules {routerRules && `(${routerRules.total_rules} rules)`}
               </div>
               {routerRules && (
                 <>
-                  <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4, marginBottom: 16 }}>
+                  <table className="tbl mb-16">
                     <thead>
                       <tr>
-                        <th style={thStyle}>Intent</th>
-                        <th style={{ ...thStyle, textAlign: "right" }}>Keywords</th>
-                        <th style={thStyle}>Sample</th>
+                        <th>Intent</th>
+                        <th className="r">Keywords</th>
+                        <th>Sample</th>
                       </tr>
                     </thead>
                     <tbody>
                       {routerRules.rules.map((rule, i) => (
                         <tr key={i}>
-                          <td style={tdStyle}>
+                          <td>
                             <span style={intentBadge(rule.intent)}>{rule.intent}</span>
                           </td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>
+                          <td className="mono r" style={{ color: "var(--accent)" }}>
                             {rule.keyword_count}
                           </td>
-                          <td style={{ ...tdStyle, fontSize: 11, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace' }}>
+                          <td className="mono muted" style={{ fontSize: 11 }}>
                             {rule.sample_keywords.join("  |  ")}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div style={{ display: "flex", gap: 32, fontSize: 12, color: "var(--text-secondary)" }}>
+                  <div className="expo-brands-row">
                     <div>
-                      <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-secondary)", marginRight: 8 }}>Expo Brands:</span>
+                      <span className="brands-label">Expo Brands:</span>
                       <span style={{ color: "var(--text-primary)" }}>
                         {routerRules.expo_brands.map(b => b.charAt(0).toUpperCase() + b.slice(1)).join(", ")}
                       </span>
                     </div>
                     <div>
-                      <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, letterSpacing: 1, textTransform: "uppercase", color: "var(--text-secondary)", marginRight: 8 }}>Agent Names:</span>
+                      <span className="brands-label">Agent Names:</span>
                       <span style={{ color: "var(--text-primary)" }}>
                         {routerRules.agent_names.map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(", ")}
                       </span>
@@ -243,12 +328,12 @@ export default function IntelligencePage() {
             </div>
 
             {/* B) Intent Map */}
-            <div style={{ marginBottom: 48 }}>
-              <div style={sectionHeader}>
+            <div className="mb-32">
+              <div className="section-title mb-16">
                 Intent Map {intentStats && `(${intentStats.total_messages} total messages)`}
               </div>
               {intentStats?.intents?.length > 0 ? (
-                <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4 }}>
+                <table className="tbl intent-tbl">
                   <thead>
                     <tr>
                       {[
@@ -262,12 +347,7 @@ export default function IntelligencePage() {
                         <th
                           key={col.key}
                           onClick={() => handleSort(col.key)}
-                          style={{
-                            ...thStyle,
-                            cursor: "pointer",
-                            textAlign: col.key === "intent" ? "left" : "right",
-                            userSelect: "none",
-                          }}
+                          className={col.key !== "intent" ? "r" : ""}
                         >
                           {col.label}{sortIndicator(col.key)}
                         </th>
@@ -277,44 +357,28 @@ export default function IntelligencePage() {
                   <tbody>
                     {sortedIntents().map((row, i) => (
                       <tr key={i}>
-                        <td style={tdStyle}>
+                        <td>
                           <span style={intentBadge(row.intent)}>{row.intent}</span>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontFamily: '"DM Mono", monospace' }}>
+                        <td className="mono r">
                           {fmtNum(row.count)}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontFamily: '"DM Mono", monospace', color: "var(--accent)" }}>
+                        <td className="mono r" style={{ color: "var(--accent)" }}>
                           {fmtNum(row.tokens)}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)" }}>
+                        <td className="mono r muted">
                           {row.avg_duration ? `${fmtNum(row.avg_duration)}ms` : "\u2014"}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-                            <span style={{
-                              display: "inline-block",
-                              height: 6,
-                              width: Math.max(2, row.router_pct * 0.8),
-                              background: "var(--success)",
-                              borderRadius: 3,
-                            }} />
-                            <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, minWidth: 32 }}>
-                              {row.router_pct}%
-                            </span>
+                        <td className="bar-cell">
+                          <div className="bar-wrap">
+                            <span className="bar-fill router" style={{ width: Math.max(2, row.router_pct * 0.8) }} />
+                            <span className="bar-label">{row.router_pct}%</span>
                           </div>
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-                            <span style={{
-                              display: "inline-block",
-                              height: 6,
-                              width: Math.max(2, row.haiku_pct * 0.8),
-                              background: "var(--accent)",
-                              borderRadius: 3,
-                            }} />
-                            <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, minWidth: 32 }}>
-                              {row.haiku_pct}%
-                            </span>
+                        <td className="bar-cell">
+                          <div className="bar-wrap">
+                            <span className="bar-fill haiku" style={{ width: Math.max(2, row.haiku_pct * 0.8) }} />
+                            <span className="bar-label">{row.haiku_pct}%</span>
                           </div>
                         </td>
                       </tr>
@@ -322,15 +386,13 @@ export default function IntelligencePage() {
                   </tbody>
                 </table>
               ) : (
-                <div style={{ padding: 32, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-secondary)", textAlign: "center" }}>
-                  No intent data yet
-                </div>
+                <div className="empty-state">No intent data yet</div>
               )}
             </div>
 
             {/* C) Benchmark */}
-            <div style={{ marginBottom: 48 }}>
-              <div style={sectionHeader}>
+            <div className="mb-32">
+              <div className="section-title mb-16">
                 Benchmark {benchmark && `(${benchmark.total} questions)`}
               </div>
               {benchmark?.questions?.length > 0 ? (
@@ -339,48 +401,38 @@ export default function IntelligencePage() {
                     <div key={category} style={{ marginBottom: 8 }}>
                       <div
                         onClick={() => toggleCategory(category)}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "12px 16px",
-                          background: "var(--surface)",
-                          border: "1px solid var(--border)",
-                          borderRadius: openCategories[category] ? "4px 4px 0 0" : 4,
-                          cursor: "pointer",
-                          userSelect: "none",
-                        }}
+                        className={`category-header ${openCategories[category] ? "open" : "closed"}`}
                       >
-                        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, letterSpacing: 1 }}>
+                        <span className="category-label">
                           {openCategories[category] ? "\u25BC" : "\u25B6"} {category}
                         </span>
-                        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)" }}>
+                        <span className="category-count">
                           {questions.length} questions
                         </span>
                       </div>
                       {openCategories[category] && (
-                        <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--surface-2)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 4px 4px" }}>
+                        <table className="category-table">
                           <thead>
                             <tr>
-                              <th style={{ ...thStyle, width: 40 }}>ID</th>
-                              <th style={thStyle}>Question</th>
-                              <th style={thStyle}>Expected Intent</th>
-                              <th style={{ ...thStyle, width: 50 }}>Lang</th>
+                              <th style={{ width: 40, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)', letterSpacing: 1.5, textTransform: 'uppercase', textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>ID</th>
+                              <th style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)', letterSpacing: 1.5, textTransform: 'uppercase', textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>Question</th>
+                              <th style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)', letterSpacing: 1.5, textTransform: 'uppercase', textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>Expected Intent</th>
+                              <th style={{ width: 50, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)', letterSpacing: 1.5, textTransform: 'uppercase', textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>Lang</th>
                             </tr>
                           </thead>
                           <tbody>
                             {questions.map(q => (
                               <tr key={q.id}>
-                                <td style={{ ...tdStyle, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)", fontSize: 11 }}>
+                                <td style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', fontSize: 11 }}>
                                   {q.id}
                                 </td>
-                                <td style={{ ...tdStyle, fontSize: 13 }}>
+                                <td style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
                                   {q.question}
                                 </td>
-                                <td style={tdStyle}>
+                                <td style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
                                   <span style={intentBadge(q.expected_intent)}>{q.expected_intent}</span>
                                 </td>
-                                <td style={{ ...tdStyle, fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--accent-2)", textAlign: "center" }}>
+                                <td style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent-2)', textAlign: 'center' }}>
                                   {LANG_FLAGS[q.language] || q.language}
                                 </td>
                               </tr>
@@ -392,42 +444,20 @@ export default function IntelligencePage() {
                   ))}
                 </div>
               ) : (
-                <div style={{ padding: 32, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-secondary)", textAlign: "center" }}>
-                  No benchmark data found
-                </div>
+                <div className="empty-state">No benchmark data found</div>
               )}
             </div>
 
             {/* D) Unavailable Metrics */}
-            <div style={{ marginBottom: 48 }}>
-              <div style={sectionHeader}>Unavailable Metrics</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+            <div className="mb-32">
+              <div className="section-title mb-16">Unavailable Metrics</div>
+              <div className="unavail-grid">
                 {UNAVAILABLE_METRICS.map(m => (
-                  <div key={m.metric} style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 6,
-                    padding: 16,
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                  }}>
-                    <span style={{
-                      display: "inline-block",
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: "var(--danger)",
-                      marginTop: 4,
-                      flexShrink: 0,
-                    }} />
+                  <div key={m.metric} className="unavail-card">
+                    <span className="unavail-dot" />
                     <div>
-                      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
-                        {m.metric}
-                      </div>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                        {m.reason}
-                      </div>
+                      <div className="unavail-name">{m.metric}</div>
+                      <div className="unavail-reason">{m.reason}</div>
                     </div>
                   </div>
                 ))}
@@ -435,44 +465,36 @@ export default function IntelligencePage() {
             </div>
 
             {/* E) Clarification Stats */}
-            <div style={{ marginBottom: 48 }}>
-              <div style={sectionHeader}>Clarification Stats</div>
+            <div className="mb-32">
+              <div className="section-title mb-16">Clarification Stats</div>
               {clarStats && clarStats.total_clarifications > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "20px 16px" }}>
-                    <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 22, fontWeight: 500, color: "var(--accent)" }}>
+                <div className="clar-grid">
+                  <div className="clar-card">
+                    <div className="clar-val" style={{ color: "var(--accent)" }}>
                       {fmtNum(clarStats.total_clarifications)}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1.5, textTransform: "uppercase", marginTop: 4, fontFamily: '"DM Mono", monospace' }}>
-                      Total Clarifications
-                    </div>
+                    <div className="clar-label">Total Clarifications</div>
                   </div>
-                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "20px 16px" }}>
-                    <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 22, fontWeight: 500, color: clarStats.resolve_rate >= 70 ? "var(--success)" : "var(--warning)" }}>
+                  <div className="clar-card">
+                    <div className="clar-val" style={{ color: clarStats.resolve_rate >= 70 ? "var(--success)" : "var(--warning)" }}>
                       {clarStats.resolve_rate}%
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1.5, textTransform: "uppercase", marginTop: 4, fontFamily: '"DM Mono", monospace' }}>
-                      Resolve Rate
-                    </div>
+                    <div className="clar-label">Resolve Rate</div>
                   </div>
-                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: "20px 16px" }}>
+                  <div className="clar-card">
                     <div style={{ display: "flex", gap: 16, marginTop: 4 }}>
                       {Object.entries(clarStats.by_slot || {}).map(([slot, count]) => (
                         <div key={slot}>
-                          <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 16, fontWeight: 500, color: "var(--accent-2)" }}>{count}</div>
-                          <div style={{ fontSize: 10, color: "var(--text-secondary)", fontFamily: '"DM Mono", monospace', letterSpacing: 1, textTransform: "uppercase" }}>{slot}</div>
+                          <div className="slot-val">{count}</div>
+                          <div className="slot-label">{slot}</div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1.5, textTransform: "uppercase", marginTop: 8, fontFamily: '"DM Mono", monospace' }}>
-                      By Slot
-                    </div>
+                    <div className="clar-label" style={{ marginTop: 8 }}>By Slot</div>
                   </div>
                 </div>
               ) : (
-                <div style={{ padding: 32, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4, color: "var(--text-secondary)", textAlign: "center" }}>
-                  No clarification data yet
-                </div>
+                <div className="empty-state">No clarification data yet</div>
               )}
             </div>
           </>

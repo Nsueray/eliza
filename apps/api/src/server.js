@@ -14,6 +14,7 @@ const logRoutes = require('./routes/logs');
 const intelligenceRoutes = require('./routes/intelligence');
 const systemRoutes = require('./routes/system');
 const fiscalRoutes = require('./routes/fiscal');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,7 +23,7 @@ app.use(express.json());
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
@@ -44,6 +45,7 @@ app.use('/api/logs', logRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/fiscal', fiscalRoutes);
+app.use('/api/auth', authRoutes);
 
 app.listen(PORT, () => {
   console.log(`ELIZA API running on port ${PORT}`);

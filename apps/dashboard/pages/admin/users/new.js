@@ -2,10 +2,11 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import Nav from "@/components/Nav";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
-const LANG_LABELS = { tr: "Türkçe", en: "English", fr: "Français" };
+const LANG_LABELS = { tr: "Turkce", en: "English", fr: "Francais" };
 const ROLE_LABELS = { ceo: "CEO", manager: "Manager", agent: "Agent" };
 
 const DEFAULT_SCOPE = { ceo: "all", manager: "team", agent: "own" };
@@ -30,7 +31,6 @@ export default function NewUser() {
   function set(key, val) {
     setForm(prev => {
       const next = { ...prev, [key]: val };
-      // Auto-set data_scope when role changes
       if (key === "role") {
         next.data_scope = DEFAULT_SCOPE[val] || "own";
       }
@@ -68,33 +68,19 @@ export default function NewUser() {
     }
   }
 
-  if (!config) return <div style={{ padding: 48, color: "#5A7080", background: "#080B10", minHeight: "100vh" }}>Loading...</div>;
+  if (!config) return <div className="loading" style={{ marginTop: "40vh" }}>Loading...</div>;
 
   return (
     <>
       <Head><title>ELIZA | New User</title></Head>
-      <style jsx global>{`
-        :root {
-          --bg: #080B10; --surface: #0E1318; --surface-2: #141B22;
-          --border: #1E2A35; --text-primary: #E8EDF2; --text-secondary: #5A7080;
-          --accent: #C8A97A; --danger: #C0392B; --success: #2ECC71;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: var(--bg); color: var(--text-primary); font-family: "DM Sans", -apple-system, sans-serif; min-height: 100vh; }
-      `}</style>
 
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "32px 48px" }}>
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingBottom: 24, borderBottom: "1px solid var(--accent)", marginBottom: 32 }}>
+      <div className="page" style={{ maxWidth: 800 }}>
+        <div className="page-hdr">
           <div>
-            <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 28, fontWeight: 500, letterSpacing: 6 }}>
-              ELIZA<span style={{ color: "var(--accent)" }}>.</span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-secondary)", letterSpacing: 3, textTransform: "uppercase", marginTop: 4 }}>New User</div>
+            <div className="page-brand">ELIZA<span className="dot">.</span></div>
+            <div className="page-sub">New User</div>
           </div>
-          <Link href="/admin" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "var(--text-secondary)", textDecoration: "none" }}>
-            ← Back
-          </Link>
+          <Link href="/admin" className="nav-link">&larr; Back</Link>
         </div>
 
         {error && (
@@ -106,18 +92,10 @@ export default function NewUser() {
         <UserForm form={form} set={set} toggleYear={toggleYear} config={config} />
 
         <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
-          <button onClick={save} disabled={saving} style={{
-            fontFamily: '"DM Mono", monospace', fontSize: 12, letterSpacing: 1, textTransform: "uppercase",
-            padding: "12px 32px", background: "var(--accent)", color: "var(--bg)", border: "none",
-            borderRadius: 4, cursor: "pointer", fontWeight: 500, opacity: saving ? 0.5 : 1,
-          }}>
+          <button onClick={save} disabled={saving} className="btn-primary">
             {saving ? "Saving..." : "Save"}
           </button>
-          <Link href="/admin" style={{
-            fontFamily: '"DM Mono", monospace', fontSize: 12, letterSpacing: 1, textTransform: "uppercase",
-            padding: "12px 32px", background: "transparent", color: "var(--text-secondary)",
-            border: "1px solid var(--border)", borderRadius: 4, textDecoration: "none",
-          }}>
+          <Link href="/admin" className="btn" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
             Cancel
           </Link>
         </div>
@@ -127,85 +105,97 @@ export default function NewUser() {
 }
 
 export function UserForm({ form, set, toggleYear, config }) {
-  const inputStyle = {
-    width: "100%", padding: "10px 14px", background: "var(--surface-2)", border: "1px solid var(--border)",
-    borderRadius: 4, color: "var(--text-primary)", fontFamily: '"DM Sans", sans-serif', fontSize: 13, outline: "none",
-  };
-  const labelStyle = {
-    fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1, textTransform: "uppercase",
-    fontFamily: '"DM Mono", monospace', marginBottom: 6, display: "block",
-  };
-  const sectionStyle = {
-    background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 4,
-    padding: 24, marginBottom: 24,
-  };
-  const sectionTitle = {
-    fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--accent)",
-    letterSpacing: 3, textTransform: "uppercase", marginBottom: 20,
-  };
-
   return (
     <>
-      {/* Section 1 — Personal */}
-      <div style={sectionStyle}>
-        <div style={sectionTitle}>Personal Information</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <style jsx>{`
+        .form-section {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: 24px;
+          margin-bottom: 24px;
+        }
+        .form-section-title {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: var(--accent);
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          margin-bottom: 20px;
+        }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-full { grid-column: 1 / -1; }
+        .form-hint { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
+        .year-chip {
+          display: flex; align-items: center; gap: 4px; font-size: 12px;
+          font-family: var(--font-mono); color: var(--text-primary); cursor: pointer;
+          padding: 4px 10px; border-radius: 3px; transition: all 0.2s;
+        }
+        @media (max-width: 768px) {
+          .form-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
+      {/* Section 1 -- Personal */}
+      <div className="form-section">
+        <div className="form-section-title">Personal Information</div>
+        <div className="form-grid">
           <div>
-            <label style={labelStyle}>Name *</label>
-            <input style={inputStyle} value={form.name} onChange={e => set("name", e.target.value)} placeholder="Full Name" />
+            <label className="input-label">Name *</label>
+            <input className="input" value={form.name} onChange={e => set("name", e.target.value)} placeholder="Full Name" />
           </div>
           <div>
-            <label style={labelStyle}>Email</label>
-            <input style={inputStyle} value={form.email} onChange={e => set("email", e.target.value)} placeholder="email@elan-expo.com" />
+            <label className="input-label">Email</label>
+            <input className="input" value={form.email} onChange={e => set("email", e.target.value)} placeholder="email@elan-expo.com" />
           </div>
           <div>
-            <label style={labelStyle}>WhatsApp</label>
-            <input style={inputStyle} value={form.whatsapp_phone} onChange={e => set("whatsapp_phone", e.target.value)} placeholder="+90..." />
+            <label className="input-label">WhatsApp</label>
+            <input className="input" value={form.whatsapp_phone} onChange={e => set("whatsapp_phone", e.target.value)} placeholder="+90..." />
           </div>
           <div>
-            <label style={labelStyle}>Language</label>
-            <select style={inputStyle} value={form.language} onChange={e => set("language", e.target.value)}>
+            <label className="input-label">Language</label>
+            <select className="input" value={form.language} onChange={e => set("language", e.target.value)}>
               {config.languages.map(l => <option key={l} value={l}>{LANG_LABELS[l] || l}</option>)}
             </select>
           </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Nicknames</label>
-            <input style={inputStyle} value={form.nicknames} onChange={e => set("nicknames", e.target.value)} placeholder="baba,babacım,patron" />
-            <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>Comma-separated. Used for personalized greetings.</div>
+          <div className="form-full">
+            <label className="input-label">Nicknames</label>
+            <input className="input" value={form.nicknames} onChange={e => set("nicknames", e.target.value)} placeholder="baba,babacim,patron" />
+            <div className="form-hint">Comma-separated. Used for personalized greetings.</div>
           </div>
         </div>
       </div>
 
-      {/* Section 2 — Company */}
-      <div style={sectionStyle}>
-        <div style={sectionTitle}>Company Information</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      {/* Section 2 -- Company */}
+      <div className="form-section">
+        <div className="form-section-title">Company Information</div>
+        <div className="form-grid">
           <div>
-            <label style={labelStyle}>Role *</label>
-            <select style={inputStyle} value={form.role} onChange={e => set("role", e.target.value)}>
+            <label className="input-label">Role *</label>
+            <select className="input" value={form.role} onChange={e => set("role", e.target.value)}>
               {config.roles.map(r => <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>)}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Office</label>
-            <select style={inputStyle} value={form.office} onChange={e => set("office", e.target.value)}>
+            <label className="input-label">Office</label>
+            <select className="input" value={form.office} onChange={e => set("office", e.target.value)}>
               <option value="">Select...</option>
               {config.offices.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Sales Group</label>
-            <select style={inputStyle} value={form.sales_group} onChange={e => set("sales_group", e.target.value)}>
+            <label className="input-label">Sales Group</label>
+            <select className="input" value={form.sales_group} onChange={e => set("sales_group", e.target.value)}>
               <option value="">Select...</option>
               {config.sales_groups.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Zoho Agent Name</label>
-            <input style={inputStyle} value={form.sales_agent_name} onChange={e => set("sales_agent_name", e.target.value)} placeholder="e.g. Elif AY" />
+            <label className="input-label">Zoho Agent Name</label>
+            <input className="input" value={form.sales_agent_name} onChange={e => set("sales_agent_name", e.target.value)} placeholder="e.g. Elif AY" />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 20 }}>
-            <label style={{ ...labelStyle, marginBottom: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} className="input-label">
               <input type="checkbox" checked={form.is_manager} onChange={e => set("is_manager", e.target.checked)}
                 style={{ accentColor: "var(--accent)" }} />
               Is Manager?
@@ -214,11 +204,11 @@ export function UserForm({ form, set, toggleYear, config }) {
         </div>
       </div>
 
-      {/* Section 3 — Data Access */}
-      <div style={sectionStyle}>
-        <div style={sectionTitle}>Data Access</div>
+      {/* Section 3 -- Data Access */}
+      <div className="form-section">
+        <div className="form-section-title">Data Access</div>
         <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>Data Scope</label>
+          <label className="input-label">Data Scope</label>
           <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
             {[
               { value: "own", label: "Own data only" },
@@ -247,13 +237,10 @@ export function UserForm({ form, set, toggleYear, config }) {
           )}
         </div>
         <div>
-          <label style={labelStyle}>Visible Years</label>
+          <label className="input-label">Visible Years</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
             {config.years.map(y => (
-              <label key={y} style={{
-                display: "flex", alignItems: "center", gap: 4, fontSize: 12,
-                fontFamily: '"DM Mono", monospace', color: "var(--text-primary)", cursor: "pointer",
-                padding: "4px 10px", borderRadius: 3,
+              <label key={y} className="year-chip" style={{
                 background: form.visible_years.includes(y) ? "rgba(200,169,122,0.1)" : "transparent",
                 border: `1px solid ${form.visible_years.includes(y) ? "rgba(200,169,122,0.3)" : "var(--border)"}`,
               }}>
@@ -267,10 +254,10 @@ export function UserForm({ form, set, toggleYear, config }) {
         </div>
       </div>
 
-      {/* Section 4 — Permissions */}
-      <div style={sectionStyle}>
-        <div style={sectionTitle}>Permissions</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      {/* Section 4 -- Permissions */}
+      <div className="form-section">
+        <div className="form-section-title">Permissions</div>
+        <div className="form-grid">
           {[
             { key: "can_see_expenses", label: "Can view expenses" },
             { key: "can_take_notes", label: "Can take notes (.note/.today)" },
