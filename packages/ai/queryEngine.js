@@ -1353,7 +1353,7 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
            WHERE e.start_date IS NOT NULL
            GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
            ORDER BY sd DESC
-           LIMIT 15`
+           LIMIT 30`
         );
       } else {
         upcomingExpos = await query(
@@ -1363,7 +1363,7 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
              AND e.start_date IS NOT NULL
            GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
            ORDER BY sd ASC
-           LIMIT 15`,
+           LIMIT 30`,
           [filterYear]
         );
       }

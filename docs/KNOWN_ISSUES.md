@@ -240,3 +240,26 @@ Rules:
 - Expo query changed from `start_date >= CURRENT_DATE` to `EXTRACT(YEAR FROM e.start_date) = $1`, LIMIT increased to 15
 - Context clarification query also changed to year-based filter
 **Files:** packages/ai/queryEngine.js, apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-024] Clarification bugs + PDF export CDN failure
+**Status:** FIXED (2026-03-16)
+**First seen:** 2026-03-16
+**Description:** 5 production bugs:
+1. Second "en çok kim satmış?" (independent question) gets year/expo injected from conversation memory by rewriteQuestion
+2. "cancel"/"iptal" during pending clarification goes to message draft handler instead of clearing clarification
+3. Follow-up "bu sözleşmeler hangi firmalar?" returns English + wrong year from rewrite context injection
+4. SIEMA 2026 not appearing in clarification expo list (LIMIT 15 too low)
+5. PDF/Excel export fails on all dashboard pages (CDN scripts blocked/unreachable)
+**Root cause:**
+- (1,3) REWRITE_PROMPT lacked explicit rule for general/ranking business questions; Haiku injected previous expo/year context into independent questions
+- (2) handler.js CEO message approval check (lines 167-177) ran BEFORE clarification pending check (lines 199+), so "iptal" matched handleApproval(false) first
+- (4) LIMIT 15 in queryEngine.js expo clarification SQL and handler.js context ambiguity query excluded expos beyond position 15
+- (5) CDN loadScript for jsPDF/SheetJS blocked by CSP, network issues, or CORS on production
+**Fix:**
+- (1,3) Strengthened REWRITE_PROMPT: added explicit rule that general/ranking questions are ALWAYS independent; added 3 new examples showing ranking questions returning unchanged
+- (2) Moved clarification pending cancel check BEFORE CEO message approval check in handler.js
+- (4) Increased LIMIT from 15 to 30 in queryEngine.js (both all-years and year-filtered queries) and handler.js context ambiguity query
+- (5) Replaced CDN loadScript with npm packages (jspdf, jspdf-autotable, xlsx) using dynamic imports across all 3 dashboard pages (sales.js, expos.js, detail.js); removed loadScript functions
+**Files:** packages/ai/conversationMemory.js, apps/whatsapp-bot/src/handler.js, packages/ai/queryEngine.js, apps/dashboard/pages/sales.js, apps/dashboard/pages/expos.js, apps/dashboard/pages/expos/detail.js, apps/dashboard/package.json

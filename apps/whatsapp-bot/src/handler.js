@@ -163,6 +163,21 @@ async function handleMessage(text, user) {
   const isCeo = user && user.role === 'ceo';
   const lang = detectLang(trimmed);
 
+  // Check pending clarification cancel FIRST (before message approval)
+  // Otherwise "iptal"/"cancel" during clarification goes to message draft handler
+  if (user && user.pending_clarification) {
+    const pending = user.pending_clarification;
+    const createdAt = new Date(pending.created_at);
+    if (Date.now() - createdAt.getTime() <= 10 * 60 * 1000) {
+      const cancelWords = ['iptal', 'cancel', 'annuler', 'vazgeç', 'vazgec'];
+      if (cancelWords.includes(trimmed.toLowerCase())) {
+        await dbQuery('UPDATE users SET pending_clarification = NULL WHERE id = $1', [user.id]);
+        const cancelMsg = { tr: 'Tamam, iptal edildi.', en: 'OK, cancelled.', fr: 'OK, annulé.' };
+        return cancelMsg[lang] || cancelMsg.tr;
+      }
+    }
+  }
+
   // Check for message approval/cancel keywords (CEO only)
   if (isCeo) {
     const lower = trimmed.toLowerCase();
@@ -508,7 +523,7 @@ async function handleMessage(text, user) {
                  AND e.start_date IS NOT NULL
                GROUP BY e.name, EXTRACT(YEAR FROM e.start_date)
                ORDER BY sd ASC
-               LIMIT 15`,
+               LIMIT 30`,
               [currentYear]
             );
 

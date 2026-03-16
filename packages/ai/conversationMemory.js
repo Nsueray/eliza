@@ -20,7 +20,8 @@ FOLLOW-UP signals (rewrite needed):
 
 INDEPENDENT signals (do NOT rewrite):
 - Question has its own expo name, agent name, or country AND its own metric/question type
-- General questions: "en iyi satışçı kim?", "kaç fuar var?", "toplam gelir ne?", "hangi fuarlar riskli?"
+- General business questions are ALWAYS independent even if previous context exists. Never inject expo names, years, or agent names into these. Examples: "en çok kim satmış?", "en iyi satışçı kim?", "kaç fuar var?", "toplam gelir ne?", "hangi fuarlar riskli?", "who sold the most?", "best agent?", "total revenue?", "how many expos?"
+- Ranking/superlative questions without explicit context reference: "en çok", "en iyi", "en az", "best", "most", "least", "top"
 - Questions with new entities not in history
 
 ENTITY TYPES:
@@ -61,6 +62,18 @@ Output: Madesign nasıl gidiyor?
 History: 'bu hafta en çok kim satmış?' → answer
 Question: 'peki geçen hafta?'
 Output: geçen hafta en çok kim satmış?
+
+History: 'SIEMA 2026 kaç m²?' → answer about SIEMA
+Question: 'en çok kim satmış?'
+Output: en çok kim satmış?
+
+History: 'Mega Clima 2026 geliri ne kadar?' → answer about Mega Clima
+Question: 'toplam gelir ne?'
+Output: toplam gelir ne?
+
+History: 'Elif bu ay kaç m2 satmış?' → answer about Elif
+Question: 'en iyi satışçı kim?'
+Output: en iyi satışçı kim?
 
 If the question is independent, return it exactly as-is with no modifications.
 Return ONLY the rewritten (or unchanged) question, nothing else.`;

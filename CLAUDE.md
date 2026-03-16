@@ -488,6 +488,7 @@ Export:
 - Per-table: Each table has own Copy/CSV/Excel buttons (export-btn-sm)
 - Page-level: Copy All / CSV All / Excel All (multi-sheet) / PDF (multi-table)
 - PDF only at page level (all tables in one document)
+- Libraries: npm packages (jspdf, jspdf-autotable, xlsx) with dynamic import() — NO CDN loadScript
 
 Sorting:
 - Each table has independent sort state (agentSort, expoSort, countrySort)
@@ -907,6 +908,7 @@ ISSUE-019: Hybrid SQL CEO-only kısıtlaması
 ISSUE-020: Year filter eksik — expo/agent sorguları tüm yılların verisini döndürüyordu → run() seviyesinde year=currentYear default
 ISSUE-021: Dashboard linkler hardcoded 2026, sadece 5 expo intent → getDashboardLink(intent, entities) dinamik year + 18 intent mapped
 ISSUE-022: "entities is not defined" crash — handler.js'te entities destructure edilmemişti → düzeltildi
+ISSUE-024: Clarification bugs (cancel→message draft, rewrite injecting context, SIEMA missing, LIMIT 15) + PDF export CDN failure → npm packages
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js
@@ -930,6 +932,7 @@ Location: packages/ai/conversationMemory.js
   - Bağımsız ipuçları (rewrite YAPMA): kendi öznesi var ("Elif kaç satmış?"), genel soru ("en iyi satışçı kim?"), farklı entity
   - Örnek: History=SIEMA → "en iyi satışçı kim?" → DEĞİŞMEZ (bağımsız)
   - Örnek: History=SIEMA → "peki geliri?" → "SIEMA 2026 geliri ne kadar?" (follow-up)
+  - Ranking/general questions ALWAYS independent: "en çok kim satmış?", "en iyi satışçı?", "toplam gelir?" → UNCHANGED even with history context
 
 Handler integration (handler.js):
 - Komutlar (.brief, .help vb.) rewrite'dan geçmez
@@ -1003,8 +1006,8 @@ Year resolve:
 
 Expo resolve: expo seçimi → resolvedSlots.expo_name, "Genel" → resolvedSlots.expo_general = true
 Metric resolve: "1"→gelir, "2"→m2, "3"→kontrat
-Active expo query: EXTRACT(YEAR FROM e.start_date) = resolved_year, GROUP BY name+year, LIMIT 15
-Context expo query: EXTRACT(YEAR FROM e.start_date) = currentYear, GROUP BY name+year, LIMIT 15
+Active expo query: EXTRACT(YEAR FROM e.start_date) = resolved_year, GROUP BY name+year, LIMIT 30
+Context expo query: EXTRACT(YEAR FROM e.start_date) = currentYear, GROUP BY name+year, LIMIT 30
 
 Pending state:
 - Stored in: users.pending_clarification JSONB
@@ -1013,7 +1016,7 @@ Pending state:
 - Expire: 10 minutes
 - Clear on: successful resolution, expiry, unmatched reply (new question), or "iptal"/"cancel"
 - Multi-turn: unlimited turns until all slots resolved, each turn resolves one slot
-- Cancel: "iptal"/"cancel"/"annuler"/"vazgeç" clears pending → "Tamam, iptal edildi."
+- Cancel: "iptal"/"cancel"/"annuler"/"vazgeç" clears pending → "Tamam, iptal edildi." (checked BEFORE CEO message approval)
 - "Genel" selection: resolvedSlots.expo_general = true, appends "genel" keyword
 
 YEAR_CLARIFICATION_INTENTS: expo_progress, expo_agent_breakdown, expo_company_list, country_count, price_per_m2, payment_status

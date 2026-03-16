@@ -240,10 +240,7 @@ export default function ExpoDetailPage() {
 
   async function handleExcel() {
     try {
-      if (!window.XLSX) {
-        await loadScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
-      }
-      const XLSX = window.XLSX;
+      const XLSX = (await import("xlsx")).default || await import("xlsx");
       const wb = XLSX.utils.book_new();
       const wsAgents = XLSX.utils.json_to_sheet(buildAgentRows());
       wsAgents["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 }];
@@ -263,11 +260,9 @@ export default function ExpoDetailPage() {
 
   async function handlePDF() {
     try {
-      if (!window.jspdf) {
-        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js");
-        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js");
-      }
-      const doc = new window.jspdf.jsPDF({ orientation: "landscape" });
+      const { jsPDF } = await import("jspdf");
+      await import("jspdf-autotable");
+      const doc = new jsPDF({ orientation: "landscape" });
       const expoName = summary?.name || "Expo";
       doc.setFontSize(16);
       doc.text(`ELIZA \u2014 ${expoName} Detail Report`, 14, 15);
@@ -307,16 +302,6 @@ export default function ExpoDetailPage() {
     }
   }
 
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) return resolve();
-      const s = document.createElement("script");
-      s.src = src;
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-  }
 
   function downloadFile(filename, content, type) {
     const blob = new Blob([content], { type });
@@ -356,10 +341,7 @@ export default function ExpoDetailPage() {
   async function exportTableExcel(rows, sheetName) {
     if (!rows.length) return;
     try {
-      if (!window.XLSX) {
-        await loadScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
-      }
-      const XLSX = window.XLSX;
+      const XLSX = (await import("xlsx")).default || await import("xlsx");
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(rows);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
