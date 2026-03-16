@@ -77,8 +77,9 @@ export default function ExposPage() {
     if (va == null && vb == null) return 0;
     if (va == null) return 1;
     if (vb == null) return -1;
-    if (typeof va === "string") return va.localeCompare(vb) * dir;
-    return (Number(va) - Number(vb)) * dir;
+    const na = Number(va), nb = Number(vb);
+    if (!isNaN(na) && !isNaN(nb)) return (na - nb) * dir;
+    return String(va).localeCompare(String(vb)) * dir;
   });
 
   const totals = {

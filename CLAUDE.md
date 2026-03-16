@@ -483,6 +483,16 @@ Design:
 - Fonts: DM Mono (numbers/headers), DM Sans (labels)
 - Animated KPI counters on load
 - Risk Radar panel with hover tooltips
+
+Export:
+- Per-table: Each table has own Copy/CSV/Excel buttons (export-btn-sm)
+- Page-level: Copy All / CSV All / Excel All (multi-sheet) / PDF (multi-table)
+- PDF only at page level (all tables in one document)
+
+Sorting:
+- Each table has independent sort state (agentSort, expoSort, countrySort)
+- Numeric-safe sort: Number() coercion for PostgreSQL string-typed numbers
+- Default: revenue_eur DESC (highest on top)
 ---
 # 16. Reporting Logic
 

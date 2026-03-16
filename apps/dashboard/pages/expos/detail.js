@@ -96,8 +96,9 @@ export default function ExpoDetailPage() {
       if (va == null && vb == null) return 0;
       if (va == null) return 1;
       if (vb == null) return -1;
-      if (typeof va === "string") return va.localeCompare(vb) * dir;
-      return (Number(va) - Number(vb)) * dir;
+      const na = Number(va), nb = Number(vb);
+      if (!isNaN(na) && !isNaN(nb)) return (na - nb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
     });
   }
 
@@ -327,6 +328,48 @@ export default function ExpoDetailPage() {
     URL.revokeObjectURL(url);
   }
 
+  // --- Per-table export helpers ---
+  function copyTable(rows, label) {
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.join("\t")];
+    for (const r of rows) lines.push(headers.map(h => r[h]).join("\t"));
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopyFeedback(label ? `${label} copied!` : "Copied!");
+      setTimeout(() => setCopyFeedback(""), 2000);
+    });
+  }
+
+  function exportTableCSV(rows, sheetName) {
+    if (!rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.join(",")];
+    for (const r of rows) {
+      lines.push(headers.map(h => {
+        const v = r[h];
+        return typeof v === "string" && v.includes(",") ? `"${v}"` : v;
+      }).join(","));
+    }
+    downloadFile(`ELIZA_${sheetName.replace(/\s+/g, "_")}.csv`, lines.join("\n"), "text/csv");
+  }
+
+  async function exportTableExcel(rows, sheetName) {
+    if (!rows.length) return;
+    try {
+      if (!window.XLSX) {
+        await loadScript("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
+      }
+      const XLSX = window.XLSX;
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.writeFile(wb, `ELIZA_${sheetName.replace(/\s+/g, "_")}.xlsx`);
+    } catch (err) {
+      console.error("Excel export failed:", err);
+      exportTableCSV(rows, sheetName);
+    }
+  }
+
   const expoTitle = summary?.name || name || "Loading...";
   const pct = summary?.progress_percent ? Number(summary.progress_percent) : null;
   const riskLevel = summary?.risk_level || null;
@@ -540,6 +583,20 @@ export default function ExpoDetailPage() {
           white-space: nowrap;
         }
         .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .export-btn-sm {
+          font-family: "DM Mono", monospace;
+          font-size: 9px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          border-radius: 2px;
+          transition: all 0.2s;
+        }
+        .export-btn-sm:hover { border-color: var(--accent); color: var(--accent); }
         .export-feedback {
           font-family: "DM Mono", monospace;
           font-size: 10px;
@@ -714,19 +771,24 @@ export default function ExpoDetailPage() {
               <span>Velocity: {summary?.velocity_m2_per_month ? `${fmt(Math.round(Number(summary.velocity_m2_per_month)))} m\u00B2/month` : "\u2014"}</span>
             </div>
 
-            {/* EXPORT BAR */}
+            {/* EXPORT BAR — ALL DATA */}
             <div className="export-bar">
               {copyFeedback && <span className="export-feedback">{copyFeedback}</span>}
-              <button className="export-btn" onClick={handleCopy}>Copy</button>
-              <button className="export-btn" onClick={handleCSV}>CSV</button>
-              <button className="export-btn" onClick={handleExcel}>Excel</button>
+              <button className="export-btn" onClick={handleCopy}>Copy All</button>
+              <button className="export-btn" onClick={handleCSV}>CSV All</button>
+              <button className="export-btn" onClick={handleExcel}>Excel All</button>
               <button className="export-btn" onClick={handlePDF}>PDF</button>
             </div>
 
             {/* AGENTS TABLE */}
             <div className="section-hdr">
               <div className="section-title">Sales Agents</div>
-              <div className="section-count">{agents.length} agents</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span className="section-count">{agents.length} agents</span>
+                <button className="export-btn-sm" onClick={() => copyTable(buildAgentRows(), "Agents")}>Copy</button>
+                <button className="export-btn-sm" onClick={() => exportTableCSV(buildAgentRows(), "Agents")}>CSV</button>
+                <button className="export-btn-sm" onClick={() => exportTableExcel(buildAgentRows(), "Agents")}>Excel</button>
+              </div>
             </div>
             {agents.length === 0 ? (
               <div className="no-data">No agent data.</div>
@@ -764,7 +826,7 @@ export default function ExpoDetailPage() {
             {/* COMPANIES TABLE */}
             <div className="section-hdr">
               <div className="section-title">Exhibitors</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span className="section-count">{filteredCompanies.length} companies</span>
                 <input
                   className="search-input"
@@ -773,6 +835,9 @@ export default function ExpoDetailPage() {
                   onChange={e => setCompanyFilter(e.target.value)}
                   style={{ width: 240 }}
                 />
+                <button className="export-btn-sm" onClick={() => copyTable(buildCompanyRows(), "Exhibitors")}>Copy</button>
+                <button className="export-btn-sm" onClick={() => exportTableCSV(buildCompanyRows(), "Exhibitors")}>CSV</button>
+                <button className="export-btn-sm" onClick={() => exportTableExcel(buildCompanyRows(), "Exhibitors")}>Excel</button>
               </div>
             </div>
             {sortedCompanies.length === 0 ? (
@@ -807,7 +872,12 @@ export default function ExpoDetailPage() {
             {/* COUNTRIES TABLE */}
             <div className="section-hdr">
               <div className="section-title">Country Distribution</div>
-              <div className="section-count">{countries.length} countries</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span className="section-count">{countries.length} countries</span>
+                <button className="export-btn-sm" onClick={() => copyTable(buildCountryRows(), "Countries")}>Copy</button>
+                <button className="export-btn-sm" onClick={() => exportTableCSV(buildCountryRows(), "Countries")}>CSV</button>
+                <button className="export-btn-sm" onClick={() => exportTableExcel(buildCountryRows(), "Countries")}>Excel</button>
+              </div>
             </div>
             {countries.length === 0 ? (
               <div className="no-data">No country data.</div>
