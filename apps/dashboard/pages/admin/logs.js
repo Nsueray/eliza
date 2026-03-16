@@ -342,93 +342,83 @@ function RoleBadge({ role }) {
 function MessageCard({ log }) {
   const hasError = !!log.error;
   const isClarification = log.intent === "clarification";
+  const isUnavailable = log.intent === "unavailable";
   const hasRewrite = log.rewritten_question && log.rewritten_question !== log.message_text;
 
-  let borderLeft = "none";
-  if (hasError) borderLeft = "3px solid var(--danger)";
-  else if (isClarification) borderLeft = "3px solid var(--accent-2)";
+  const accentClass = hasError ? "msg-accent-error"
+    : isClarification ? "msg-accent-warning"
+    : isUnavailable ? "msg-accent-muted"
+    : "msg-accent-default";
 
   return (
-    <div className="msg-card" style={{ borderLeft }}>
+    <div className={`msg-card ${accentClass}`}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="msg-header">
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--text-secondary)" }}>
-            {fmtTime(log.created_at)}
-          </span>
+          <span className="msg-date">{fmtDate(log.created_at)}</span>
+          <span className="msg-time">{fmtTime(log.created_at)}</span>
           <span style={{ color: "var(--text-secondary)", fontSize: 10 }}>|</span>
-          <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
             {log.user_name || log.user_phone || "\u2014"}
           </span>
           <RoleBadge role={log.user_role} />
         </div>
-        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--accent)" }}>
-          {fmtNum(log.total_tokens)} tk
-        </span>
+        <CopyButton log={log} />
       </div>
 
-      {/* Separator */}
-      <div className="msg-sep" />
-
       {/* Message */}
-      <div style={{ marginBottom: 8 }}>
-        <div className="msg-field-label">Message</div>
+      <div className="msg-section">
+        <div className="msg-section-label">Message</div>
         <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text-primary)" }}>
           {log.message_text || "\u2014"}
         </div>
       </div>
 
-      {/* Rewrite */}
-      <div style={{ marginBottom: 8 }}>
-        <div className="msg-field-label">Rewrite</div>
-        <div style={{ fontSize: 13, lineHeight: 1.6, color: hasRewrite ? "var(--accent-2)" : "var(--text-secondary)" }}>
-          {hasRewrite ? log.rewritten_question : "\u2014"}
+      {/* Rewrite (only show if different) */}
+      {hasRewrite && (
+        <div className="msg-section">
+          <div className="msg-section-label">Rewrite</div>
+          <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--accent-2)" }}>
+            {log.rewritten_question}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Intent + Model row */}
-      <div style={{ display: "flex", gap: 24, alignItems: "center", marginBottom: 4 }}>
+      <div className="msg-meta-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="msg-field-label" style={{ marginBottom: 0 }}>Intent</span>
+          <span className="msg-section-label" style={{ marginBottom: 0 }}>Intent</span>
           <IntentBadge intent={log.intent} isCommand={log.is_command} />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="msg-field-label" style={{ marginBottom: 0 }}>Model</span>
+          <span className="msg-section-label" style={{ marginBottom: 0 }}>Model</span>
           <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color: "var(--text-primary)" }}>
             {log.model_intent || "\u2014"}
           </span>
         </div>
       </div>
 
-      {/* Separator */}
-      <div className="msg-sep" />
-
       {/* Response */}
-      <div style={{ marginBottom: 4 }}>
-        <div className="msg-field-label">Response</div>
-        <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap", color: "var(--text-primary)" }}>
+      <div className="msg-section">
+        <div className="msg-section-label">Response</div>
+        <div className="msg-response-box">
           {log.response_text || "\u2014"}
         </div>
       </div>
 
-      {/* Separator */}
-      <div className="msg-sep" />
-
-      {/* Footer */}
-      <div className="msg-footer">
-        <div style={{ display: "flex", gap: 16, alignItems: "center", fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--text-secondary)" }}>
-          <span>Duration: {log.duration_ms ? `${fmtNum(log.duration_ms)}ms` : "\u2014"}</span>
-          <span>Tokens: {fmtNum(log.total_tokens)}</span>
-          <span>Model: {log.model_intent || "\u2014"} &rarr; {log.model_answer || "\u2014"}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {hasError && (
-            <span style={{ fontSize: 11, fontFamily: '"DM Mono", monospace', color: "var(--danger)" }}>
-              Error: {log.error}
-            </span>
-          )}
-          <CopyButton log={log} />
-        </div>
+      {/* Footer meta */}
+      <div className="msg-footer-meta">
+        <span>{log.duration_ms ? `${fmtNum(log.duration_ms)}ms` : "\u2014"}</span>
+        <span className="msg-footer-dot" />
+        <span>{fmtNum(log.total_tokens)} tokens</span>
+        <span className="msg-footer-dot" />
+        <span>{log.model_intent || "\u2014"} &rarr; {log.model_answer || "\u2014"}</span>
+        {hasError && (
+          <>
+            <span className="msg-footer-dot" />
+            <span style={{ color: "var(--danger)" }}>Error: {log.error}</span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -588,28 +578,86 @@ export default function LogsPage() {
         .msg-card {
           background: var(--surface);
           border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 20px;
-          margin-bottom: 16px;
+          border-radius: 6px;
+          padding: 20px 20px 16px 20px;
+          margin-bottom: 20px;
           position: relative;
-          box-shadow: var(--card-shadow);
+          border-left: 4px solid var(--accent);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
-        .msg-sep {
-          border-top: 1px solid var(--border);
-          margin: 12px 0;
-        }
-        .msg-field-label {
-          font-family: "DM Mono", monospace;
-          font-size: 10px;
-          color: var(--text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-bottom: 4px;
-        }
-        .msg-footer {
+        .msg-accent-error { border-left-color: var(--danger); }
+        .msg-accent-warning { border-left-color: var(--warning); }
+        .msg-accent-muted { border-left-color: var(--text-secondary); }
+        .msg-accent-default { border-left-color: var(--accent); }
+
+        .msg-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          padding-bottom: 12px;
+          margin-bottom: 12px;
+          border-bottom: 1px solid var(--border);
+        }
+        .msg-date {
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+          color: var(--text-secondary);
+        }
+        .msg-time {
+          font-family: "DM Mono", monospace;
+          font-size: 11px;
+          color: var(--text-secondary);
+          opacity: 0.7;
+        }
+        .msg-section {
+          margin-bottom: 12px;
+        }
+        .msg-section-label {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 1.5px;
+          margin-bottom: 6px;
+        }
+        .msg-meta-row {
+          display: flex;
+          gap: 24px;
+          align-items: center;
+          margin-bottom: 12px;
+          padding: 8px 0;
+        }
+        .msg-response-box {
+          font-size: 13px;
+          line-height: 1.7;
+          white-space: pre-wrap;
+          color: var(--text-primary);
+          background: var(--surface-2);
+          padding: 12px 14px;
+          border-radius: 4px;
+          border: 1px solid var(--border);
+        }
+        .msg-footer-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding-top: 10px;
+          margin-top: 4px;
+          border-top: 1px solid var(--border);
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          color: var(--text-secondary);
+          opacity: 0.7;
+          flex-wrap: wrap;
+        }
+        .msg-footer-dot {
+          width: 3px;
+          height: 3px;
+          border-radius: 50%;
+          background: var(--text-secondary);
+          opacity: 0.5;
+          flex-shrink: 0;
         }
 
         /* Filter dropdown */
@@ -711,7 +759,13 @@ export default function LogsPage() {
             min-width: unset;
             width: 100%;
           }
-          .msg-footer {
+          .msg-footer-meta {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+          }
+          .msg-footer-dot { display: none; }
+          .msg-header {
             flex-direction: column;
             align-items: flex-start;
             gap: 8px;
