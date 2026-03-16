@@ -356,7 +356,50 @@ select.input {
   border: 1px solid rgba(74,158,191,0.3);
 }
 
-/* ── 12. Utility ── */
+/* ── 12. Panels ── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+}
+.empty-panel {
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* ── 13. Status Indicators ── */
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.status-dot-sm { width: 8px; height: 8px; }
+.status-dot-success { background: var(--success); }
+.status-dot-danger { background: var(--danger); }
+.status-dot-warning { background: var(--warning); }
+.status-dot-muted { background: var(--text-secondary); }
+
+/* ── 14. Summary Card Variants ── */
+.summary-card-success { border-left-color: var(--success); }
+.summary-card-danger { border-left-color: var(--danger); }
+.summary-val-sm { font-size: 20px; }
+.summary-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+/* ── 15. Utility ── */
 .loading {
   text-align: center;
   padding: 48px;
@@ -369,18 +412,29 @@ select.input {
 .text-mono { font-family: var(--font-mono); }
 .text-muted { color: var(--text-secondary); }
 .text-accent { color: var(--accent); }
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
 .text-sm { font-size: 12px; }
 .text-xs { font-size: 10px; }
+.text-upper {
+  text-transform: uppercase;
+}
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-center { display: flex; align-items: center; }
+.flex-col { display: flex; flex-direction: column; }
 .gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
 .gap-16 { gap: 16px; }
+.mb-8 { margin-bottom: 8px; }
+.mt-8 { margin-top: 8px; }
 .mt-16 { margin-top: 16px; }
 .mt-32 { margin-top: 32px; }
 .mb-16 { margin-bottom: 16px; }
+.mb-20 { margin-bottom: 20px; }
 .mb-24 { margin-bottom: 24px; }
 .mb-32 { margin-bottom: 32px; }
 
-/* ── 13. Export Bar ── */
+/* ── 16. Export Bar ── */
 .export-bar {
   display: flex;
   gap: 8px;
@@ -396,7 +450,7 @@ select.input {
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* ── 14. Table Density: Compact ── */
+/* ── 17. Table Density: Compact ── */
 [data-density="compact"] .tbl th,
 [data-density="compact"] .tbl td {
   padding: 6px 10px;
@@ -412,7 +466,7 @@ select.input {
   padding: 14px 18px;
 }
 
-/* ── 15. Responsive ── */
+/* ── 18. Responsive ── */
 @media (max-width: 768px) {
   .page { padding: var(--page-padding-mobile); }
   .page-hdr { flex-direction: column; align-items: flex-start; gap: 12px; }

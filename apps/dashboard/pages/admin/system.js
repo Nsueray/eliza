@@ -23,14 +23,12 @@ function fmtNum(n) {
 
 function fmtDate(d) {
   if (!d) return "\u2014";
-  const dt = new Date(d);
-  return dt.toLocaleString("en-US", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(d).toLocaleString("en-US", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function fmtShortDate(d) {
   if (!d) return "\u2014";
-  const dt = new Date(d);
-  return dt.toLocaleString("en-US", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  return new Date(d).toLocaleString("en-US", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 function fmtDuration(started, completed) {
@@ -47,8 +45,7 @@ function truncate(str, max = 50) {
 
 function timeAgo(d) {
   if (!d) return "never";
-  const ms = Date.now() - new Date(d).getTime();
-  const s = Math.floor(ms / 1000);
+  const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
   if (s < 5) return "just now";
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
@@ -62,14 +59,9 @@ function timeAgo(d) {
 function syncToTSV(syncs) {
   const headers = ["Time", "Type", "Module", "Records", "Updated", "Duration", "Status", "Error"];
   const rows = syncs.map(s => [
-    fmtShortDate(s.started_at),
-    s.sync_type || "",
-    s.module || "",
-    s.records_synced ?? 0,
-    s.records_updated ?? 0,
-    fmtDuration(s.started_at, s.completed_at),
-    s.status || "",
-    s.error_message || "",
+    fmtShortDate(s.started_at), s.sync_type || "", s.module || "",
+    s.records_synced ?? 0, s.records_updated ?? 0,
+    fmtDuration(s.started_at, s.completed_at), s.status || "", s.error_message || "",
   ]);
   return [headers.join("\t"), ...rows.map(r => r.join("\t"))].join("\n");
 }
@@ -91,7 +83,7 @@ export default function SystemPage() {
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [syncBtnState, setSyncBtnState] = useState("idle"); // idle | syncing | success
+  const [syncBtnState, setSyncBtnState] = useState("idle");
   const [expandedRow, setExpandedRow] = useState(null);
   const [exportFeedback, setExportFeedback] = useState(null);
   const intervalRef = useRef(null);
@@ -99,14 +91,10 @@ export default function SystemPage() {
   const fetchSyncStatus = useCallback(() => {
     fetch(`${API}/system/sync-status`)
       .then(r => r.json())
-      .then(data => {
-        setSyncData(data);
-        setLastUpdated(new Date());
-      })
+      .then(data => { setSyncData(data); setLastUpdated(new Date()); })
       .catch(() => {});
   }, []);
 
-  // Initial load
   useEffect(() => {
     Promise.all([
       fetch(`${API}/system/status`).then(r => r.json()),
@@ -119,7 +107,6 @@ export default function SystemPage() {
     }).catch(() => setLoading(false));
   }, []);
 
-  // Service health checks
   useEffect(() => {
     SERVICES.forEach(svc => {
       const controller = new AbortController();
@@ -131,7 +118,6 @@ export default function SystemPage() {
     });
   }, []);
 
-  // Auto-refresh every 30s
   useEffect(() => {
     if (autoRefresh) {
       intervalRef.current = setInterval(fetchSyncStatus, 30000);
@@ -143,7 +129,6 @@ export default function SystemPage() {
     setSyncBtnState("syncing");
     try {
       await fetch(`${API}/system/sync-now?type=${type}`, { method: "POST" });
-      // Wait 5s then refresh
       setTimeout(() => {
         fetchSyncStatus();
         setSyncBtnState("success");
@@ -193,13 +178,12 @@ export default function SystemPage() {
       setExportFeedback("Excel saved");
       setTimeout(() => setExportFeedback(null), 2000);
     } catch {
-      handleCSV(); // fallback
+      handleCSV();
     }
   }
 
   const summary = syncData?.summary || {};
   const syncs = syncData?.syncs || [];
-
   const sortedTables = systemData?.tables
     ? [...systemData.tables].sort((a, b) => (parseInt(b.n_live_tup) || 0) - (parseInt(a.n_live_tup) || 0))
     : [];
@@ -208,242 +192,35 @@ export default function SystemPage() {
     <>
       <Head><title>ELIZA | System</title></Head>
       <style jsx global>{`
-        .svc-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 16px;
-        }
-        .svc-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-lg);
-          padding: 16px;
-          box-shadow: var(--card-shadow);
-        }
-        .svc-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
-        }
-        .svc-name {
-          font-family: var(--font-mono);
-          font-size: 13px;
-          font-weight: 500;
-        }
-        .svc-status {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .svc-dot {
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-        }
-        .svc-dot.reachable { background: var(--success); }
-        .svc-dot.unknown { background: var(--warning); }
-        .svc-dot.checking { background: var(--text-secondary); }
-        .svc-label {
-          font-family: var(--font-mono);
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-        }
-        .svc-label.reachable { color: var(--success); }
-        .svc-label.unknown { color: var(--warning); }
-        .svc-label.checking { color: var(--text-secondary); }
-        .svc-url {
-          font-size: 11px;
-          color: var(--text-secondary);
-          font-family: var(--font-mono);
-          word-break: break-all;
-        }
-        .role-badge {
-          font-family: var(--font-mono);
-          font-size: 10px;
-          font-weight: 500;
-          letter-spacing: 1px;
-          padding: 3px 8px;
-          border-radius: 3px;
-          text-transform: uppercase;
-          display: inline-block;
-        }
-        .error-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-left: 3px solid var(--danger);
-          border-radius: var(--radius);
-          padding: 12px 16px;
-          box-shadow: var(--card-shadow);
-        }
-        .error-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 6px;
-        }
-        .error-user { font-size: 12px; font-weight: 500; }
-        .error-date {
-          font-size: 11px;
-          color: var(--text-secondary);
-          font-family: var(--font-mono);
-        }
-        .error-msg {
-          font-size: 12px;
-          color: var(--text-secondary);
-          margin-bottom: 4px;
-        }
-        .error-detail {
-          font-size: 12px;
-          color: var(--danger);
-          font-family: var(--font-mono);
-        }
-        .no-errors {
-          padding: 32px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          color: var(--success);
-          text-align: center;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-        .no-errors-dot {
-          display: inline-block;
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background: var(--success);
-        }
-        .no-errors-text {
-          font-family: var(--font-mono);
-          font-size: 12px;
-          letter-spacing: 1px;
-        }
-        .panel {
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-lg);
-          padding: 20px;
-          box-shadow: var(--card-shadow);
-        }
-        .empty-panel {
-          padding: 32px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          color: var(--text-secondary);
-          text-align: center;
-        }
+        /* ── Service cards (system page only) ── */
+        .svc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+        .svc-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--card-shadow); }
+        .svc-url { font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); word-break: break-all; }
 
-        /* Sync Dashboard */
-        .sync-header-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-        }
-        .sync-controls {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-        .auto-refresh-toggle {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-family: var(--font-mono);
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          color: var(--text-secondary);
-          cursor: pointer;
-          user-select: none;
-        }
-        .auto-refresh-toggle input {
-          accent-color: var(--accent);
-        }
-        .last-updated {
-          font-family: var(--font-mono);
-          font-size: 10px;
-          color: var(--text-secondary);
-          letter-spacing: 0.5px;
-        }
-        .sync-btn {
-          font-family: var(--font-mono);
-          font-size: 11px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          padding: 10px 24px;
-          border: 1px solid var(--accent);
-          background: var(--accent);
-          color: var(--bg);
-          cursor: pointer;
-          border-radius: var(--radius);
-          transition: all 0.2s;
-          font-weight: 500;
-          min-width: 140px;
-          text-align: center;
-        }
-        .sync-btn:hover { opacity: 0.85; }
-        .sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .sync-btn.syncing {
-          background: var(--surface);
-          color: var(--accent);
-          border-color: var(--accent);
-        }
-        .sync-btn.success {
-          background: var(--success);
-          border-color: var(--success);
-          color: #fff;
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        .spinner {
-          display: inline-block;
-          width: 12px;
-          height: 12px;
-          border: 2px solid var(--accent);
-          border-top-color: transparent;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-          margin-right: 6px;
-          vertical-align: middle;
-        }
-        .sync-type-select {
-          font-family: var(--font-mono);
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          padding: 4px 8px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          color: var(--text-primary);
-          cursor: pointer;
-        }
-        .sync-error-expand {
-          margin-top: 8px;
-          padding: 10px 14px;
-          background: var(--surface-2);
-          border: 1px solid rgba(192,57,43,0.2);
-          border-radius: var(--radius);
-          font-family: var(--font-mono);
-          font-size: 11px;
-          color: var(--danger);
-          word-break: break-all;
-        }
-        .sync-row-clickable {
-          cursor: pointer;
-        }
-        .sync-row-clickable:hover td {
-          background: var(--row-hover);
-        }
+        /* ── Sync button states ── */
+        .sync-btn { min-width: 140px; text-align: center; }
+        .sync-btn.syncing { background: var(--surface); color: var(--accent); border-color: var(--accent); }
+        .sync-btn.success { background: var(--success); border-color: var(--success); color: #fff; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 6px; vertical-align: middle; }
+
+        /* ── Auto-refresh toggle ── */
+        .auto-refresh-toggle { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary); cursor: pointer; user-select: none; }
+        .auto-refresh-toggle input { accent-color: var(--accent); }
+
+        /* ── Sync type select ── */
+        .sync-type-select { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 4px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); cursor: pointer; }
+
+        /* ── Expandable error row ── */
+        .sync-error-expand { margin-top: 8px; padding: 10px 14px; background: var(--surface-2); border: 1px solid rgba(192,57,43,0.2); border-radius: var(--radius); font-family: var(--font-mono); font-size: 11px; color: var(--danger); word-break: break-all; }
+        .sync-row-clickable { cursor: pointer; }
+
+        /* ── Error cards ── */
+        .error-card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--danger); border-radius: var(--radius); padding: 12px 16px; box-shadow: var(--card-shadow); }
+
+        /* ── No-errors panel ── */
+        .no-errors { padding: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--success); text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .no-errors-text { font-family: var(--font-mono); font-size: 12px; letter-spacing: 1px; }
       `}</style>
 
       <div className="page">
@@ -454,11 +231,11 @@ export default function SystemPage() {
         ) : (
           <>
             {/* ═══ A) SYNC DASHBOARD ═══ */}
-            <div className="mb-32" style={{ marginTop: 8 }}>
-              <div className="sync-header-row">
+            <div className="mb-32 mt-8">
+              <div className="flex-between mb-16">
                 <div className="section-title">Sync Dashboard</div>
-                <div className="sync-controls">
-                  <span className="last-updated">
+                <div className="flex-center gap-16">
+                  <span className="text-mono text-xs text-muted">
                     Updated: {lastUpdated ? timeAgo(lastUpdated) : "\u2014"}
                   </span>
                   <label className="auto-refresh-toggle">
@@ -473,37 +250,28 @@ export default function SystemPage() {
               </div>
 
               {/* Summary cards */}
-              <div className="summary-row cols-3" style={{ marginBottom: 20 }}>
+              <div className="summary-row cols-3 mb-20">
                 <div className="summary-card">
                   <div className="summary-label">Last Sync</div>
-                  <div className="summary-val" style={{ fontSize: 20 }}>
+                  <div className="summary-val summary-val-sm">
                     {summary.last_sync_ago || "Never"}
                   </div>
                 </div>
                 <div className="summary-card">
                   <div className="summary-label">Records Today</div>
-                  <div className="summary-val" style={{ fontSize: 20 }}>
+                  <div className="summary-val summary-val-sm">
                     {fmtNum(summary.records_today || 0)}
-                    <span style={{ fontSize: 11, color: "var(--text-secondary)", marginLeft: 8, fontWeight: 400 }}>
+                    <span className="summary-sub">
                       ({summary.total_syncs_today || 0} syncs)
                     </span>
                   </div>
                 </div>
-                <div className="summary-card" style={{
-                  borderLeftColor: summary.is_active ? "var(--success)" : "var(--danger)",
-                }}>
+                <div className={`summary-card ${summary.is_active ? "summary-card-success" : "summary-card-danger"}`}>
                   <div className="summary-label">Scheduler</div>
-                  <div className="summary-val" style={{ fontSize: 20 }}>
-                    <span style={{
-                      display: "inline-block",
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      background: summary.is_active ? "var(--success)" : "var(--danger)",
-                      marginRight: 8,
-                      verticalAlign: "middle",
-                    }} />
-                    <span style={{ color: summary.is_active ? "var(--success)" : "var(--danger)" }}>
+                  <div className="summary-val summary-val-sm">
+                    <span className={`status-dot ${summary.is_active ? "status-dot-success" : "status-dot-danger"}`} />
+                    {" "}
+                    <span className={summary.is_active ? "text-success" : "text-danger"}>
                       {summary.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
@@ -511,9 +279,9 @@ export default function SystemPage() {
               </div>
 
               {/* Sync Now button row */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div className="flex-center gap-12 mb-20">
                 <button
-                  className={`sync-btn ${syncBtnState}`}
+                  className={`btn-primary sync-btn ${syncBtnState}`}
                   disabled={syncBtnState === "syncing"}
                   onClick={() => triggerSync(document.getElementById("syncTypeSelect")?.value || "incremental")}
                 >
@@ -530,7 +298,7 @@ export default function SystemPage() {
 
               {/* Sync log table */}
               <div className="flex-between mb-16">
-                <div className="section-title" style={{ fontSize: 11, letterSpacing: 2 }}>
+                <div className="section-title text-xs">
                   Sync Log ({syncs.length} entries)
                 </div>
                 <div className="export-bar">
@@ -560,31 +328,25 @@ export default function SystemPage() {
                           className={hasError ? "sync-row-clickable" : ""}
                           onClick={() => hasError && setExpandedRow(isExpanded ? null : s.id)}
                         >
-                          <td className="mono" style={{ fontSize: 12 }}>{fmtShortDate(s.started_at)}</td>
+                          <td className="mono text-sm">{fmtShortDate(s.started_at)}</td>
                           <td>
                             <span className={`badge ${s.sync_type === "full" ? "badge-accent" : "badge-blue"}`}>
                               {s.sync_type || "\u2014"}
                             </span>
                           </td>
                           <td>
-                            <span className="badge" style={{
-                              color: "var(--text-secondary)",
-                              background: "var(--surface-2)",
-                              border: "1px solid var(--border)",
-                            }}>
-                              {s.module || "\u2014"}
-                            </span>
+                            <span className="badge">{s.module || "\u2014"}</span>
                           </td>
                           <td className="mono r text-accent">{fmtNum(s.records_synced)}</td>
                           <td className="mono r text-accent">{fmtNum(s.records_updated)}</td>
-                          <td className="mono r text-muted" style={{ fontSize: 12 }}>{fmtDuration(s.started_at, s.completed_at)}</td>
+                          <td className="mono r text-muted text-sm">{fmtDuration(s.started_at, s.completed_at)}</td>
                           <td>
-                            <span className={`badge ${s.status === "success" ? "badge-success" : s.status === "running" ? "badge-warning" : "badge-danger"}`} style={{ textTransform: "uppercase" }}>
+                            <span className={`badge text-upper ${s.status === "success" ? "badge-success" : s.status === "running" ? "badge-warning" : "badge-danger"}`}>
                               {s.status}
                             </span>
                             {hasError && (
-                              <span style={{ marginLeft: 6, fontSize: 10, color: "var(--text-secondary)" }}>
-                                {isExpanded ? "\u25B2" : "\u25BC"}
+                              <span className="text-xs text-muted">
+                                {" "}{isExpanded ? "\u25B2" : "\u25BC"}
                               </span>
                             )}
                           </td>
@@ -593,7 +355,7 @@ export default function SystemPage() {
                       if (isExpanded) {
                         rows.push(
                           <tr key={`${s.id}-err`}>
-                            <td colSpan={7} style={{ padding: "0 16px 12px 16px" }}>
+                            <td colSpan={7}>
                               <div className="sync-error-expand">{s.error_message}</div>
                             </td>
                           </tr>
@@ -614,15 +376,16 @@ export default function SystemPage() {
               <div className="svc-grid">
                 {SERVICES.map(svc => {
                   const status = serviceStatus[svc.name];
-                  const statusClass = status === "reachable" ? "reachable" : status === "unknown" ? "unknown" : "checking";
-                  const statusLabel = status === "reachable" ? "Reachable" : status === "unknown" ? "Unknown" : "Checking...";
+                  const dotClass = status === "reachable" ? "status-dot-success" : status === "unknown" ? "status-dot-warning" : "status-dot-muted";
+                  const label = status === "reachable" ? "Reachable" : status === "unknown" ? "Unknown" : "Checking...";
+                  const labelClass = status === "reachable" ? "text-success" : status === "unknown" ? "text-danger" : "text-muted";
                   return (
                     <div key={svc.name} className="svc-card">
-                      <div className="svc-header">
-                        <span className="svc-name">{svc.name}</span>
-                        <div className="svc-status">
-                          <span className={`svc-dot ${statusClass}`} />
-                          <span className={`svc-label ${statusClass}`}>{statusLabel}</span>
+                      <div className="flex-between mb-8">
+                        <span className="text-mono text-sm">{svc.name}</span>
+                        <div className="flex-center gap-8">
+                          <span className={`status-dot status-dot-sm ${dotClass}`} />
+                          <span className={`text-mono text-xs text-upper ${labelClass}`}>{label}</span>
                         </div>
                       </div>
                       <div className="svc-url">{svc.url}</div>
@@ -675,19 +438,12 @@ export default function SystemPage() {
                   </thead>
                   <tbody>
                     {systemData.users.map((u, i) => {
-                      const roleColor = ROLE_COLORS[u.role] || "var(--text-secondary)";
+                      const c = ROLE_COLORS[u.role] || "var(--text-secondary)";
                       return (
                         <tr key={i}>
                           <td>{u.name}</td>
                           <td>
-                            <span
-                              className="role-badge"
-                              style={{
-                                color: roleColor,
-                                background: `${roleColor}15`,
-                                border: `1px solid ${roleColor}40`,
-                              }}
-                            >
+                            <span className="badge" style={{ color: c, background: `${c}15`, border: `1px solid ${c}40` }}>
                               {u.role}
                             </span>
                           </td>
@@ -708,21 +464,21 @@ export default function SystemPage() {
             <div className="mb-32">
               <div className="section-title mb-16">Recent Errors</div>
               {systemData?.recent_errors?.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div className="flex-col gap-8">
                   {systemData.recent_errors.map((err, i) => (
                     <div key={i} className="error-card">
-                      <div className="error-header">
-                        <span className="error-user">{err.user_name || "Unknown"}</span>
-                        <span className="error-date">{fmtDate(err.created_at)}</span>
+                      <div className="flex-between mb-8">
+                        <span className="text-sm">{err.user_name || "Unknown"}</span>
+                        <span className="text-mono text-xs text-muted">{fmtDate(err.created_at)}</span>
                       </div>
-                      <div className="error-msg">{truncate(err.message_text, 50)}</div>
-                      <div className="error-detail">{err.error}</div>
+                      <div className="text-sm text-muted mb-8">{truncate(err.message_text, 50)}</div>
+                      <div className="text-sm text-mono text-danger">{err.error}</div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="no-errors">
-                  <span className="no-errors-dot" />
+                  <span className="status-dot status-dot-success" />
                   <span className="no-errors-text">No recent errors</span>
                 </div>
               )}
