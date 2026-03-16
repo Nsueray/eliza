@@ -325,3 +325,13 @@ Rules:
 - Router: added multi-metric patterns to expo_progress (e.g., ['kac sozlesme', 'm2'], ['kac kontrat', 'gelir'])
 - Safety net: compound handling now inherits parent entities (expo_name, year, agent_name, country) into sub-queries
 **Files:** packages/ai/queryEngine.js, packages/ai/router.js
+
+---
+
+## [ISSUE-028] Edition vs Fiscal inconsistency — expo-specific revenue uses fiscal view
+**Status:** FIXED (2026-03-16)
+**First seen:** 2026-03-16
+**Description:** "SIEMA 2026 toplam gelir ve kontrat sayisi?" returns fiscal data (149 contracts) instead of edition data (51 contracts). The query matches revenue_summary intent which uses fiscal_contracts view, but expo-specific questions should use edition_contracts view (expo_progress intent).
+**Root cause:** revenue_summary intent always queries fiscal_contracts. When an expo_name entity is present, the user is asking about expo performance (edition view), not company sales performance (fiscal view). No intent redirection logic existed.
+**Fix:** Added intent redirection in queryEngine.js run(): `if (intent === 'revenue_summary' && entities.expo_name) intent = 'expo_progress';`
+**Files:** packages/ai/queryEngine.js

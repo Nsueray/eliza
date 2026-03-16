@@ -1276,7 +1276,13 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
 
   const frameResult = await extractSemanticFrame(question);
   const intentUsage = frameResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
-  const { intent, entities } = frameResult;
+  let { intent, entities } = frameResult;
+
+  // Edition vs Fiscal fix: revenue_summary + expo_name → expo_progress
+  // "SIEMA 2026 toplam gelir?" should query edition_contracts (expo view), not fiscal_contracts
+  if (intent === 'revenue_summary' && entities && entities.expo_name) {
+    intent = 'expo_progress';
+  }
 
   // Ambiguity Gate — check answerability from semantic frame
   if (frameResult.answerability === 'unavailable' && frameResult.unavailable_reason) {

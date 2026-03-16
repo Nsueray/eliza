@@ -86,7 +86,9 @@ export default function SystemPage() {
   const [syncBtnState, setSyncBtnState] = useState("idle");
   const [expandedRow, setExpandedRow] = useState(null);
   const [exportFeedback, setExportFeedback] = useState(null);
+  const [, setTick] = useState(0);
   const intervalRef = useRef(null);
+  const tickRef = useRef(null);
 
   const fetchSyncStatus = useCallback(() => {
     fetch(`${API}/system/sync-status`)
@@ -124,6 +126,12 @@ export default function SystemPage() {
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [autoRefresh, fetchSyncStatus]);
+
+  // Tick every 5s to keep "Updated: X ago" display fresh between fetches
+  useEffect(() => {
+    tickRef.current = setInterval(() => setTick(t => t + 1), 5000);
+    return () => { if (tickRef.current) clearInterval(tickRef.current); };
+  }, []);
 
   async function triggerSync(type = "incremental") {
     setSyncBtnState("syncing");

@@ -1,53 +1,73 @@
 # ELIZA — Roadmap
 
 ## Completed
-- Phase 1: Data Infrastructure (PostgreSQL, Zoho Sync)
-- Phase 2: War Room Dashboard
-- Phase 3: AI Query Engine (19 intents, %98 benchmark)
-- Phase 3b: Risk Engine (velocity model)
-- Phase 4: Attention Engine
-- Phase 5: Alert Generator + Morning Brief
-- Phase 6: Message Generator (4 templates, 3 languages, .msg command)
-- Phase 8a: WhatsApp Bot (Twilio, auth, personality)
-- Phase 11: Deploy (Render — 3 services + PostgreSQL)
-- Multi-user system (roles: ceo/manager/agent, data scope enforcement)
-- Admin Panel (/admin — user CRUD, permissions)
-- Message Logging (/admin/logs — tokens, duration, intent tracking)
-- Personality Engine (nicknames, time-aware greetings)
-- Data Scope Enforcement (user-level access control in queryEngine)
-- Language Detection fix (accent-insensitive)
-- Phase 12a+12b: Conversation Memory + Question Rewrite (Haiku)
-- Phase 14: Hybrid Text-to-SQL (Sonnet SQL fallback for unknown intents)
-- Intelligence Roadmap v4 — Immediate Execution Plan
-  - Hybrid SQL scope fix (CEO-only restriction) — ISSUE-019
-  - 3 new router rules (expo_progress, agent_performance, expo_agent_breakdown) — router now 15 rules
-  - Unavailability response ("Bilmiyorum" — payment_balance, currency, salary, general_knowledge)
-  - Sonnet assumption transparency (rules 13-14 in prompt)
-  - Log enrichment (rewritten_question column, migration 008)
-  - Year filter default (ISSUE-020 — expo/agent queries default to current year)
-  - Benchmark: 96% PASS (48/50)
-- Mini Clarification System
-  - Ambiguity detection in router + Haiku (missing_year, missing_metric, missing_expo)
-  - Year clarification: DB edition lookup → ask user when multiple editions exist
-  - Expo clarification: upcoming expo list when expo not specified
-  - Pending state: users.pending_clarification JSONB, 10min expire, max 1 turn
-  - Handler: resolve numbered/text replies, rebuild question, clear pending
-  - Migration: 009_pending_clarification.sql
-- Admin Dashboard Upgrade
-  - /admin/logs: message cards, Copy button (with "Copied!" feedback), filters (user/intent/status/date), Doughnut + Bar charts
-  - /admin/intelligence: router rules, intent stats, benchmark viewer, clarification stats
-  - /admin/system: service health, DB tables, sync status, active users, recent errors
-  - Shared navigation: Logs | Intelligence | System | Users | War Room (all pages)
-  - War Room + Expo Directory pages: full admin nav links added
-  - API: /api/intelligence/* (4 endpoints), /api/system/status, enhanced /api/logs
-  - Emoji unicode escapes replaced with plain text labels throughout
-  - Health endpoint path fix (/api/health → /health)
+
+### Infrastructure & Core
+- Phase 1: Data Infrastructure (PostgreSQL schema, Zoho Sync Engine, Base API)
+- Phase 11: Deploy (Render — 3 services + PostgreSQL cloud, custom domain eliza.elanfairs.com)
+- Multi-user system (users + user_permissions, roles: ceo/manager/agent, data scope enforcement)
+- Data Scope Enforcement (user-level access control: all/team/own + visible_years)
+
+### Dashboard
+- Phase 2: War Room Dashboard (Expo Radar, Sales Leaderboard, Financial KPIs, mode toggles)
+- Expo Directory (/expos — sortable, filterable, export: Copy/CSV/Excel/PDF, query param deep linking)
+- Expo Detail (/expos/detail — individual expo view)
+- Fiscal Sales (/sales — agent leaderboard, fiscal KPIs)
+- Admin Panel (/admin — user CRUD, permissions, dashboard permissions)
+- Admin Logs (/admin/logs — message cards, filters, Doughnut + Bar charts, Copy button)
+- Admin Intelligence (/admin/intelligence — router rules, intent stats, benchmark, clarification stats)
+- Admin System (/admin/system — service health, DB tables, sync dashboard, active users, recent errors)
+- Admin Users (/admin/users — new/edit user forms, password set, WhatsApp + dashboard permissions)
+- Design System (dark theme, DM Mono/DM Sans, gold accent #C8A97A, shared Nav component)
+- Login/Auth (JWT + bcrypt, dashboard access control, password set endpoint)
+- Navigation (shared header: War Room | Expo Directory | Sales | Logs | Intelligence | System | Users)
+
+### AI Engine
+- Phase 3: AI Query Engine (19 intents, POST /api/ai/query, natural language to SQL)
+- Phase 3b: Risk Engine (velocity model, risk scoring, expo_metrics table)
+- Phase 14: Hybrid Text-to-SQL (Sonnet SQL fallback, CEO-only, validateSQL safety)
+- Semantic Frame Extraction (extractSemanticFrame — router fast path + Haiku structured JSON fallback)
+- Ambiguity Gate (unanswerable refuse, critical clarification, warning defaults)
+- Router: 18+ keyword rules, accent normalization, priority-ordered, 30+ country aliases, demonym suffix stripping
+- Fuzzy expo name matching (fuzzyExpoPattern — space-insensitive ILIKE)
+- Edition vs Fiscal intent redirection (revenue_summary + expo_name → expo_progress)
+- Unavailability registry (payment_balance, currency, salary, general_knowledge → honest refusal)
+- Sonnet answer prompt (15 rules, terminology per language, assumption transparency)
+
+### Clarification System
+- Mini Clarification System (year → expo → metric priority, multi-turn, 10min expire)
+- Year clarification (DB edition lookup, "Tum yillar" option)
+- Expo clarification (active expos from DB, "Genel" option, year-filtered)
+- Metric clarification (expo_agent_breakdown: gelir/m2/sozlesme)
+- Context ambiguity (independent question + history expo → ask)
+- Pending state (users.pending_clarification JSONB, unlimited turns)
+- Cancel support (iptal/cancel/annuler/vazgec)
+
+### WhatsApp Bot
+- Phase 8a: WhatsApp Bot (Twilio webhook, auth, AI query, TwiML response)
+- Phase 12a+12b: Conversation Memory + Question Rewrite (Haiku conservative rewrite)
+- Personality Engine (nicknames, time-aware greetings, per-user)
+- Language Detection (TR/EN/FR, accent-insensitive, word-boundary match)
+- Commands: .brief, .risk, .attention, .help
+- Self-reference resolution (ben/benim/my → sales_agent_name)
+- Dashboard deep links (18 intents mapped, dynamic year, expo/country params)
+
+### Message Generator
+- Phase 6: Message Generator (4 templates, 3 languages, .msg command, human-in-the-loop)
+- Phase 4: Attention Engine (CEO attention tracking)
+- Phase 5: Alert Generator + Morning Brief (payment watch, dedup, scheduler, Twilio)
+
+### Quality & Monitoring
+- Message Logging (message_logs table, token tracking, duration, intent/model split)
+- Log enrichment (rewritten_question column, migration 008)
+- Benchmark: 92% PASS (46/50, 0 FAIL, 4 WARN)
+- 28 known issues tracked and fixed (docs/KNOWN_ISSUES.md)
 
 ## Production URLs
 - Dashboard: https://eliza.elanfairs.com
 - API: https://eliza-api-8tkr.onrender.com
 - Bot: https://eliza-bot-r1vx.onrender.com
-- WhatsApp: +1 810-255-5377
+- WhatsApp: Twilio sandbox
 
 ## In Progress
 
@@ -55,14 +75,14 @@
 
 ## Next Phases
 
-### Phase 12c: CEO Notes with semantic recall
+### Phase 12c: CEO Notes with Semantic Recall
 - .note command + entity matching
 - Semantic recall from stored notes
 
 ### Phase 13: Answer Quality
-- Enhanced Sonnet system prompt (key insight first, max 400 chars, action suggestions)
-- Language validation
 - Explainability for risk answers (velocity comparison)
+- Language validation (response language matches question language)
+- Enhanced Sonnet prompt for action suggestions
 
 ### Phase 15: Learning & Feedback
 - CEO corrections via WhatsApp (.correct command)
@@ -83,7 +103,7 @@
 - Full relationship tracking
 
 ## Benchmark
-→ node packages/ai/benchmark.js (target: >= 90% PASS)
+> node packages/ai/benchmark.js (target: >= 90% PASS)
 
 ## Known Issues
-→ docs/KNOWN_ISSUES.md
+> docs/KNOWN_ISSUES.md

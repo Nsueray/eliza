@@ -202,6 +202,28 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Set password
+router.post('/:id/set-password', async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    const bcrypt = require('bcrypt');
+    const hash = await bcrypt.hash(password, 10);
+    const result = await query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id, name',
+      [hash, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ message: `Password set for ${result.rows[0].name}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Soft delete (deactivate)
 router.delete('/:id', async (req, res) => {
   try {

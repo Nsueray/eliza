@@ -213,6 +213,13 @@ Completed (cont. 4):
   - FRAME_PROMPT + INTENT_PROMPT: explicit rule — same entity + multiple metrics = single intent
   - Router: added multi-metric patterns ['kac sozlesme', 'm2'], ['kac kontrat', 'gelir'] to expo_progress
   - Compound safety net: parent entities (expo_name, year) inherited by sub-queries
+- Edition vs Fiscal Fix (ISSUE-028)
+  - revenue_summary + expo_name → expo_progress redirect (edition view for expo-specific revenue queries)
+- Admin Password Set
+  - POST /api/users/:id/set-password endpoint (bcrypt hash, min 6 chars)
+  - /admin/users/[id].js: SET PASSWORD section (input + button + feedback)
+- Sync Auto-refresh Fix
+  - /admin/system: ticker interval (5s) updates "Updated: X ago" display between fetches
 
 In Progress:
 
@@ -985,7 +992,7 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..022
+Fixed: ISSUE-001..028
 ISSUE-016: applyScope team subquery sales_agents tablosunu kullanıyordu (sales_group yok) → users tablosuna düzeltildi
 ISSUE-017: Dashboard link localhost:3000 → production URL (eliza.elanfairs.com)
 ISSUE-018: Elif expo bazlı sorguları göremiyordu → NO_AGENT_FILTER intent listesi genişletildi
@@ -1002,6 +1009,7 @@ ISSUE-024: Clarification bugs (cancel→message draft, rewrite injecting context
 ISSUE-025: Answer quality batch — fuzzy expo matching, country aliases (30+ countries + demonym stripping), skip expo clarification with time filters, Turkish detectLang words, rewrite bypass for general questions
 ISSUE-026: Tüm yıllar loop (yearAlreadyResolved guard), bugün clarification (hasTimeScope in context ambiguity), iptal no pending (check draft first)
 ISSUE-027: Compound expo queries — multi-metric questions ("kaç sözleşme, m2, geliri?") mapped to expo_progress not compound; parent entities inherited in sub-queries
+ISSUE-028: Edition vs Fiscal inconsistency — revenue_summary + expo_name → expo_progress redirect (edition view for expo-specific queries)
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

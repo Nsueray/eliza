@@ -22,9 +22,10 @@ Example: "SIEMA'ya en çok kim satmış?" → check 2025 AND 2026 → if Elif to
 
 ---
 
-# PHASE 0: EVAL + SECURITY (Day 0 — before any feature)
+# PHASE 0: EVAL + SECURITY (Day 0 — before any feature) — ✅ COMPLETED
 
-## 0a. Hybrid SQL Scope Fix (IMMEDIATE — 30 minutes)
+## ✅ 0a. Hybrid SQL Scope Fix — COMPLETED (2026-03-12, ISSUE-019)
+**Implementation:** Hybrid SQL restricted to CEO-only (data_scope=all). Non-CEO users fall back to normal template path.
 
 ### Problem
 `generateSQL()` output is NOT passed through `applyScope()`.
@@ -73,7 +74,8 @@ Add 'hybrid_sql' to the appropriate scope category. In `applyScope`:
 
 ---
 
-## 0b. Add 7 Missing Router Rules (2 hours)
+## ✅ 0b. Add Missing Router Rules — COMPLETED (2026-03-12 through 2026-03-16)
+**Implementation:** Router expanded from 12 to 18+ rules. Added: expo_progress (with multi-metric patterns), agent_performance, expo_agent_breakdown. Remaining 4 (expo_company_list, cluster_performance, company_search, compound) still Haiku-only. 30+ country aliases with demonym suffix stripping. Fuzzy expo name matching.
 
 ### Problem
 The most common CEO questions always require Haiku API call because router doesn't have rules for them.
@@ -711,7 +713,8 @@ This migration must be run on Render PostgreSQL.
 
 ---
 
-# PHASE B: CLARIFICATION STATE MACHINE
+# PHASE B: CLARIFICATION STATE MACHINE — ✅ COMPLETED (2026-03-15)
+**Implementation:** Mini Clarification System using users.pending_clarification JSONB (not separate table). Multi-turn with 3 slots (year > expo > metric). Year/expo clarification from DB lookup. "Tum yillar" and "Genel" options. Cancel support. Context ambiguity for independent questions with history. 10min expire. Unlimited turns.
 
 ## B1. State Table
 

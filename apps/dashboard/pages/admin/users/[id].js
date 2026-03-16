@@ -13,6 +13,9 @@ export default function EditUser() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [password, setPassword] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState(null);
 
   const [form, setForm] = useState({
     name: "", email: "", whatsapp_phone: "", language: "tr", nicknames: "",
@@ -106,6 +109,29 @@ export default function EditUser() {
     }
   }
 
+  async function setPasswordFn() {
+    if (!password || password.length < 6) { setPwMsg({ type: "error", text: "Minimum 6 characters" }); return; }
+    setPwSaving(true);
+    setPwMsg(null);
+    try {
+      const res = await fetch(`${API}/users/${id}/set-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed");
+      }
+      setPassword("");
+      setPwMsg({ type: "success", text: "Password updated" });
+      setTimeout(() => setPwMsg(null), 3000);
+    } catch (err) {
+      setPwMsg({ type: "error", text: err.message });
+    }
+    setPwSaving(false);
+  }
+
   async function deactivate() {
     if (!confirm("Are you sure you want to deactivate this user?")) return;
     const res = await fetch(`${API}/users/${id}`, { method: "DELETE" });
@@ -134,6 +160,30 @@ export default function EditUser() {
         )}
 
         <UserForm form={form} set={set} toggleYear={toggleYear} config={config} setPermission={setPermission} />
+
+        {/* Set Password */}
+        <div className="form-section" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 24, marginBottom: 24, boxShadow: "var(--card-shadow)" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--accent)", letterSpacing: 3, textTransform: "uppercase", marginBottom: 20 }}>Set Password</div>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <div style={{ flex: 1 }}>
+              <input
+                className="input"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="New password (min 6 chars)"
+              />
+            </div>
+            <button onClick={setPasswordFn} disabled={pwSaving} className="btn-primary" style={{ whiteSpace: "nowrap" }}>
+              {pwSaving ? "Saving..." : "Set Password"}
+            </button>
+          </div>
+          {pwMsg && (
+            <div style={{ marginTop: 8, fontSize: 12, color: pwMsg.type === "success" ? "var(--success)" : "var(--danger)" }}>
+              {pwMsg.text}
+            </div>
+          )}
+        </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 32 }}>
           <div style={{ display: "flex", gap: 12 }}>
