@@ -440,16 +440,21 @@ Pages:
 - / → War Room main dashboard
 - /expos?year=2026&expo=SIEMA&country=Morocco → Expo Directory (sortable, filterable, export: Copy/CSV/Excel/PDF)
 - /expos/detail?name=SIEMA&year=2026 → Expo Detail (agents, companies, countries, monthly trend, export)
+- /sales → Fiscal Sales (period filters, KPIs with change%, agent/expo/country tables, trend chart, export)
 
 Navigation (all pages):
-- War Room header: Expo Directory | Logs | Intelligence | System | Users
-- Expo Directory header: War Room | Logs | Intelligence | System | Users
-- Expo Detail header: War Room | Expo Directory | Logs | Intelligence | System | Users
-- Admin pages: Logs | Intelligence | System | Users | War Room
+- War Room header: Expo Directory | Sales | Logs | Intelligence | System | Users
+- Expo Directory header: War Room | Sales | Logs | Intelligence | System | Users
+- Expo Detail header: War Room | Expo Directory | Sales | Logs | Intelligence | System | Users
+- Sales header: War Room | Expo Directory | Logs | Intelligence | System | Users
+- Admin pages: Logs | Intelligence | System | Users | War Room | Sales
 
 Expo Directory → Detail:
 - Table rows clickable → navigates to /expos/detail?name=X&year=Y
 - WhatsApp links can point to /expos/detail?name=X&year=Y
+
+Sales → Expo Detail:
+- Expo table rows clickable → navigates to /expos/detail?name=X&year=Y
 
 API endpoints used:
 - GET /api/revenue/summary → fiscal KPIs
@@ -461,10 +466,16 @@ API endpoints used:
 - GET /api/expos/detail/companies?name=X&year=Y → company list
 - GET /api/expos/detail/countries?name=X&year=Y → country distribution
 - GET /api/expos/detail/monthly?name=X&year=Y → monthly sales trend
+- GET /api/fiscal/summary?period=year → fiscal KPIs with change% (supports period=today/week/month/year or from+to)
+- GET /api/fiscal/by-agent?period=year → agent performance for fiscal period
+- GET /api/fiscal/by-expo?period=year → expo breakdown for fiscal period
+- GET /api/fiscal/by-country?period=year → country breakdown for fiscal period
+- GET /api/fiscal/trend?period=year&granularity=monthly → sales trend (daily/monthly)
 
 Charts:
 - Sales Leaderboard: horizontal bar chart (top 10) — always visible
 - Expo Detail Monthly Sales: vertical bar chart (revenue/contracts toggle)
+- Fiscal Sales Trend: vertical bar chart (revenue/contracts toggle, daily/monthly auto-select)
 
 Design:
 - Dark theme: #080B10 background, #0E1318 surface
@@ -662,7 +673,7 @@ Veri Formatlama:
 - data > 5 satır → "... ve X sonuç daha.\nTüm liste: URL"
 - data <= 5 satır veya boş → cevabın sonuna "\n\n📊 URL" eklenir
 - getDashboardLink null dönerse veya intent=clarification ise → link eklenmez
-- getDashboardLink(intent, entities): expo intent'leri → /expos?year=YYYY, sales intent'leri → / (War Room)
+- getDashboardLink(intent, entities): expo intent'leri → /expos?year=YYYY, sales intent'leri → /sales
 - Year dinamik: entities.year || currentYear (hardcoded 2026 kaldırıldı)
 - Deep linking: expo_name → &expo=X, country → &country=X query params
 - Expo intents (11): expo_progress, expo_list, expo_agent_breakdown, expo_company_list, cluster_performance, country_count, exhibitors_by_country, days_to_event, rebooking_rate, price_per_m2, payment_status

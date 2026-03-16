@@ -501,6 +501,7 @@ export default function ExposPage() {
           </div>
           <div className="page-nav" style={{ display: 'flex', gap: 16 }}>
             <a href="/" className="nav-link">War Room</a>
+            <a href="/sales" className="nav-link">Sales</a>
             <a href="/admin/logs" className="nav-link">Logs</a>
             <a href="/admin/intelligence" className="nav-link">Intelligence</a>
             <a href="/admin/system" className="nav-link">System</a>

@@ -131,6 +131,7 @@ export default function SystemPage() {
             <Link href="/admin/system" style={activeNavStyle}>System</Link>
             <Link href="/admin" style={navStyle}>Users</Link>
             <Link href="/" style={navStyle}>War Room &rarr;</Link>
+            <Link href="/sales" style={navStyle}>Sales</Link>
           </div>
         </div>
 

@@ -149,7 +149,7 @@ function getDashboardLink(intent, entities) {
     'general_stats',
   ];
   if (SALES_INTENTS.includes(intent)) {
-    return DASHBOARD_BASE;
+    return `${DASHBOARD_BASE}/sales`;
   }
 
   return null;

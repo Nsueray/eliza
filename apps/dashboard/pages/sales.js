@@ -24,65 +24,61 @@ function fmtEur(n) {
   return "\u20AC" + Number(n || 0).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-function formatDate(d) {
-  if (!d) return "\u2014";
-  return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-}
-
-function getProgressColor(pct) {
-  if (pct >= 70) return "var(--success)";
-  if (pct >= 40) return "var(--warning)";
-  return "var(--danger)";
-}
-
-function getRiskColor(level) {
-  if (level === "HIGH") return "var(--danger)";
-  if (level === "WATCH") return "var(--warning)";
-  if (level === "OK") return "var(--text-secondary)";
-  return "var(--success)";
-}
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export default function ExpoDetailPage() {
-  const router = useRouter();
-  const { name, year } = router.query;
+const PERIODS = [
+  { key: "today", label: "Today" },
+  { key: "week", label: "This Week" },
+  { key: "month", label: "This Month" },
+  { key: "year", label: "This Year" },
+  { key: "custom", label: "Custom" },
+];
 
+export default function SalesPage() {
+  const router = useRouter();
+  const [period, setPeriod] = useState("year");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [summary, setSummary] = useState(null);
   const [agents, setAgents] = useState([]);
-  const [companies, setCompanies] = useState([]);
+  const [expos, setExpos] = useState([]);
   const [countries, setCountries] = useState([]);
-  const [monthly, setMonthly] = useState([]);
+  const [trend, setTrend] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const [agentSort, setAgentSort] = useState({ key: "revenue_eur", dir: "desc" });
-  const [companySort, setCompanySort] = useState({ key: "revenue_eur", dir: "desc" });
-  const [countrySort, setCountrySort] = useState({ key: "companies", dir: "desc" });
-  const [companyFilter, setCompanyFilter] = useState("");
+  const [expoSort, setExpoSort] = useState({ key: "revenue_eur", dir: "desc" });
+  const [countrySort, setCountrySort] = useState({ key: "revenue_eur", dir: "desc" });
   const [chartMetric, setChartMetric] = useState("revenue_eur");
   const [copyFeedback, setCopyFeedback] = useState("");
 
+  function buildParams() {
+    if (period === "custom" && customFrom && customTo) {
+      return `from=${customFrom}&to=${customTo}`;
+    }
+    return `period=${period}`;
+  }
+
   useEffect(() => {
-    if (!router.isReady || !name || !year) return;
+    if (period === "custom" && (!customFrom || !customTo)) return;
     setLoading(true);
-    const params = `name=${encodeURIComponent(name)}&year=${encodeURIComponent(year)}`;
+    const params = buildParams();
+    const granularity = period === "today" || period === "week" ? "daily" : "monthly";
     Promise.all([
-      fetch(`${API}/expos/detail?${params}`).then(r => r.json()),
-      fetch(`${API}/expos/detail/agents?${params}`).then(r => r.json()),
-      fetch(`${API}/expos/detail/companies?${params}`).then(r => r.json()),
-      fetch(`${API}/expos/detail/countries?${params}`).then(r => r.json()),
-      fetch(`${API}/expos/detail/monthly?${params}`).then(r => r.json()),
-    ]).then(([sum, ag, co, cn, mo]) => {
-      if (sum.error) { setError(sum.error); setLoading(false); return; }
+      fetch(`${API}/fiscal/summary?${params}`).then(r => r.json()),
+      fetch(`${API}/fiscal/by-agent?${params}`).then(r => r.json()),
+      fetch(`${API}/fiscal/by-expo?${params}`).then(r => r.json()),
+      fetch(`${API}/fiscal/by-country?${params}`).then(r => r.json()),
+      fetch(`${API}/fiscal/trend?${params}&granularity=${granularity}`).then(r => r.json()),
+    ]).then(([sum, ag, ex, cn, tr]) => {
       setSummary(sum);
       setAgents(Array.isArray(ag) ? ag : []);
-      setCompanies(Array.isArray(co) ? co : []);
+      setExpos(Array.isArray(ex) ? ex : []);
       setCountries(Array.isArray(cn) ? cn : []);
-      setMonthly(Array.isArray(mo) ? mo : []);
+      setTrend(Array.isArray(tr) ? tr : []);
       setLoading(false);
-    }).catch(err => { setError(err.message); setLoading(false); });
-  }, [router.isReady, name, year]);
+    }).catch(() => setLoading(false));
+  }, [period, customFrom, customTo]);
 
   // --- Sort helpers ---
   function handleSort(setter, key) {
@@ -107,24 +103,35 @@ export default function ExpoDetailPage() {
   };
 
   const sortedAgents = sortData(agents, agentSort);
+  const sortedExpos = sortData(expos, expoSort);
+  const sortedCountries = sortData(countries, countrySort);
   const totalAgentRevenue = agents.reduce((s, a) => s + Number(a.revenue_eur || 0), 0);
 
-  const filteredCompanies = companies.filter(c => {
-    if (!companyFilter) return true;
-    const q = companyFilter.toLowerCase();
-    return (c.company_name || "").toLowerCase().includes(q)
-      || (c.country || "").toLowerCase().includes(q)
-      || (c.sales_agent || "").toLowerCase().includes(q);
-  });
-  const sortedCompanies = sortData(filteredCompanies, companySort);
-  const sortedCountries = sortData(countries, countrySort);
+  // --- KPI change indicator ---
+  function changeIndicator(pct) {
+    if (pct == null || pct === 0) return null;
+    const color = pct > 0 ? "var(--success)" : "var(--danger)";
+    const arrow = pct > 0 ? "\u2191" : "\u2193";
+    return (
+      <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 12, color, marginLeft: 8 }}>
+        {arrow}{Math.abs(pct)}%
+      </span>
+    );
+  }
 
   // --- Chart data ---
+  const granularity = period === "today" || period === "week" ? "daily" : "monthly";
   const chartData = {
-    labels: monthly.map(m => `${MONTHS[(m.month || 1) - 1]} ${m.year || ""}`),
+    labels: trend.map(t => {
+      if (!t.period) return "";
+      const d = new Date(t.period);
+      return granularity === "daily"
+        ? `${d.getDate()} ${MONTHS[d.getMonth()]}`
+        : `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    }),
     datasets: [{
       label: chartMetric === "revenue_eur" ? "Revenue (\u20AC)" : "Contracts",
-      data: monthly.map(m => Number(m[chartMetric] || 0)),
+      data: trend.map(t => Number(t[chartMetric] || 0)),
       backgroundColor: "rgba(200, 169, 122, 0.7)",
       borderColor: "rgba(200, 169, 122, 0.9)",
       borderWidth: 1,
@@ -171,18 +178,18 @@ export default function ExpoDetailPage() {
       Contracts: Number(a.contracts || 0),
       "M\u00B2": Number(a.m2 || 0),
       "Revenue (\u20AC)": Number(a.revenue_eur || 0),
+      "Avg/m\u00B2": Number(a.avg_per_m2 || 0),
       "Share %": totalAgentRevenue > 0 ? Math.round(Number(a.revenue_eur || 0) / totalAgentRevenue * 100) : 0,
     }));
   }
 
-  function buildCompanyRows() {
-    return sortedCompanies.map(c => ({
-      Company: c.company_name || "",
-      Country: c.country || "",
-      Agent: c.sales_agent || "",
-      "M\u00B2": Number(c.m2 || 0),
-      "Revenue (\u20AC)": Number(c.revenue_eur || 0),
-      Contracts: Number(c.contracts || 0),
+  function buildExpoRows() {
+    return sortedExpos.map(e => ({
+      Expo: e.expo || "",
+      Country: e.country || "",
+      Contracts: Number(e.contracts || 0),
+      "M\u00B2": Number(e.m2 || 0),
+      "Revenue (\u20AC)": Number(e.revenue_eur || 0),
     }));
   }
 
@@ -206,9 +213,9 @@ export default function ExpoDetailPage() {
 
   function handleCopy() {
     const parts = [
-      tableToText("AGENTS", buildAgentRows()),
-      tableToText("EXHIBITORS", buildCompanyRows()),
-      tableToText("COUNTRIES", buildCountryRows()),
+      tableToText("BY AGENT", buildAgentRows()),
+      tableToText("BY EXPO", buildExpoRows()),
+      tableToText("BY COUNTRY", buildCountryRows()),
     ].filter(Boolean);
     navigator.clipboard.writeText(parts.join("\n\n")).then(() => {
       setCopyFeedback("Copied!");
@@ -230,11 +237,11 @@ export default function ExpoDetailPage() {
       return lines.join("\n");
     }
     const parts = [
-      toCSV("AGENTS", buildAgentRows()),
-      toCSV("EXHIBITORS", buildCompanyRows()),
-      toCSV("COUNTRIES", buildCountryRows()),
+      toCSV("BY AGENT", buildAgentRows()),
+      toCSV("BY EXPO", buildExpoRows()),
+      toCSV("BY COUNTRY", buildCountryRows()),
     ].filter(Boolean);
-    downloadFile(`ELIZA_${(summary?.name || "Expo").replace(/\s+/g, "_")}.csv`, parts.join("\n\n"), "text/csv");
+    downloadFile("ELIZA_Fiscal_Sales.csv", parts.join("\n\n"), "text/csv");
   }
 
   async function handleExcel() {
@@ -245,15 +252,15 @@ export default function ExpoDetailPage() {
       const XLSX = window.XLSX;
       const wb = XLSX.utils.book_new();
       const wsAgents = XLSX.utils.json_to_sheet(buildAgentRows());
-      wsAgents["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 }];
-      XLSX.utils.book_append_sheet(wb, wsAgents, "Agents");
-      const wsCompanies = XLSX.utils.json_to_sheet(buildCompanyRows());
-      wsCompanies["!cols"] = [{ wch: 28 }, { wch: 14 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 10 }];
-      XLSX.utils.book_append_sheet(wb, wsCompanies, "Exhibitors");
+      wsAgents["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 10 }];
+      XLSX.utils.book_append_sheet(wb, wsAgents, "By Agent");
+      const wsExpos = XLSX.utils.json_to_sheet(buildExpoRows());
+      wsExpos["!cols"] = [{ wch: 28 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsExpos, "By Expo");
       const wsCountries = XLSX.utils.json_to_sheet(buildCountryRows());
       wsCountries["!cols"] = [{ wch: 16 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }];
-      XLSX.utils.book_append_sheet(wb, wsCountries, "Countries");
-      XLSX.writeFile(wb, `ELIZA_${(summary?.name || "Expo").replace(/\s+/g, "_")}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, wsCountries, "By Country");
+      XLSX.writeFile(wb, "ELIZA_Fiscal_Sales.xlsx");
     } catch (err) {
       console.error("Excel export failed:", err);
       handleCSV();
@@ -267,12 +274,12 @@ export default function ExpoDetailPage() {
         await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js");
       }
       const doc = new window.jspdf.jsPDF({ orientation: "landscape" });
-      const expoName = summary?.name || "Expo";
       doc.setFontSize(16);
-      doc.text(`ELIZA \u2014 ${expoName} Detail Report`, 14, 15);
+      doc.text("ELIZA \u2014 Fiscal Sales Report", 14, 15);
       doc.setFontSize(9);
       doc.setTextColor(128);
-      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}  |  ${summary?.country || ""} | ${formatDate(summary?.start_date)}`, 14, 22);
+      const periodLabel = summary?.period ? `${summary.period.from} to ${summary.period.to}` : period;
+      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}  |  Period: ${periodLabel}`, 14, 22);
 
       function addTable(title, rows, startY) {
         if (!rows.length) return startY;
@@ -293,13 +300,13 @@ export default function ExpoDetailPage() {
       }
 
       let y = 30;
-      y = addTable("Sales Agents", buildAgentRows(), y);
+      y = addTable("Sales by Agent", buildAgentRows(), y);
       if (y > 160) { doc.addPage(); y = 15; }
-      y = addTable("Exhibitors", buildCompanyRows(), y);
+      y = addTable("Sales by Expo", buildExpoRows(), y);
       if (y > 160) { doc.addPage(); y = 15; }
-      addTable("Country Distribution", buildCountryRows(), y);
+      addTable("Sales by Country", buildCountryRows(), y);
 
-      doc.save(`ELIZA_${expoName.replace(/\s+/g, "_")}.pdf`);
+      doc.save("ELIZA_Fiscal_Sales.pdf");
     } catch (err) {
       console.error("PDF export failed:", err);
       alert("PDF export failed. Check your internet connection.");
@@ -327,14 +334,13 @@ export default function ExpoDetailPage() {
     URL.revokeObjectURL(url);
   }
 
-  const expoTitle = summary?.name || name || "Loading...";
-  const pct = summary?.progress_percent ? Number(summary.progress_percent) : null;
-  const riskLevel = summary?.risk_level || null;
+  const cur = summary?.current || {};
+  const chg = summary?.change_pct || {};
 
   return (
     <>
       <Head>
-        <title>ELIZA | {expoTitle}</title>
+        <title>ELIZA | Fiscal Sales</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
@@ -402,44 +408,58 @@ export default function ExpoDetailPage() {
         }
         .nav-link:hover { color: var(--accent); }
 
-        .back-link {
-          display: inline-block;
+        .period-bar {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          margin-bottom: 24px;
+          flex-wrap: wrap;
+        }
+        .period-btn {
+          font-family: "DM Mono", monospace;
+          font-size: 10px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          padding: 6px 14px;
+          border: 1px solid var(--border);
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          border-radius: 3px;
+          transition: all 0.2s;
+        }
+        .period-btn.active {
+          border-color: var(--accent);
+          color: var(--accent);
+          background: rgba(200,169,122,0.08);
+        }
+        .period-btn:hover:not(.active) { border-color: var(--text-secondary); color: var(--text-primary); }
+
+        .date-input {
           font-family: "DM Mono", monospace;
           font-size: 11px;
-          letter-spacing: 1px;
-          color: var(--text-secondary);
-          text-decoration: none;
-          margin-bottom: 24px;
-          transition: color 0.2s;
-        }
-        .back-link:hover { color: var(--accent); }
-
-        .expo-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          margin-bottom: 32px;
-        }
-        .expo-title {
-          font-family: "DM Mono", monospace;
-          font-size: 28px;
-          font-weight: 500;
+          padding: 6px 10px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 3px;
           color: var(--text-primary);
-          letter-spacing: 2px;
+          outline: none;
         }
-        .expo-meta {
+        .date-input:focus { border-color: var(--accent); }
+
+        .period-info {
           font-family: "DM Mono", monospace;
-          font-size: 12px;
+          font-size: 10px;
           color: var(--text-secondary);
           letter-spacing: 1px;
-          text-align: right;
+          margin-bottom: 24px;
         }
 
         .summary-row {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 16px;
-          margin-bottom: 12px;
+          margin-bottom: 32px;
         }
         .summary-card {
           background: var(--surface);
@@ -460,26 +480,6 @@ export default function ExpoDetailPage() {
           font-size: 24px;
           color: var(--text-primary);
           font-weight: 500;
-        }
-        .summary-sub {
-          font-family: "DM Mono", monospace;
-          font-size: 11px;
-          color: var(--text-secondary);
-          letter-spacing: 1px;
-          margin-bottom: 32px;
-          display: flex;
-          gap: 24px;
-          flex-wrap: wrap;
-        }
-
-        .risk-badge {
-          font-family: "DM Mono", monospace;
-          font-size: 10px;
-          font-weight: 500;
-          letter-spacing: 1px;
-          padding: 3px 8px;
-          border-radius: 3px;
-          display: inline-block;
         }
 
         .section-hdr {
@@ -502,21 +502,6 @@ export default function ExpoDetailPage() {
           color: var(--text-secondary);
           letter-spacing: 1px;
         }
-
-        .search-input {
-          font-family: "DM Sans", sans-serif;
-          font-size: 13px;
-          padding: 8px 14px;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 4px;
-          color: var(--text-primary);
-          outline: none;
-          width: 260px;
-          transition: border-color 0.2s;
-        }
-        .search-input::placeholder { color: var(--text-secondary); }
-        .search-input:focus { border-color: var(--accent); }
 
         .export-bar {
           display: flex;
@@ -607,6 +592,12 @@ export default function ExpoDetailPage() {
         .tbl tr:last-child td { border-bottom: none; }
         .tbl tr:hover td { background: rgba(200,169,122,0.03); }
 
+        .share-bar {
+          height: 4px;
+          border-radius: 2px;
+          display: inline-block;
+        }
+
         .chart-wrap {
           background: var(--surface);
           border: 1px solid var(--border);
@@ -622,23 +613,14 @@ export default function ExpoDetailPage() {
           font-size: 13px;
         }
 
-        .share-bar {
-          height: 4px;
-          border-radius: 2px;
-          display: inline-block;
-        }
-
         @media (max-width: 768px) {
           .page { padding: 16px; }
           .page-hdr { flex-direction: column; align-items: flex-start; gap: 12px; }
           .page-brand { font-size: 22px; letter-spacing: 4px; }
-          .expo-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-          .expo-title { font-size: 20px; }
           .summary-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
           .summary-val { font-size: 18px; }
           .tbl { font-size: 11px; display: block; overflow-x: auto; }
           .tbl th, .tbl td { padding: 8px 10px; white-space: nowrap; }
-          .search-input { width: 100%; }
           .chart-wrap { height: 240px; }
         }
       `}</style>
@@ -648,12 +630,11 @@ export default function ExpoDetailPage() {
         <div className="page-hdr">
           <div>
             <div className="page-brand">ELIZA<span className="dot">.</span></div>
-            <div className="page-sub">Expo Detail</div>
+            <div className="page-sub">Fiscal Sales</div>
           </div>
           <div className="page-nav">
             <a href="/" className="nav-link">War Room</a>
-            <a href={`/expos?year=${year || "2026"}`} className="nav-link">Expo Directory</a>
-            <a href="/sales" className="nav-link">Sales</a>
+            <a href="/expos?year=2026" className="nav-link">Expo Directory</a>
             <a href="/admin/logs" className="nav-link">Logs</a>
             <a href="/admin/intelligence" className="nav-link">Intelligence</a>
             <a href="/admin/system" className="nav-link">System</a>
@@ -661,57 +642,54 @@ export default function ExpoDetailPage() {
           </div>
         </div>
 
-        <a href={`/expos?year=${year || "2026"}`} className="back-link">{"\u2190"} Back to Expo Directory</a>
+        {/* PERIOD FILTER BAR */}
+        <div className="period-bar">
+          {PERIODS.map(p => (
+            <button
+              key={p.key}
+              className={`period-btn${period === p.key ? " active" : ""}`}
+              onClick={() => setPeriod(p.key)}
+            >
+              {p.label}
+            </button>
+          ))}
+          {period === "custom" && (
+            <>
+              <input type="date" className="date-input" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+              <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>to</span>
+              <input type="date" className="date-input" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+            </>
+          )}
+        </div>
+
+        {summary?.period && (
+          <div className="period-info">
+            {summary.period.from} to {summary.period.to}
+          </div>
+        )}
 
         {loading ? (
           <div className="no-data">Loading...</div>
-        ) : error ? (
-          <div className="no-data">Expo not found.</div>
         ) : (
           <>
-            {/* EXPO HEADER */}
-            <div className="expo-header">
-              <div className="expo-title">{summary?.name || name}</div>
-              <div className="expo-meta">
-                {summary?.country || ""}{summary?.country && summary?.start_date ? " | " : ""}{formatDate(summary?.start_date)}
-              </div>
-            </div>
-
-            {/* SUMMARY CARDS */}
+            {/* KPI CARDS */}
             <div className="summary-row">
               <div className="summary-card">
                 <div className="summary-label">Revenue</div>
-                <div className="summary-val">{fmtEur(summary?.revenue_eur)}</div>
+                <div className="summary-val">{fmtEur(cur.revenue_eur)}{changeIndicator(chg.revenue_eur)}</div>
               </div>
               <div className="summary-card">
                 <div className="summary-label">Contracts</div>
-                <div className="summary-val">{fmt(summary?.contracts)}</div>
+                <div className="summary-val">{fmt(cur.contracts)}{changeIndicator(chg.contracts)}</div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Sold m{"\u00B2"}</div>
-                <div className="summary-val">{fmt(summary?.sold_m2)}</div>
+                <div className="summary-label">Sold m\u00B2</div>
+                <div className="summary-val">{fmt(cur.m2)}{changeIndicator(chg.m2)}</div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Progress</div>
-                <div className="summary-val" style={{ color: pct !== null ? getProgressColor(pct) : "var(--text-primary)" }}>
-                  {pct !== null ? `${pct}%` : "\u2014"}
-                </div>
+                <div className="summary-label">Avg \u20AC/m\u00B2</div>
+                <div className="summary-val">{fmtEur(cur.avg_per_m2)}{changeIndicator(chg.avg_per_m2)}</div>
               </div>
-            </div>
-
-            <div className="summary-sub">
-              <span>Target m{"\u00B2"}: {summary?.target_m2 ? fmt(summary.target_m2) : "\u2014"}</span>
-              <span>
-                Risk:{" "}
-                {riskLevel ? (
-                  <span className="risk-badge" style={{
-                    color: getRiskColor(riskLevel),
-                    background: `${getRiskColor(riskLevel)}15`,
-                    border: `1px solid ${getRiskColor(riskLevel)}40`,
-                  }}>{riskLevel}</span>
-                ) : "\u2014"}
-              </span>
-              <span>Velocity: {summary?.velocity_m2_per_month ? `${fmt(Math.round(Number(summary.velocity_m2_per_month)))} m\u00B2/month` : "\u2014"}</span>
             </div>
 
             {/* EXPORT BAR */}
@@ -723,139 +701,125 @@ export default function ExpoDetailPage() {
               <button className="export-btn" onClick={handlePDF}>PDF</button>
             </div>
 
-            {/* AGENTS TABLE */}
+            {/* SALES BY AGENT */}
             <div className="section-hdr">
-              <div className="section-title">Sales Agents</div>
+              <div className="section-title">Sales by Agent</div>
               <div className="section-count">{agents.length} agents</div>
             </div>
-            {agents.length === 0 ? (
-              <div className="no-data">No agent data.</div>
-            ) : (
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th onClick={() => handleSort(setAgentSort, "name")}>Agent{sortIcon(agentSort, "name")}</th>
-                    <th className="r" onClick={() => handleSort(setAgentSort, "contracts")}>Contracts{sortIcon(agentSort, "contracts")}</th>
-                    <th className="r" onClick={() => handleSort(setAgentSort, "m2")}>m{"\u00B2"}{sortIcon(agentSort, "m2")}</th>
-                    <th className="r" onClick={() => handleSort(setAgentSort, "revenue_eur")}>Revenue{sortIcon(agentSort, "revenue_eur")}</th>
-                    <th className="r" style={{ width: 140 }}>Share</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedAgents.map(a => {
-                    const share = totalAgentRevenue > 0 ? (Number(a.revenue_eur || 0) / totalAgentRevenue * 100) : 0;
-                    return (
-                      <tr key={a.name}>
-                        <td>{a.name}</td>
-                        <td className="mono r">{fmt(a.contracts)}</td>
-                        <td className="mono r">{fmt(a.m2)}</td>
-                        <td className="mono r">{fmtEur(a.revenue_eur)}</td>
-                        <td className="r" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-                          <span className="share-bar" style={{ width: `${Math.max(share, 2)}%`, maxWidth: 80, background: "var(--accent)" }}>{"\u00A0"}</span>
-                          <span className="mono" style={{ fontSize: 11, minWidth: 32, textAlign: "right" }}>{Math.round(share)}%</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-
-            {/* COMPANIES TABLE */}
-            <div className="section-hdr">
-              <div className="section-title">Exhibitors</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <span className="section-count">{filteredCompanies.length} companies</span>
-                <input
-                  className="search-input"
-                  placeholder="Search company, country, agent..."
-                  value={companyFilter}
-                  onChange={e => setCompanyFilter(e.target.value)}
-                  style={{ width: 240 }}
-                />
-              </div>
-            </div>
-            {sortedCompanies.length === 0 ? (
-              <div className="no-data">No exhibitor data.</div>
-            ) : (
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th onClick={() => handleSort(setCompanySort, "company_name")}>Company{sortIcon(companySort, "company_name")}</th>
-                    <th onClick={() => handleSort(setCompanySort, "country")}>Country{sortIcon(companySort, "country")}</th>
-                    <th onClick={() => handleSort(setCompanySort, "sales_agent")}>Agent{sortIcon(companySort, "sales_agent")}</th>
-                    <th className="r" onClick={() => handleSort(setCompanySort, "m2")}>m{"\u00B2"}{sortIcon(companySort, "m2")}</th>
-                    <th className="r" onClick={() => handleSort(setCompanySort, "revenue_eur")}>Revenue{sortIcon(companySort, "revenue_eur")}</th>
-                    <th className="r" onClick={() => handleSort(setCompanySort, "contracts")}>Contracts{sortIcon(companySort, "contracts")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedCompanies.map((c, i) => (
-                    <tr key={`${c.company_name}-${i}`}>
-                      <td>{c.company_name}</td>
-                      <td className="muted">{c.country || "\u2014"}</td>
-                      <td className="muted">{c.sales_agent || "\u2014"}</td>
-                      <td className="mono r">{fmt(c.m2)}</td>
-                      <td className="mono r">{fmtEur(c.revenue_eur)}</td>
-                      <td className="mono r">{fmt(c.contracts)}</td>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th onClick={() => handleSort(setAgentSort, "name")}>Agent{sortIcon(agentSort, "name")}</th>
+                  <th className="r" onClick={() => handleSort(setAgentSort, "contracts")}>Contracts{sortIcon(agentSort, "contracts")}</th>
+                  <th className="r" onClick={() => handleSort(setAgentSort, "m2")}>m\u00B2{sortIcon(agentSort, "m2")}</th>
+                  <th className="r" onClick={() => handleSort(setAgentSort, "revenue_eur")}>Revenue{sortIcon(agentSort, "revenue_eur")}</th>
+                  <th className="r" onClick={() => handleSort(setAgentSort, "avg_per_m2")}>Avg/m\u00B2{sortIcon(agentSort, "avg_per_m2")}</th>
+                  <th className="r" style={{ width: 120 }}>Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedAgents.map((a, i) => {
+                  const share = totalAgentRevenue > 0 ? Number(a.revenue_eur || 0) / totalAgentRevenue * 100 : 0;
+                  return (
+                    <tr key={i}>
+                      <td>{a.name}</td>
+                      <td className="mono r">{fmt(a.contracts)}</td>
+                      <td className="mono r">{fmt(a.m2)}</td>
+                      <td className="mono r">{fmtEur(a.revenue_eur)}</td>
+                      <td className="mono r">{fmtEur(a.avg_per_m2)}</td>
+                      <td className="r">
+                        <span className="share-bar" style={{ width: `${Math.max(share, 2)}%`, background: "var(--accent)" }} />
+                        <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginLeft: 6 }}>{Math.round(share)}%</span>
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                  );
+                })}
+                {sortedAgents.length === 0 && (
+                  <tr><td colSpan={6} className="no-data">No data</td></tr>
+                )}
+              </tbody>
+            </table>
 
-            {/* COUNTRIES TABLE */}
+            {/* SALES BY EXPO */}
             <div className="section-hdr">
-              <div className="section-title">Country Distribution</div>
+              <div className="section-title">Sales by Expo</div>
+              <div className="section-count">{expos.length} expos</div>
+            </div>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th onClick={() => handleSort(setExpoSort, "expo")}>Expo{sortIcon(expoSort, "expo")}</th>
+                  <th onClick={() => handleSort(setExpoSort, "country")}>Country{sortIcon(expoSort, "country")}</th>
+                  <th className="r" onClick={() => handleSort(setExpoSort, "contracts")}>Contracts{sortIcon(expoSort, "contracts")}</th>
+                  <th className="r" onClick={() => handleSort(setExpoSort, "m2")}>m\u00B2{sortIcon(expoSort, "m2")}</th>
+                  <th className="r" onClick={() => handleSort(setExpoSort, "revenue_eur")}>Revenue{sortIcon(expoSort, "revenue_eur")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedExpos.map((e, i) => (
+                  <tr key={i} style={{ cursor: "pointer" }} onClick={() => {
+                    const expoName = (e.expo || "").replace(/\s+\d{4}$/, "");
+                    const expoYear = (e.expo || "").match(/(\d{4})$/)?.[1] || "2026";
+                    router.push(`/expos/detail?name=${encodeURIComponent(expoName)}&year=${expoYear}`);
+                  }}>
+                    <td>{e.expo}</td>
+                    <td className="muted">{e.country}</td>
+                    <td className="mono r">{fmt(e.contracts)}</td>
+                    <td className="mono r">{fmt(e.m2)}</td>
+                    <td className="mono r">{fmtEur(e.revenue_eur)}</td>
+                  </tr>
+                ))}
+                {sortedExpos.length === 0 && (
+                  <tr><td colSpan={5} className="no-data">No data</td></tr>
+                )}
+              </tbody>
+            </table>
+
+            {/* SALES BY COUNTRY */}
+            <div className="section-hdr">
+              <div className="section-title">Sales by Country</div>
               <div className="section-count">{countries.length} countries</div>
             </div>
-            {countries.length === 0 ? (
-              <div className="no-data">No country data.</div>
-            ) : (
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th onClick={() => handleSort(setCountrySort, "country")}>Country{sortIcon(countrySort, "country")}</th>
-                    <th className="r" onClick={() => handleSort(setCountrySort, "companies")}>Companies{sortIcon(countrySort, "companies")}</th>
-                    <th className="r" onClick={() => handleSort(setCountrySort, "contracts")}>Contracts{sortIcon(countrySort, "contracts")}</th>
-                    <th className="r" onClick={() => handleSort(setCountrySort, "m2")}>m{"\u00B2"}{sortIcon(countrySort, "m2")}</th>
-                    <th className="r" onClick={() => handleSort(setCountrySort, "revenue_eur")}>Revenue{sortIcon(countrySort, "revenue_eur")}</th>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th onClick={() => handleSort(setCountrySort, "country")}>Country{sortIcon(countrySort, "country")}</th>
+                  <th className="r" onClick={() => handleSort(setCountrySort, "companies")}>Companies{sortIcon(countrySort, "companies")}</th>
+                  <th className="r" onClick={() => handleSort(setCountrySort, "contracts")}>Contracts{sortIcon(countrySort, "contracts")}</th>
+                  <th className="r" onClick={() => handleSort(setCountrySort, "m2")}>m\u00B2{sortIcon(countrySort, "m2")}</th>
+                  <th className="r" onClick={() => handleSort(setCountrySort, "revenue_eur")}>Revenue{sortIcon(countrySort, "revenue_eur")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedCountries.map((c, i) => (
+                  <tr key={i}>
+                    <td>{c.country}</td>
+                    <td className="mono r">{fmt(c.companies)}</td>
+                    <td className="mono r">{fmt(c.contracts)}</td>
+                    <td className="mono r">{fmt(c.m2)}</td>
+                    <td className="mono r">{fmtEur(c.revenue_eur)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {sortedCountries.map(c => (
-                    <tr key={c.country}>
-                      <td>{c.country || "\u2014"}</td>
-                      <td className="mono r">{fmt(c.companies)}</td>
-                      <td className="mono r">{fmt(c.contracts)}</td>
-                      <td className="mono r">{fmt(c.m2)}</td>
-                      <td className="mono r">{fmtEur(c.revenue_eur)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                ))}
+                {sortedCountries.length === 0 && (
+                  <tr><td colSpan={5} className="no-data">No data</td></tr>
+                )}
+              </tbody>
+            </table>
 
-            {/* MONTHLY TREND CHART */}
+            {/* TREND CHART */}
             <div className="section-hdr">
-              <div className="section-title">Monthly Sales</div>
+              <div className="section-title">Sales Trend</div>
               <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  className={`toggle-btn ${chartMetric === "revenue_eur" ? "active" : ""}`}
-                  onClick={() => setChartMetric("revenue_eur")}
-                >Revenue</button>
-                <button
-                  className={`toggle-btn ${chartMetric === "contracts" ? "active" : ""}`}
-                  onClick={() => setChartMetric("contracts")}
-                >Contracts</button>
+                <button className={`toggle-btn${chartMetric === "revenue_eur" ? " active" : ""}`} onClick={() => setChartMetric("revenue_eur")}>Revenue</button>
+                <button className={`toggle-btn${chartMetric === "contracts" ? " active" : ""}`} onClick={() => setChartMetric("contracts")}>Contracts</button>
               </div>
             </div>
-            {monthly.length === 0 ? (
-              <div className="no-data">No monthly data.</div>
-            ) : (
+            {trend.length > 0 ? (
               <div className="chart-wrap">
                 <Bar data={chartData} options={chartOptions} />
               </div>
+            ) : (
+              <div className="no-data">No trend data</div>
             )}
           </>
         )}

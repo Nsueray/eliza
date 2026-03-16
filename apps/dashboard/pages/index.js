@@ -827,6 +827,7 @@ export default function WarRoom() {
           <div className="hdr-right">
             <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
               <a href="/expos?year=2026" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Expo Directory</a>
+              <a href="/sales" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Sales</a>
               <a href="/admin/logs" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Logs</a>
               <a href="/admin/intelligence" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>Intelligence</a>
               <a href="/admin/system" style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--text-secondary)', textDecoration: 'none' }}>System</a>

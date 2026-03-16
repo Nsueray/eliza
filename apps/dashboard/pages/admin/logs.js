@@ -582,6 +582,7 @@ export default function LogsPage() {
     { href: "/admin/system", label: "System", active: false },
     { href: "/admin", label: "Users", active: false },
     { href: "/", label: "War Room \u2192", active: false },
+    { href: "/sales", label: "Sales", active: false },
   ];
 
   const statusOptions = [
