@@ -581,7 +581,9 @@ export default function ExposPage() {
                 const risk = riskMap[expo.name];
                 const riskLevel = risk ? risk.risk_level : null;
                 return (
-                  <tr key={expo.id} className={isCompleted ? "completed" : ""}>
+                  <tr key={expo.id} className={isCompleted ? "completed" : ""}
+                    onClick={() => router.push(`/expos/detail?name=${encodeURIComponent(expo.name)}&year=${year}`)}
+                    style={{ cursor: "pointer" }}>
                     <td>
                       {expo.name}
                       {isCompleted && <span className="badge-done">DONE</span>}

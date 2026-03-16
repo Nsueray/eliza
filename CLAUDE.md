@@ -439,20 +439,32 @@ Running on: http://localhost:3000
 Pages:
 - / → War Room main dashboard
 - /expos?year=2026&expo=SIEMA&country=Morocco → Expo Directory (sortable, filterable, export: Copy/CSV/Excel/PDF)
+- /expos/detail?name=SIEMA&year=2026 → Expo Detail (agents, companies, countries, monthly trend, export)
 
 Navigation (all pages):
 - War Room header: Expo Directory | Logs | Intelligence | System | Users
 - Expo Directory header: War Room | Logs | Intelligence | System | Users
+- Expo Detail header: War Room | Expo Directory | Logs | Intelligence | System | Users
 - Admin pages: Logs | Intelligence | System | Users | War Room
+
+Expo Directory → Detail:
+- Table rows clickable → navigates to /expos/detail?name=X&year=Y
+- WhatsApp links can point to /expos/detail?name=X&year=Y
 
 API endpoints used:
 - GET /api/revenue/summary → fiscal KPIs
 - GET /api/revenue/edition-summary → edition KPIs (supports ?year=2026)
 - GET /api/expos/metrics → upcoming expos (supports ?year=2026)
 - GET /api/sales/leaderboard → top agents (always visible)
+- GET /api/expos/detail?name=X&year=Y → expo summary (name, country, date, target, sold, revenue, progress, risk)
+- GET /api/expos/detail/agents?name=X&year=Y → agent breakdown
+- GET /api/expos/detail/companies?name=X&year=Y → company list
+- GET /api/expos/detail/countries?name=X&year=Y → country distribution
+- GET /api/expos/detail/monthly?name=X&year=Y → monthly sales trend
 
 Charts:
 - Sales Leaderboard: horizontal bar chart (top 10) — always visible
+- Expo Detail Monthly Sales: vertical bar chart (revenue/contracts toggle)
 
 Design:
 - Dark theme: #080B10 background, #0E1318 surface
@@ -662,6 +674,18 @@ Expo Directory (/expos) Features:
 - Excel/PDF lazy-loaded from CDN on first click, fallback to CSV if CDN fails
 - PDF: landscape, ELIZA branded header, date + filter info, dark header with gold text
 - Satir arasi bos satir ile ayrilir
+- Table rows clickable → navigates to Expo Detail page
+
+Expo Detail (/expos/detail) Features:
+- URL: /expos/detail?name=SIEMA&year=2026 (name ILIKE match)
+- Summary cards: Revenue, Contracts, Sold m², Progress %
+- Sub-info: Target m², Risk badge, Velocity m²/month
+- Sales Agents table: sortable, revenue share % bar
+- Exhibitors table: sortable, searchable (company/country/agent filter)
+- Country Distribution table: sortable
+- Monthly Sales chart: Chart.js bar (revenue/contracts toggle)
+- Export: Copy (all 3 tables), CSV (sections), Excel (3 sheets: Agents/Exhibitors/Countries), PDF (multi-table, branded)
+- Mobile responsive: 2x2 summary grid, horizontal scroll tables
 
 # 26. Message Generator (Phase 6)
 Location: packages/messages/index.js

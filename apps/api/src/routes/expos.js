@@ -92,6 +92,154 @@ router.post('/calculate-targets', async (req, res) => {
   }
 });
 
+// --- Expo Detail Endpoints (must be before /:id) ---
+
+async function lookupExpo(name, year) {
+  const result = await query(
+    `SELECT id, name, country, start_date, target_m2 FROM expos WHERE name ILIKE $1 AND EXTRACT(YEAR FROM start_date) = $2 LIMIT 1`,
+    [`%${name}%`, year]
+  );
+  return result.rows[0] || null;
+}
+
+router.get('/detail', async (req, res) => {
+  try {
+    const { name, year } = req.query;
+    if (!name || !year) return res.status(400).json({ error: 'name and year query params required' });
+
+    const summaryResult = await query(`
+      SELECT
+        e.id, e.name, e.country, e.start_date, e.target_m2,
+        COUNT(c.id) FILTER (WHERE c.sales_agent != 'ELAN EXPO') AS contracts,
+        COALESCE(SUM(c.m2) FILTER (WHERE c.sales_agent != 'ELAN EXPO'), 0) AS sold_m2,
+        COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur,
+        CASE WHEN e.target_m2 > 0
+          THEN ROUND((COALESCE(SUM(c.m2) FILTER (WHERE c.sales_agent != 'ELAN EXPO'), 0) / e.target_m2 * 100)::numeric, 1)
+          ELSE NULL END AS progress_percent
+      FROM expos e
+      LEFT JOIN edition_contracts c ON c.expo_id = e.id
+      WHERE e.name ILIKE $1 AND EXTRACT(YEAR FROM e.start_date) = $2
+      GROUP BY e.id
+    `, [`%${name}%`, year]);
+
+    if (summaryResult.rows.length === 0) return res.status(404).json({ error: 'Expo not found' });
+
+    const summary = summaryResult.rows[0];
+
+    const riskResult = await query(
+      `SELECT risk_level, risk_score, velocity_m2_per_month, velocity_ratio FROM expo_metrics WHERE expo_name ILIKE $1 LIMIT 1`,
+      [`%${name}%`]
+    );
+
+    const risk = riskResult.rows[0] || {};
+    res.json({ ...summary, ...risk });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/detail/agents', async (req, res) => {
+  try {
+    const { name, year } = req.query;
+    if (!name || !year) return res.status(400).json({ error: 'name and year query params required' });
+
+    const expo = await lookupExpo(name, year);
+    if (!expo) return res.status(404).json({ error: 'Expo not found' });
+
+    const result = await query(`
+      SELECT c.sales_agent AS name,
+        COUNT(c.id) AS contracts,
+        COALESCE(SUM(c.m2), 0) AS m2,
+        COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur
+      FROM edition_contracts c
+      WHERE c.expo_id = $1 AND c.sales_agent != 'ELAN EXPO' AND c.sales_agent IS NOT NULL
+      GROUP BY c.sales_agent
+      ORDER BY revenue_eur DESC
+    `, [expo.id]);
+
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/detail/companies', async (req, res) => {
+  try {
+    const { name, year } = req.query;
+    if (!name || !year) return res.status(400).json({ error: 'name and year query params required' });
+
+    const expo = await lookupExpo(name, year);
+    if (!expo) return res.status(404).json({ error: 'Expo not found' });
+
+    const result = await query(`
+      SELECT c.company_name, c.country, c.sales_agent,
+        COALESCE(SUM(c.m2), 0) AS m2,
+        COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur,
+        COUNT(c.id) AS contracts
+      FROM edition_contracts c
+      WHERE c.expo_id = $1 AND c.sales_agent != 'ELAN EXPO'
+      GROUP BY c.company_name, c.country, c.sales_agent
+      ORDER BY revenue_eur DESC
+    `, [expo.id]);
+
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/detail/countries', async (req, res) => {
+  try {
+    const { name, year } = req.query;
+    if (!name || !year) return res.status(400).json({ error: 'name and year query params required' });
+
+    const expo = await lookupExpo(name, year);
+    if (!expo) return res.status(404).json({ error: 'Expo not found' });
+
+    const result = await query(`
+      SELECT c.country,
+        COUNT(DISTINCT c.company_name) AS companies,
+        COUNT(c.id) AS contracts,
+        COALESCE(SUM(c.m2), 0) AS m2,
+        COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur
+      FROM edition_contracts c
+      WHERE c.expo_id = $1 AND c.sales_agent != 'ELAN EXPO'
+      GROUP BY c.country
+      ORDER BY companies DESC
+    `, [expo.id]);
+
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/detail/monthly', async (req, res) => {
+  try {
+    const { name, year } = req.query;
+    if (!name || !year) return res.status(400).json({ error: 'name and year query params required' });
+
+    const expo = await lookupExpo(name, year);
+    if (!expo) return res.status(404).json({ error: 'Expo not found' });
+
+    const result = await query(`
+      SELECT EXTRACT(MONTH FROM c.contract_date)::int AS month,
+        EXTRACT(YEAR FROM c.contract_date)::int AS year,
+        COUNT(c.id) AS contracts,
+        COALESCE(SUM(c.m2), 0) AS m2,
+        COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 2), 0) AS revenue_eur
+      FROM edition_contracts c
+      WHERE c.expo_id = $1 AND c.sales_agent != 'ELAN EXPO'
+      GROUP BY year, month
+      ORDER BY year, month
+    `, [expo.id]);
+
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const result = await query(`
