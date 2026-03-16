@@ -12,6 +12,13 @@ const ROLE_COLORS = {
   agent: "#5A7080",
 };
 
+const TOTAL_MODULES = 9;
+
+function countModules(perms) {
+  if (!perms || typeof perms !== "object") return 0;
+  return Object.values(perms).filter(v => v === true).length;
+}
+
 export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,54 +73,63 @@ export default function AdminPanel() {
           <table className="tbl">
             <thead>
               <tr>
-                {["Name", "Email", "WhatsApp", "Role", "Office", "Scope", "Status", "Actions"].map(h => (
+                {["Name", "Email", "Role", "Office", "Scope", "Modules", "Status", "Actions"].map(h => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
-                <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.45 }}>
-                  <td>
-                    {u.name}
-                    {u.is_manager && <span className="badge badge-accent" style={{ marginLeft: 6, fontSize: 9 }}>MGR</span>}
-                  </td>
-                  <td className="muted text-sm">{u.email || "\u2014"}</td>
-                  <td className="mono muted text-sm">{u.whatsapp_phone || "\u2014"}</td>
-                  <td>
-                    <span className="badge" style={{
-                      color: ROLE_COLORS[u.role] || "var(--text-secondary)",
-                      background: `${ROLE_COLORS[u.role] || "var(--text-secondary)"}15`,
-                      border: `1px solid ${ROLE_COLORS[u.role] || "var(--text-secondary)"}40`,
-                    }}>
-                      {ROLE_LABELS[u.role] || u.role}
-                    </span>
-                  </td>
-                  <td className="muted text-sm">{u.office || "\u2014"}</td>
-                  <td className="mono muted text-xs">{u.data_scope || "own"}</td>
-                  <td>
-                    <span className={`badge ${u.is_active ? "badge-success" : "badge-danger"}`}>
-                      {u.is_active ? "ACTIVE" : "INACTIVE"}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <Link href={`/admin/users/${u.id}`} className="btn-sm" style={{ textDecoration: "none" }}>
-                        Edit
-                      </Link>
-                      {u.is_active ? (
-                        <button onClick={() => deactivateUser(u.id, u.name)} className="btn-danger" style={{ padding: "4px 12px" }}>
-                          Deactivate
-                        </button>
-                      ) : (
-                        <button onClick={() => reactivateUser(u.id)} className="btn-success" style={{ padding: "4px 12px" }}>
-                          Activate
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {users.map(u => {
+                const mc = countModules(u.dashboard_permissions);
+                return (
+                  <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.45 }}>
+                    <td>
+                      {u.name}
+                      {u.is_manager && <span className="badge badge-accent" style={{ marginLeft: 6, fontSize: 9 }}>MGR</span>}
+                    </td>
+                    <td className="muted text-sm">{u.email || "\u2014"}</td>
+                    <td>
+                      <span className="badge" style={{
+                        color: ROLE_COLORS[u.role] || "var(--text-secondary)",
+                        background: `${ROLE_COLORS[u.role] || "var(--text-secondary)"}15`,
+                        border: `1px solid ${ROLE_COLORS[u.role] || "var(--text-secondary)"}40`,
+                      }}>
+                        {ROLE_LABELS[u.role] || u.role}
+                      </span>
+                    </td>
+                    <td className="muted text-sm">{u.office || "\u2014"}</td>
+                    <td className="mono muted text-xs">{u.data_scope || "own"}</td>
+                    <td>
+                      <span className="mono text-xs" style={{
+                        color: mc === TOTAL_MODULES ? "var(--success)" : mc > 0 ? "var(--accent)" : "var(--text-secondary)",
+                      }}>
+                        {mc}/{TOTAL_MODULES}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${u.is_active ? "badge-success" : "badge-danger"}`}>
+                        {u.is_active ? "ACTIVE" : "INACTIVE"}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Link href={`/admin/users/${u.id}`} className="btn-sm" style={{ textDecoration: "none" }}>
+                          Edit
+                        </Link>
+                        {u.is_active ? (
+                          <button onClick={() => deactivateUser(u.id, u.name)} className="btn-danger" style={{ padding: "4px 12px" }}>
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button onClick={() => reactivateUser(u.id)} className="btn-success" style={{ padding: "4px 12px" }}>
+                            Activate
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

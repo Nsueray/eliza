@@ -11,6 +11,24 @@ const ROLE_LABELS = { ceo: "CEO", manager: "Manager", agent: "Agent" };
 
 const DEFAULT_SCOPE = { ceo: "all", manager: "team", agent: "own" };
 
+const DASHBOARD_MODULES = [
+  { key: "war_room", label: "War Room" },
+  { key: "expo_directory", label: "Expo Directory" },
+  { key: "expo_detail", label: "Expo Detail" },
+  { key: "sales", label: "Sales" },
+  { key: "logs", label: "Logs" },
+  { key: "intelligence", label: "Intelligence" },
+  { key: "system", label: "System" },
+  { key: "users", label: "Users" },
+  { key: "settings", label: "Settings" },
+];
+
+const ROLE_PERM_DEFAULTS = {
+  ceo: { war_room: true, expo_directory: true, expo_detail: true, sales: true, logs: true, intelligence: true, system: true, users: true, settings: true },
+  manager: { war_room: true, expo_directory: true, expo_detail: true, sales: true, logs: false, intelligence: false, system: false, users: false, settings: true },
+  agent: { war_room: false, expo_directory: false, expo_detail: false, sales: true, logs: false, intelligence: false, system: false, users: false, settings: true },
+};
+
 export default function NewUser() {
   const router = useRouter();
   const [config, setConfig] = useState(null);
@@ -22,6 +40,7 @@ export default function NewUser() {
     role: "agent", office: "", sales_group: "", sales_agent_name: "", is_manager: false,
     data_scope: "own", visible_years: [2025, 2026],
     can_see_expenses: false, can_take_notes: false, can_use_message_generator: false, can_see_financials: false,
+    dashboard_permissions: { ...ROLE_PERM_DEFAULTS.agent },
   });
 
   useEffect(() => {
@@ -33,6 +52,7 @@ export default function NewUser() {
       const next = { ...prev, [key]: val };
       if (key === "role") {
         next.data_scope = DEFAULT_SCOPE[val] || "own";
+        next.dashboard_permissions = { ...(ROLE_PERM_DEFAULTS[val] || ROLE_PERM_DEFAULTS.agent) };
       }
       return next;
     });
@@ -44,6 +64,13 @@ export default function NewUser() {
       visible_years: prev.visible_years.includes(y)
         ? prev.visible_years.filter(v => v !== y)
         : [...prev.visible_years, y].sort(),
+    }));
+  }
+
+  function setPermission(key, val) {
+    setForm(prev => ({
+      ...prev,
+      dashboard_permissions: { ...prev.dashboard_permissions, [key]: val },
     }));
   }
 
@@ -89,7 +116,7 @@ export default function NewUser() {
           </div>
         )}
 
-        <UserForm form={form} set={set} toggleYear={toggleYear} config={config} />
+        <UserForm form={form} set={set} toggleYear={toggleYear} config={config} setPermission={setPermission} />
 
         <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
           <button onClick={save} disabled={saving} className="btn-primary">
@@ -104,16 +131,22 @@ export default function NewUser() {
   );
 }
 
-export function UserForm({ form, set, toggleYear, config }) {
+export { DASHBOARD_MODULES, ROLE_PERM_DEFAULTS };
+
+export function UserForm({ form, set, toggleYear, config, setPermission }) {
+  const isCeo = form.role === "ceo";
+  const perms = form.dashboard_permissions || {};
+
   return (
     <>
-      <style jsx>{`
+      <style jsx global>{`
         .form-section {
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: var(--radius);
           padding: 24px;
           margin-bottom: 24px;
+          box-shadow: var(--card-shadow);
         }
         .form-section-title {
           font-family: var(--font-mono);
@@ -131,8 +164,26 @@ export function UserForm({ form, set, toggleYear, config }) {
           font-family: var(--font-mono); color: var(--text-primary); cursor: pointer;
           padding: 4px 10px; border-radius: 3px; transition: all 0.2s;
         }
+        .perm-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px 24px;
+        }
+        .perm-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          padding: 8px 0;
+          cursor: pointer;
+        }
+        .perm-item.disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
         @media (max-width: 768px) {
           .form-grid { grid-template-columns: 1fr; }
+          .perm-grid { grid-template-columns: 1fr; }
         }
       `}</style>
 
@@ -217,20 +268,20 @@ export function UserForm({ form, set, toggleYear, config }) {
             ].map(opt => (
               <label key={opt.value} style={{
                 display: "flex", alignItems: "center", gap: 8, fontSize: 13,
-                color: form.role === "ceo" && opt.value !== "all" ? "var(--text-secondary)" : "var(--text-primary)",
-                opacity: form.role === "ceo" && opt.value !== "all" ? 0.4 : 1,
-                cursor: form.role === "ceo" ? "not-allowed" : "pointer",
+                color: isCeo && opt.value !== "all" ? "var(--text-secondary)" : "var(--text-primary)",
+                opacity: isCeo && opt.value !== "all" ? 0.4 : 1,
+                cursor: isCeo ? "not-allowed" : "pointer",
               }}>
                 <input type="radio" name="data_scope" value={opt.value}
                   checked={form.data_scope === opt.value}
-                  disabled={form.role === "ceo"}
+                  disabled={isCeo}
                   onChange={e => set("data_scope", e.target.value)}
                   style={{ accentColor: "var(--accent)" }} />
                 {opt.label}
               </label>
             ))}
           </div>
-          {form.role === "ceo" && (
+          {isCeo && (
             <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 8, fontStyle: "italic" }}>
               CEO role always has access to all data.
             </div>
@@ -254,9 +305,9 @@ export function UserForm({ form, set, toggleYear, config }) {
         </div>
       </div>
 
-      {/* Section 4 -- Permissions */}
+      {/* Section 4 -- WhatsApp Permissions */}
       <div className="form-section">
-        <div className="form-section-title">Permissions</div>
+        <div className="form-section-title">WhatsApp Permissions</div>
         <div className="form-grid">
           {[
             { key: "can_see_expenses", label: "Can view expenses" },
@@ -268,6 +319,30 @@ export function UserForm({ form, set, toggleYear, config }) {
               <input type="checkbox" checked={form[p.key]} onChange={e => set(p.key, e.target.checked)}
                 style={{ accentColor: "var(--accent)", width: 16, height: 16 }} />
               {p.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Section 5 -- Dashboard Permissions */}
+      <div className="form-section">
+        <div className="form-section-title">Dashboard Permissions</div>
+        {isCeo && (
+          <div style={{ fontSize: 11, color: "var(--accent)", marginBottom: 16, fontStyle: "italic" }}>
+            CEO always has full dashboard access.
+          </div>
+        )}
+        <div className="perm-grid">
+          {DASHBOARD_MODULES.map(m => (
+            <label key={m.key} className={`perm-item${isCeo ? " disabled" : ""}`}>
+              <input
+                type="checkbox"
+                checked={isCeo ? true : (perms[m.key] !== false)}
+                disabled={isCeo}
+                onChange={e => setPermission(m.key, e.target.checked)}
+                style={{ accentColor: "var(--accent)", width: 16, height: 16 }}
+              />
+              {m.label}
             </label>
           ))}
         </div>

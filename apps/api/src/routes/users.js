@@ -2,6 +2,29 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../../../../packages/db/index.js');
 
+const ALL_PERMISSIONS = {
+  war_room: true, expo_directory: true, expo_detail: true, sales: true,
+  logs: true, intelligence: true, system: true, users: true, settings: true,
+};
+
+const ROLE_DEFAULTS = {
+  ceo: ALL_PERMISSIONS,
+  manager: {
+    war_room: true, expo_directory: true, expo_detail: true, sales: true,
+    logs: false, intelligence: false, system: false, users: false, settings: true,
+  },
+  agent: {
+    war_room: false, expo_directory: false, expo_detail: false, sales: true,
+    logs: false, intelligence: false, system: false, users: false, settings: true,
+  },
+};
+
+function resolvePermissions(role, incoming) {
+  if (role === 'ceo') return ALL_PERMISSIONS;
+  if (incoming && typeof incoming === 'object' && Object.keys(incoming).length > 0) return incoming;
+  return ROLE_DEFAULTS[role] || ROLE_DEFAULTS.agent;
+}
+
 // Config: dropdown values for admin panel
 router.get('/config', (req, res) => {
   res.json({
@@ -58,6 +81,7 @@ router.post('/', async (req, res) => {
       sales_agent_name, is_manager, language, nicknames,
       data_scope, visible_years,
       can_see_expenses, can_take_notes, can_use_message_generator, can_see_financials,
+      dashboard_permissions,
     } = req.body;
 
     if (!name || !role) {
@@ -68,11 +92,13 @@ router.post('/', async (req, res) => {
     const effectiveScope = role === 'ceo' ? 'all'
       : data_scope || (role === 'manager' ? 'team' : 'own');
 
+    const perms = resolvePermissions(role, dashboard_permissions);
+
     const userResult = await query(`
-      INSERT INTO users (name, email, whatsapp_phone, role, office, sales_group, sales_agent_name, is_manager, language, nicknames)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      INSERT INTO users (name, email, whatsapp_phone, role, office, sales_group, sales_agent_name, is_manager, language, nicknames, dashboard_permissions)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
-    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager || false, language || 'tr', nicknames || null]);
+    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager || false, language || 'tr', nicknames || null, JSON.stringify(perms)]);
 
     const user = userResult.rows[0];
 
@@ -116,12 +142,14 @@ router.put('/:id', async (req, res) => {
       sales_agent_name, is_manager, language, is_active, nicknames,
       data_scope, visible_years,
       can_see_expenses, can_take_notes, can_use_message_generator, can_see_financials,
-      password_hash,
+      password_hash, dashboard_permissions,
     } = req.body;
 
     // Business rule: CEO always gets 'all' scope
     const effectiveScope = role === 'ceo' ? 'all'
       : data_scope || (role === 'manager' ? 'team' : 'own');
+
+    const perms = resolvePermissions(role, dashboard_permissions);
 
     await query(`
       UPDATE users SET
@@ -136,9 +164,10 @@ router.put('/:id', async (req, res) => {
         language = COALESCE($9, language),
         is_active = COALESCE($10, is_active),
         nicknames = $11,
-        password_hash = COALESCE($13, password_hash)
+        password_hash = COALESCE($13, password_hash),
+        dashboard_permissions = $14
       WHERE id = $12
-    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager, language, is_active, nicknames || null, req.params.id, password_hash || null]);
+    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager, language, is_active, nicknames || null, req.params.id, password_hash || null, JSON.stringify(perms)]);
 
     await query(`
       UPDATE user_permissions SET

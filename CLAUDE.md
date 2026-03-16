@@ -235,6 +235,19 @@ Access control implemented:
 - Agent — own data, data_scope: own
 - Auth: users tablosundan WhatsApp phone lookup
 - Kullanıcılar: CEO (Nihat Suer AY), Elif AY (manager/team)
+
+Dashboard Permissions (granular module access):
+- Stored in: users.dashboard_permissions JSONB
+- Modules: war_room, expo_directory, expo_detail, sales, logs, intelligence, system, users, settings
+- CEO: all true (forced, cannot be changed)
+- Manager default: war_room, expo_directory, expo_detail, sales, settings = true
+- Agent default: sales, settings = true
+- CEO can override defaults per user via /admin/users/[id]
+- Enforcement:
+  - Nav.js: filters nav links based on user.dashboard_permissions
+  - _app.js AuthGuard: ROUTE_PERMISSIONS map, redirects to /unauthorized if permission === false
+  - /unauthorized page: "Access Denied" with back link
+- When adding new pages: add to ROUTE_PERMISSIONS in _app.js, NAV_ITEMS in Nav.js, DASHBOARD_MODULES in users/new.js, resolvePermissions defaults in users.js API
 ---
 # 12. What NOT to do
 Claude must not:

@@ -15,12 +15,12 @@ router.post('/migrate', async (req, res) => {
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS dashboard_permissions JSONB DEFAULT '{}'`);
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'`);
 
-    // Set CEO permissions
+    // Set CEO permissions (all access)
     await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"logs":true,"intelligence":true,"system":true,"users":true,"settings":true}'::jsonb WHERE role = 'ceo' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
     // Set manager permissions
-    await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":false}'::jsonb WHERE role = 'manager' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
+    await query(`UPDATE users SET dashboard_permissions = '{"war_room":true,"expo_directory":true,"expo_detail":true,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":true}'::jsonb WHERE role = 'manager' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
     // Set agent permissions
-    await query(`UPDATE users SET dashboard_permissions = '{"war_room":false,"expo_directory":false,"expo_detail":false,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":false}'::jsonb WHERE role = 'agent' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
+    await query(`UPDATE users SET dashboard_permissions = '{"war_room":false,"expo_directory":false,"expo_detail":false,"sales":true,"logs":false,"intelligence":false,"system":false,"users":false,"settings":true}'::jsonb WHERE role = 'agent' AND (dashboard_permissions IS NULL OR dashboard_permissions = '{}'::jsonb)`);
 
     res.json({ success: true, message: 'Migration 011 applied' });
   } catch (err) {

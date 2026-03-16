@@ -1,26 +1,34 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 
 const NAV_ITEMS = [
-  { href: "/", label: "War Room" },
-  { href: "/expos", label: "Expo Directory" },
-  { href: "/sales", label: "Sales" },
-  { href: "/admin/logs", label: "Logs" },
-  { href: "/admin/intelligence", label: "Intelligence" },
-  { href: "/admin/system", label: "System" },
-  { href: "/admin", label: "Users", exact: true },
-  { href: "/settings", label: "Settings" },
+  { href: "/", label: "War Room", permission: "war_room" },
+  { href: "/expos", label: "Expo Directory", permission: "expo_directory" },
+  { href: "/sales", label: "Sales", permission: "sales" },
+  { href: "/admin/logs", label: "Logs", permission: "logs" },
+  { href: "/admin/intelligence", label: "Intelligence", permission: "intelligence" },
+  { href: "/admin/system", label: "System", permission: "system" },
+  { href: "/admin", label: "Users", exact: true, permission: "users" },
+  { href: "/settings", label: "Settings", permission: "settings" },
 ];
 
 export default function Nav({ subtitle }) {
   const router = useRouter();
   const path = router.pathname;
+  const { user } = useAuth();
+
+  const perms = user?.dashboard_permissions || {};
 
   function isActive(item) {
     if (item.exact) return path === item.href;
     if (item.href === "/") return path === "/";
     return path === item.href || path.startsWith(item.href + "/");
   }
+
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => perms[item.permission] !== false
+  );
 
   return (
     <div className="page-hdr">
@@ -31,7 +39,7 @@ export default function Nav({ subtitle }) {
         {subtitle && <div className="page-sub">{subtitle}</div>}
       </div>
       <nav className="page-nav">
-        {NAV_ITEMS.map((item) => (
+        {visibleItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}

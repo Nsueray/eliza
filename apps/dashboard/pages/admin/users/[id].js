@@ -2,7 +2,7 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { UserForm } from "./new";
+import { UserForm, ROLE_PERM_DEFAULTS } from "./new";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
@@ -20,6 +20,7 @@ export default function EditUser() {
     data_scope: "own", visible_years: [2025, 2026],
     can_see_expenses: false, can_take_notes: false, can_use_message_generator: false, can_see_financials: false,
     is_active: true,
+    dashboard_permissions: {},
   });
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function EditUser() {
           can_use_message_generator: user.can_use_message_generator || false,
           can_see_financials: user.can_see_financials || false,
           is_active: user.is_active,
+          dashboard_permissions: user.dashboard_permissions || ROLE_PERM_DEFAULTS[user.role] || {},
         });
         setLoading(false);
       })
@@ -61,6 +63,7 @@ export default function EditUser() {
       if (key === "role") {
         const scopes = { ceo: "all", manager: "team", agent: "own" };
         next.data_scope = scopes[val] || "own";
+        next.dashboard_permissions = { ...(ROLE_PERM_DEFAULTS[val] || ROLE_PERM_DEFAULTS.agent) };
       }
       return next;
     });
@@ -72,6 +75,13 @@ export default function EditUser() {
       visible_years: prev.visible_years.includes(y)
         ? prev.visible_years.filter(v => v !== y)
         : [...prev.visible_years, y].sort(),
+    }));
+  }
+
+  function setPermission(key, val) {
+    setForm(prev => ({
+      ...prev,
+      dashboard_permissions: { ...prev.dashboard_permissions, [key]: val },
     }));
   }
 
@@ -123,7 +133,7 @@ export default function EditUser() {
           </div>
         )}
 
-        <UserForm form={form} set={set} toggleYear={toggleYear} config={config} />
+        <UserForm form={form} set={set} toggleYear={toggleYear} config={config} setPermission={setPermission} />
 
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 32 }}>
           <div style={{ display: "flex", gap: 12 }}>
