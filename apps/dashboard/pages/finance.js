@@ -58,6 +58,7 @@ export default function FinancePage() {
   const [byExpo, setByExpo] = useState([]);
   const [byAgent, setByAgent] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
+  const [forecast, setForecast] = useState({ weeks: [], total_amount: 0, total_payments: 0 });
   const [loading, setLoading] = useState(true);
 
   // Action list filters
@@ -91,7 +92,8 @@ export default function FinancePage() {
       fetch(`${API}/finance/by-expo?${params}`).then(r => r.json()),
       fetch(`${API}/finance/by-agent?${params}`).then(r => r.json()),
       fetch(`${API}/finance/recent-activity?limit=20`).then(r => r.json()),
-    ]).then(([sum, al, ag, up, be, ba, ra]) => {
+      fetch(`${API}/finance/forecast?weeks=8&${params}`).then(r => r.json()),
+    ]).then(([sum, al, ag, up, be, ba, ra, fc]) => {
       setSummary(sum);
       setActionList(al || { data: [], total: 0 });
       setAging(Array.isArray(ag) ? ag : []);
@@ -99,6 +101,7 @@ export default function FinancePage() {
       setByExpo(Array.isArray(be) ? be : []);
       setByAgent(Array.isArray(ba) ? ba : []);
       setRecentActivity(Array.isArray(ra) ? ra : []);
+      setForecast(fc || { weeks: [], total_amount: 0, total_payments: 0 });
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [mode, upcomingDays]);
@@ -467,13 +470,13 @@ export default function FinancePage() {
                 <div className="summary-val">{fmtEur(summary?.due_next_30)}</div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Collection Rate</div>
-                <div className="summary-val">{summary?.collection_rate != null ? `${summary.collection_rate}%` : "N/A"}</div>
-                {summary?.has_due_dates === false && (
-                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
-                    No due dates set
-                  </div>
-                )}
+                <div className="summary-label">Deposit Rate</div>
+                <div className="summary-val" style={{ color: (summary?.deposit_rate?.percentage || 0) > 70 ? "var(--success)" : (summary?.deposit_rate?.percentage || 0) > 40 ? "var(--warning)" : "var(--danger)" }}>
+                  {summary?.deposit_rate?.percentage || 0}%
+                </div>
+                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
+                  {summary?.deposit_rate?.collected_count || 0} of {summary?.deposit_rate?.total_count || 0} deposits collected
+                </div>
               </div>
               <div className="summary-card summary-card-danger kpi-clickable" onClick={() => kpiClick("at_risk")}>
                 <div className="summary-label">At-Risk</div>
@@ -657,6 +660,58 @@ export default function FinancePage() {
                   </table>
                 </div>
               </div>
+            </div>
+
+            {/* WEEKLY CASH FORECAST */}
+            <div className="section-hdr" style={{ marginTop: 40 }}>
+              <div className="section-title">Expected Collections — Next 8 Weeks</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button className="btn-sm" onClick={() => handleCopyTable(forecast.weeks.map(w => ({
+                  Week: new Date(w.week_start).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
+                  "Expected (EUR)": Number(w.expected_amount), Payments: Number(w.payment_count), Contracts: Number(w.contract_count),
+                })), "Forecast")}>Copy</button>
+                <button className="btn-sm" onClick={() => exportCSV(forecast.weeks.map(w => ({
+                  Week: w.week_start, "Expected EUR": Number(w.expected_amount),
+                  Payments: Number(w.payment_count), Contracts: Number(w.contract_count),
+                })), "Cash_Forecast")}>CSV</button>
+                <button className="btn-sm" onClick={() => exportExcel(forecast.weeks.map(w => ({
+                  Week: w.week_start, "Expected EUR": Number(w.expected_amount),
+                  Payments: Number(w.payment_count), Contracts: Number(w.contract_count),
+                })), "Cash_Forecast")}>Excel</button>
+              </div>
+            </div>
+            {forecast.weeks.length > 0 && (
+              <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", marginBottom: 8 }}>
+                Next 8 weeks: <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{fmtEur(forecast.total_amount)}</span> expected from <span style={{ color: "var(--text-primary)" }}>{forecast.total_payments}</span> payments
+              </div>
+            )}
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Week</th>
+                  <th className="r">Expected</th>
+                  <th className="r">Payments</th>
+                  <th className="r">Contracts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {forecast.weeks.map((w, i) => (
+                  <tr key={i}>
+                    <td className="mono" style={{ whiteSpace: "nowrap" }}>
+                      {new Date(w.week_start).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                    </td>
+                    <td className="mono r" style={{ fontWeight: 500 }}>{fmtEur(w.expected_amount)}</td>
+                    <td className="mono r">{w.payment_count}</td>
+                    <td className="mono r">{w.contract_count}</td>
+                  </tr>
+                ))}
+                {forecast.weeks.length === 0 && (
+                  <tr><td colSpan={4} className="no-data">No scheduled payments</td></tr>
+                )}
+              </tbody>
+            </table>
+            <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 8, opacity: 0.7 }}>
+              * Based on estimated payment schedule (30% deposit + 70% pre-event)
             </div>
 
             {/* BY EXPO + BY AGENT — side by side */}

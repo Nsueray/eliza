@@ -890,7 +890,8 @@ function buildQuery(intent, entities) {
           COUNT(CASE WHEN collection_stage = 'no_payment' THEN 1 END) AS no_payment_count,
           COUNT(CASE WHEN collection_stage = 'partial_paid' THEN 1 END) AS partial_paid_count,
           COUNT(CASE WHEN collection_stage = 'pre_event_balance_open' THEN 1 END) AS pre_event_count
-        FROM outstanding_balances`,
+        FROM outstanding_balances
+        WHERE expo_start_date >= CURRENT_DATE`,
         params: [],
       };
     }
@@ -915,6 +916,7 @@ function buildQuery(intent, entities) {
           collection_risk_score + event_risk_score AS risk_score
         FROM outstanding_balances
         WHERE collection_stage = 'no_payment'
+          AND expo_start_date >= CURRENT_DATE
         ORDER BY contract_total_eur DESC LIMIT 50`,
         params: [],
       };
@@ -936,7 +938,7 @@ function buildQuery(intent, entities) {
           params: [fuzzyExpoPattern(expoName)],
         };
       }
-      // No expo specified — show per-expo summary
+      // No expo specified — show per-expo summary (upcoming expos only)
       return {
         sql: `SELECT expo_name,
           COUNT(*) AS contracts,
@@ -945,6 +947,7 @@ function buildQuery(intent, entities) {
           ROUND(AVG(paid_percent)::numeric, 1) AS avg_paid_percent,
           COUNT(CASE WHEN collection_stage = 'no_payment' THEN 1 END) AS no_payment_count
         FROM outstanding_balances
+        WHERE expo_start_date >= CURRENT_DATE
         GROUP BY expo_name
         ORDER BY total_outstanding_eur DESC LIMIT 30`,
         params: [],
@@ -1355,6 +1358,12 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   // "SIEMA 2026 toplam gelir?" should query edition_contracts (expo view), not fiscal_contracts
   if (intent === 'revenue_summary' && entities && entities.expo_name) {
     intent = 'expo_progress';
+  }
+
+  // Collection fix: collection_summary + expo_name → collection_expo
+  // "SIEMA tahsilat durumu?" should filter to SIEMA, not show all contracts
+  if (intent === 'collection_summary' && entities && entities.expo_name) {
+    intent = 'collection_expo';
   }
 
   // Ambiguity Gate — check answerability from semantic frame

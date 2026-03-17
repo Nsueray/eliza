@@ -174,10 +174,12 @@ Toggle: EDITION | FISCAL (üstte)
 | Outstanding | SUM(balance_eur) | Toplam alacak |
 | Overdue | SUM(balance_eur) WHERE is_overdue | Gecikmiş |
 | Due Next 30 Days | SUM(planned_amount_eur) WHERE due_date 0-30 | Yaklaşan |
-| **Collection Rate** | **paid / due-to-date * 100** | **En kritik oran** |
+| **Deposit Rate** | **paid_eur > 0 contracts / total open * 100** | **Tahsilat oranı** |
 | **At-Risk Receivable** | overdue + fuara <45 gün açık + no_payment kritik | **Aksiyon odaklı** |
 
-**At-Risk Receivable** = SUM(balance_eur) WHERE collection_stage IN ('overdue', 'pre_event_balance_open', 'deposit_missing', 'no_payment') AND collection_risk_score + event_risk_score >= 5
+**Deposit Rate** = COUNT(paid_eur > 0) / COUNT(*) * 100 — renk kodu: yeşil >70%, turuncu 40-70%, kırmızı <40%
+
+**At-Risk Receivable** = SUM(balance_eur) WHERE collection_stage IN ('overdue', 'pre_event_balance_open', 'no_payment') AND collection_risk_score + event_risk_score >= 5
 
 #### 3b. Tahsilat Aksiyon Listesi (ANA TABLO)
 
@@ -308,7 +310,7 @@ Mevcut `payment_reminder` message template'i kullanılır.
 
 ### Sprint 1B: Veri Katmanı — Views + API — ✅ COMPLETED
 - [x] outstanding_balances view (updated: deposit_missing uses contract_payment_schedule subquery)
-- [x] API: GET /api/finance/summary (8 KPIs: contract_value, collected, outstanding, overdue, due_next_30, collection_rate, at_risk, no_payment_count)
+- [x] API: GET /api/finance/summary (8 KPIs: contract_value, collected, outstanding, overdue, due_next_30, deposit_rate, at_risk, no_payment_count)
 - [x] API: GET /api/finance/action-list (filterable, sortable, paginated, suggested_action)
 - [x] API: GET /api/finance/aging (6 buckets: Current, 1-7d, 8-15d, 16-30d, 31-60d, 60+)
 - [x] API: GET /api/finance/upcoming (scheduled payments within N days)
@@ -316,6 +318,7 @@ Mevcut `payment_reminder` message template'i kullanılır.
 - [x] API: GET /api/finance/by-agent (agent-level aggregates)
 - [x] API: GET /api/finance/contract/:id/detail (single contract with payments + schedule)
 - [x] API: GET /api/finance/recent-activity (recent payment events)
+- [x] API: GET /api/finance/forecast?weeks=8 (weekly cash forecast from contract_payment_schedule)
 - [x] Cancelled fields cleanup: removed st_Payment, nd_Payment, Date_Amount_Type* from sync
 
 ### Sprint 2: Dashboard Sayfası — ✅ COMPLETED
@@ -324,6 +327,7 @@ Mevcut `payment_reminder` message template'i kullanılır.
 - [x] Company detail drawer (slide-in 480px, payment schedule + received payments)
 - [x] A/R aging chart (Chart.js bar) + upcoming collections table (7d/14d/30d/60d toggle)
 - [x] Outstanding by expo + by agent tables (side by side, sortable)
+- [x] Expected Collections — Next 8 Weeks table (weekly cash forecast, Copy/CSV/Excel export)
 - [x] Recent payments table
 - [x] Edition/Fiscal toggle
 - [x] Export: Copy/CSV/Excel per-table
@@ -345,5 +349,5 @@ Mevcut `payment_reminder` message template'i kullanılır.
 4. **ELAN EXPO internal agent** — finansal raporlarda gelir DAHİL, agent ranking HARİÇ
 5. **Default: Edition view** — yaklaşan fuarlar odaklı. Fiscal toggle ile şirket geneli.
 6. **Risk iki eksenli** — collection risk (overdue + tutar + ödeme) + event risk (fuara yakınlık + büyüklük)
-7. **Collection Rate** — collected / due-to-date (vadesi gelmemiş HARİÇ)
+7. **Deposit Rate** — paid_eur > 0 olan kontrat sayısı / toplam açık kontrat. Collection Rate kaldırıldı (due_date NULL)
 8. **Her yeni finans alanı** → CLAUDE.md'ye ve bu dokümana ekle

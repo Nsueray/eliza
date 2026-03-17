@@ -59,21 +59,20 @@ router.get('/summary', async (req, res) => {
           : `AND e.start_date >= CURRENT_DATE AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'`}
     `);
 
-    // Collection rate: paid / (paid + overdue) — only counts amounts that were due
-    const paidNum = Number(row.collected || 0);
-    const overdueNum = Number(row.overdue || 0);
-    // If no due dates are set, overdue is always 0 → rate is meaningless
-    const collectionRate = (paidNum + overdueNum) > 0
-      ? Math.round(paidNum / (paidNum + overdueNum) * 1000) / 10
-      : null;
-
-    // Check if any contracts have due_date set
-    const dueDateCheck = await query(`
-      SELECT COUNT(CASE WHEN ob.due_date IS NOT NULL THEN 1 END) AS with_due_date
+    // Deposit rate: contracts with at least one payment / total open contracts
+    const depositQuery = await query(`
+      SELECT
+        COUNT(CASE WHEN COALESCE(ob.paid_eur, 0) > 0 THEN 1 END) AS collected_count,
+        COUNT(*) AS total_count
       FROM outstanding_balances ob
       WHERE ${where}
     `);
-    const hasDueDates = Number(dueDateCheck.rows[0].with_due_date) > 0;
+    const depositRow = depositQuery.rows[0];
+    const depositCollected = Number(depositRow.collected_count || 0);
+    const depositTotal = Number(depositRow.total_count || 0);
+    const depositPercentage = depositTotal > 0
+      ? Math.round(depositCollected / depositTotal * 1000) / 10
+      : 0;
 
     res.json({
       contract_value: Number(row.contract_value),
@@ -81,8 +80,11 @@ router.get('/summary', async (req, res) => {
       outstanding: Number(row.outstanding),
       overdue: Number(row.overdue),
       due_next_30: Number(upcoming.rows[0].due_next_30),
-      collection_rate: collectionRate,
-      has_due_dates: hasDueDates,
+      deposit_rate: {
+        collected_count: depositCollected,
+        total_count: depositTotal,
+        percentage: depositPercentage,
+      },
       at_risk: Number(row.at_risk),
       no_payment_count: Number(row.no_payment_count),
       total_contracts: Number(row.total_contracts),
@@ -363,7 +365,54 @@ router.get('/contract/:id/detail', async (req, res) => {
   }
 });
 
-// ── 8. GET /api/finance/recent-activity ──
+// ── 8. GET /api/finance/forecast ──
+router.get('/forecast', async (req, res) => {
+  try {
+    const weeks = Math.min(Number(req.query.weeks) || 8, 12);
+    const mode = req.query.mode || 'edition';
+
+    const modeWhere = mode === 'fiscal'
+      ? `AND EXTRACT(YEAR FROM c.contract_date) = EXTRACT(YEAR FROM CURRENT_DATE)`
+      : `AND e.start_date >= CURRENT_DATE AND e.start_date <= CURRENT_DATE + INTERVAL '12 months'`;
+
+    const result = await query(`
+      SELECT
+        DATE_TRUNC('week', cps.due_date)::date AS week_start,
+        COALESCE(SUM(cps.planned_amount_eur), 0) AS expected_amount,
+        COUNT(*) AS payment_count,
+        COUNT(DISTINCT c.id) AS contract_count
+      FROM contract_payment_schedule cps
+      JOIN contracts c ON cps.contract_id = c.id
+      JOIN expos e ON c.expo_id = e.id
+      WHERE cps.due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '${weeks} weeks'
+        AND c.status IN ('Valid', 'Transferred In')
+        AND c.payment_done IS NOT TRUE
+        AND COALESCE(c.balance_eur, 0) > 0
+        ${modeWhere}
+      GROUP BY DATE_TRUNC('week', cps.due_date)
+      ORDER BY week_start ASC
+    `);
+
+    // Calculate totals
+    const totalAmount = result.rows.reduce((s, r) => s + Number(r.expected_amount), 0);
+    const totalPayments = result.rows.reduce((s, r) => s + Number(r.payment_count), 0);
+
+    res.json({
+      weeks: result.rows.map(r => ({
+        week_start: r.week_start,
+        expected_amount: Number(r.expected_amount),
+        payment_count: Number(r.payment_count),
+        contract_count: Number(r.contract_count),
+      })),
+      total_amount: totalAmount,
+      total_payments: totalPayments,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── 9. GET /api/finance/recent-activity ──
 router.get('/recent-activity', async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 50);

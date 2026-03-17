@@ -351,3 +351,22 @@ Rules:
 1. Changed `<style jsx>` → `<style jsx global>`, removed `position: relative` from wrapper, set z-index to 10, used opaque hex backgrounds instead of CSS variables for thead.
 2. Added 3 new intents: collection_summary, collection_no_payment, collection_expo. Router rules (before payment_status), buildQuery cases (outstanding_balances view), getDashboardLink → /finance, Sonnet prompt rule 16 for collection context.
 **Files:** apps/dashboard/pages/finance.js, packages/ai/router.js, packages/ai/queryEngine.js, apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-030] WhatsApp collection intents — SIEMA filter broken + summary numbers mismatch
+**Status:** FIXED (2026-03-17)
+**First seen:** 2026-03-17
+**Description:**
+1. "SIEMA tahsilat durumu?" returns all 247 contracts instead of filtering to SIEMA.
+2. "kaç alacağımız var?" returns wrong numbers (244 contracts €1.3M) vs dashboard (110 contracts €722k).
+3. "alacağımız" keyword not matched — normalize() converts ğ→g making "alacagimiz" which doesn't contain "alacak".
+**Root cause:**
+1. "tahsilat durumu" matches collection_summary (has `['tahsilat', 'durum']`) before collection_expo. Intent redirect missing.
+2. collection_summary SQL had no upcoming expo filter — dashboard uses edition mode (expo_start_date >= CURRENT_DATE).
+3. Turkish ğ→g accent normalization changes word stem — `['alacak']` doesn't match "alacagimiz".
+**Fix:**
+1. Added intent redirect: `collection_summary + expo_name → collection_expo` in queryEngine.js run().
+2. Added `WHERE expo_start_date >= CURRENT_DATE` to collection_summary, collection_expo (no-expo), collection_no_payment (no-expo) SQL.
+3. Added `['alacag']` keyword to collection_summary router rule (matches normalized stem).
+**Files:** packages/ai/queryEngine.js, packages/ai/router.js

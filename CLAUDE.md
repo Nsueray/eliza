@@ -604,10 +604,10 @@ Charts:
 
 Finance Page (/finance):
 - Collections Cockpit — default: Edition mode (upcoming expos)
-- 8 KPI cards: Contract Value, Collected, Outstanding, Overdue, Due Next 30d, Collection Rate, At-Risk, No Payment
+- 8 KPI cards: Contract Value, Collected, Outstanding, Overdue, Due Next 30d, Deposit Rate, At-Risk, No Payment
   - KPI cards clickable: Outstanding→reset filters, At-Risk→risk:HIGH, No Payment→stage:no_payment, Due Next 30d→scroll to upcoming, Collected→scroll to recent payments
   - Overdue KPI: shows "—" + "Due dates not set in Zoho" when due_date is NULL (currently all 244 contracts)
-  - Collection Rate: shows "N/A" when no due dates set (instead of false 100%)
+  - Deposit Rate: paid_eur > 0 contracts / total open contracts * 100, color-coded (green >70%, orange 40-70%, red <40%)
 - Collection Action List: main table with stage/risk filter chips + company search
   - Scrollable container: max-height 600px, sticky thead (border-collapse:separate, background:var(--bg)), overflow-y auto
   - Filter summary bar: "SHOWING X of Y | Balance: €X | Value: €X | Paid: €X" — updates on filter change
@@ -622,6 +622,10 @@ Finance Page (/finance):
 - Company detail drawer: 480px slide-in from right, contract info + payment schedule + received payments
 - A/R Aging: shows "Aging requires due dates" placeholder when due_date not set in Zoho; chart renders when due dates available
 - Upcoming Collections table (7d/14d/30d/60d toggle) — side by side with aging
+- Expected Collections — Next 8 Weeks: weekly cash forecast table from contract_payment_schedule (synthetic 30% deposit + 70% pre-event)
+  - Summary line: "Next 8 weeks: €X expected from Y payments"
+  - Export: Copy/CSV/Excel
+  - Note: "* Based on estimated payment schedule (30% deposit + 70% pre-event)"
 - Outstanding by Expo + by Agent tables — side by side, sortable
 - Recent Payments table (ORDER BY payment_date DESC — most recent first)
 - Export: Copy/CSV/Excel per-table (exports use filtered+sorted data)

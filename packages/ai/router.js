@@ -157,9 +157,10 @@ const RULES = [
     intent: 'collection_summary',
     keywords: [
       ['alacak'],
+      ['alacag'],
       ['tahsilat', 'ozet'],
       ['tahsilat', 'toplam'],
-      ['tahsilat', 'durum'],
+      ['tahsilat', 'genel'],
       ['outstanding'],
       ['collection', 'summary'],
       ['collection', 'status'],
