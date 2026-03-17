@@ -60,6 +60,7 @@ export default function FinancePage() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [forecast, setForecast] = useState({ weeks: [], total_amount: 0, total_payments: 0 });
   const [loading, setLoading] = useState(true);
+  const [isLight, setIsLight] = useState(false);
 
   // Action list filters
   const [stageFilter, setStageFilter] = useState("");
@@ -107,6 +108,15 @@ export default function FinancePage() {
   }, [mode, upcomingDays]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Theme detection for sticky header backgrounds
+  useEffect(() => {
+    const check = () => setIsLight(document.documentElement.getAttribute('data-theme') === 'light');
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Sort helpers
   function handleSort(setter, key) {
@@ -315,20 +325,6 @@ export default function FinancePage() {
 
         .action-text { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 
-        .action-list-wrap {
-          max-height: 600px; overflow-y: auto; overflow-x: auto;
-          border: 1px solid var(--border); border-radius: 4px;
-        }
-        .action-list-wrap .tbl { margin: 0; border-collapse: separate; border-spacing: 0; }
-        .action-list-wrap .tbl thead th {
-          position: sticky; top: 0; z-index: 10;
-          background: #080B10;
-          border-bottom: 2px solid var(--border);
-        }
-        [data-theme="light"] .action-list-wrap .tbl thead th {
-          background: #F5F5F5;
-        }
-
         .filter-summary {
           display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
           font-family: "DM Mono", monospace; font-size: 11px; color: var(--text-secondary);
@@ -529,22 +525,37 @@ export default function FinancePage() {
               <span className="fs-sep">|</span>
               <span>Paid: <span className="fs-val">{fmtEur(filteredTotals.paid)}</span></span>
             </div>
-            <div className="action-list-wrap">
-              <table className="tbl tbl-clickable">
+            <div style={{ maxHeight: 600, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 4 }}>
+              <table className="tbl tbl-clickable" style={{ margin: 0, borderCollapse: 'separate', borderSpacing: 0 }}>
                 <thead>
                   <tr>
-                    <th onClick={() => handleSort(setActionSort, "company_name")} style={{ minWidth: 180 }}>Company{sortIcon(actionSort, "company_name")}</th>
-                    <th onClick={() => handleSort(setActionSort, "expo_name")} style={{ minWidth: 120 }}>Expo{sortIcon(actionSort, "expo_name")}</th>
-                    <th onClick={() => handleSort(setActionSort, "af_number")} className="col-af" style={{ minWidth: 80 }}>AF{sortIcon(actionSort, "af_number")}</th>
-                    <th onClick={() => handleSort(setActionSort, "sales_agent")} style={{ minWidth: 100 }}>Agent{sortIcon(actionSort, "sales_agent")}</th>
-                    <th onClick={() => handleSort(setActionSort, "contract_total_eur")} className="r" style={{ minWidth: 90 }}>Contract{sortIcon(actionSort, "contract_total_eur")}</th>
-                    <th onClick={() => handleSort(setActionSort, "paid_eur")} className="r" style={{ minWidth: 80 }}>Paid{sortIcon(actionSort, "paid_eur")}</th>
-                    <th onClick={() => handleSort(setActionSort, "balance_eur")} className="r" style={{ minWidth: 90 }}>Balance{sortIcon(actionSort, "balance_eur")}</th>
-                    <th onClick={() => handleSort(setActionSort, "paid_percent")} className="r col-paidpct" style={{ minWidth: 60 }}>Paid %{sortIcon(actionSort, "paid_percent")}</th>
-                    <th onClick={() => handleSort(setActionSort, "days_to_expo")} className="r" style={{ minWidth: 70 }}>To Expo{sortIcon(actionSort, "days_to_expo")}</th>
-                    <th onClick={() => handleSort(setActionSort, "collection_stage")} style={{ minWidth: 100 }}>Stage{sortIcon(actionSort, "collection_stage")}</th>
-                    <th onClick={() => handleSort(setActionSort, "total_risk_score")} style={{ minWidth: 60 }}>Risk{sortIcon(actionSort, "total_risk_score")}</th>
-                    <th style={{ minWidth: 160 }}>Action</th>
+                    {[
+                      { key: "company_name", label: "Company", min: 180 },
+                      { key: "expo_name", label: "Expo", min: 120 },
+                      { key: "af_number", label: "AF", min: 80, cls: "col-af" },
+                      { key: "sales_agent", label: "Agent", min: 100 },
+                      { key: "contract_total_eur", label: "Contract", min: 90, align: "right" },
+                      { key: "paid_eur", label: "Paid", min: 80, align: "right" },
+                      { key: "balance_eur", label: "Balance", min: 90, align: "right" },
+                      { key: "paid_percent", label: "Paid %", min: 60, align: "right", cls: "col-paidpct" },
+                      { key: "days_to_expo", label: "To Expo", min: 70, align: "right" },
+                      { key: "collection_stage", label: "Stage", min: 100 },
+                      { key: "total_risk_score", label: "Risk", min: 60 },
+                      { key: null, label: "Action", min: 160 },
+                    ].map(col => (
+                      <th key={col.label}
+                        className={[col.cls, col.align === "right" ? "r" : ""].filter(Boolean).join(" ")}
+                        onClick={col.key ? () => handleSort(setActionSort, col.key) : undefined}
+                        style={{
+                          position: 'sticky', top: 0, zIndex: 10,
+                          background: isLight ? '#FFFFFF' : '#080B10',
+                          borderBottom: isLight ? '2px solid #ddd' : '2px solid #333',
+                          minWidth: col.min, cursor: col.key ? 'pointer' : 'default',
+                          whiteSpace: 'nowrap',
+                        }}>
+                        {col.label}{col.key ? sortIcon(actionSort, col.key) : ""}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>

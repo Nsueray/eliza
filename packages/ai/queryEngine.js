@@ -900,24 +900,36 @@ function buildQuery(intent, entities) {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
       if (hasExpo) {
         return {
-          sql: `SELECT company_name, expo_name, contract_total_eur AS total_eur,
-            sales_agent, contract_date, days_to_expo,
-            collection_risk_score + event_risk_score AS risk_score
-          FROM outstanding_balances
-          WHERE collection_stage = 'no_payment'
-            AND expo_name ILIKE $1
-          ORDER BY contract_total_eur DESC LIMIT 50`,
+          sql: `WITH matched AS (
+            SELECT company_name, expo_name, contract_total_eur AS total_eur,
+              sales_agent, contract_date, days_to_expo,
+              collection_risk_score + event_risk_score AS risk_score
+            FROM outstanding_balances
+            WHERE collection_stage = 'no_payment' AND expo_name ILIKE $1
+          )
+          SELECT 'TOTAL: ' || COUNT(*) || ' no-payment contracts' AS company_name,
+            '' AS expo_name, ROUND(SUM(total_eur)::numeric, 2) AS total_eur,
+            '' AS sales_agent, NULL AS contract_date, NULL AS days_to_expo, 0 AS risk_score
+          FROM matched
+          UNION ALL
+          (SELECT * FROM matched ORDER BY total_eur DESC LIMIT 10)`,
           params: [fuzzyExpoPattern(e.expo_name)],
         };
       }
       return {
-        sql: `SELECT company_name, expo_name, contract_total_eur AS total_eur,
-          sales_agent, contract_date, days_to_expo,
-          collection_risk_score + event_risk_score AS risk_score
-        FROM outstanding_balances
-        WHERE collection_stage = 'no_payment'
-          AND expo_start_date >= CURRENT_DATE
-        ORDER BY contract_total_eur DESC LIMIT 50`,
+        sql: `WITH matched AS (
+          SELECT company_name, expo_name, contract_total_eur AS total_eur,
+            sales_agent, contract_date, days_to_expo,
+            collection_risk_score + event_risk_score AS risk_score
+          FROM outstanding_balances
+          WHERE collection_stage = 'no_payment' AND expo_start_date >= CURRENT_DATE
+        )
+        SELECT 'TOTAL: ' || COUNT(*) || ' no-payment contracts' AS company_name,
+          '' AS expo_name, ROUND(SUM(total_eur)::numeric, 2) AS total_eur,
+          '' AS sales_agent, NULL AS contract_date, NULL AS days_to_expo, 0 AS risk_score
+        FROM matched
+        UNION ALL
+        (SELECT * FROM matched ORDER BY total_eur DESC LIMIT 10)`,
         params: [],
       };
     }
@@ -925,16 +937,26 @@ function buildQuery(intent, entities) {
     case 'collection_expo': {
       const expoName = e.expo_name && e.expo_name.length > 0 ? e.expo_name : null;
       if (expoName) {
+        // CTE: summary row first (always visible to Sonnet), then top 10 detail rows
         return {
-          sql: `SELECT company_name, collection_stage,
-            ROUND(contract_total_eur::numeric, 2) AS total_eur,
-            ROUND(paid_eur::numeric, 2) AS paid_eur,
-            ROUND(balance_eur::numeric, 2) AS balance_eur,
-            paid_percent, sales_agent,
-            collection_risk_score + event_risk_score AS risk_score
-          FROM outstanding_balances
-          WHERE expo_name ILIKE $1
-          ORDER BY balance_eur DESC LIMIT 50`,
+          sql: `WITH matched AS (
+            SELECT company_name, collection_stage,
+              contract_total_eur AS total_eur, paid_eur, balance_eur,
+              paid_percent, sales_agent,
+              collection_risk_score + event_risk_score AS risk_score
+            FROM outstanding_balances
+            WHERE expo_name ILIKE $1
+          )
+          SELECT 'TOTAL: ' || COUNT(*) || ' contracts' AS company_name,
+            COUNT(CASE WHEN COALESCE(paid_eur, 0) = 0 THEN 1 END) || ' no payment' AS collection_stage,
+            ROUND(SUM(total_eur)::numeric, 2) AS total_eur,
+            ROUND(SUM(paid_eur)::numeric, 2) AS paid_eur,
+            ROUND(SUM(balance_eur)::numeric, 2) AS balance_eur,
+            ROUND(AVG(paid_percent)::numeric, 1) AS paid_percent,
+            '' AS sales_agent, 0 AS risk_score
+          FROM matched
+          UNION ALL
+          (SELECT * FROM matched ORDER BY balance_eur DESC LIMIT 10)`,
           params: [fuzzyExpoPattern(expoName)],
         };
       }
@@ -1206,7 +1228,7 @@ function applyScope(sql, params, intent, user) {
 function validateSQL(sql) {
   const upper = sql.toUpperCase().trim();
 
-  if (!upper.startsWith('SELECT')) {
+  if (!upper.startsWith('SELECT') && !upper.startsWith('WITH')) {
     throw new Error('Only SELECT queries are allowed');
   }
 
