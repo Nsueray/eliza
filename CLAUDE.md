@@ -606,14 +606,22 @@ Finance Page (/finance):
 - Collections Cockpit — default: Edition mode (upcoming expos)
 - 8 KPI cards: Contract Value, Collected, Outstanding, Overdue, Due Next 30d, Collection Rate, At-Risk, No Payment
 - Collection Action List: main table with stage/risk filter chips + company search
+  - Client-side filtering: stage, risk, multi-field search (company, AF, expo, agent, country)
+  - Client-side sorting: all 13 columns sortable via th onClick (Number coercion for numeric cols)
+  - Default sort: total_risk_score DESC
+  - Fetches all records once (limit=500), no server-side filter re-fetch
+  - Shows "X of Y contracts" when filtered
+  - Responsive: AF, Paid%, Overdue columns hidden on mobile (<768px)
+  - All suggested_action text in English
 - Company detail drawer: 480px slide-in from right, contract info + payment schedule + received payments
 - A/R Aging chart + Upcoming Collections table (7d/14d/30d/60d toggle) — side by side
 - Outstanding by Expo + by Agent tables — side by side, sortable
 - Recent Payments table
-- Export: Copy/CSV/Excel per-table
+- Export: Copy/CSV/Excel per-table (exports use filtered+sorted data)
 - Stage badge colors: deposit_missing (#9B59B6), no_payment (#C0392B), overdue (#E67E22), pre_event_balance_open (#D4A017), partial_paid (#4A9EBF)
 - Risk badge colors: CRITICAL (#C0392B), HIGH (#E67E22), WATCH (#D4A017), OK (#2ECC71)
 - Mode filter: edition (expo_start_date within 12 months) vs fiscal (contract_date current year)
+- Dual currency parsing: Zoho Received_Payment "X (€Y)" → extract EUR value, preserve original in note
 
 Design:
 - Design system: styles/design-system.css (single source of truth)

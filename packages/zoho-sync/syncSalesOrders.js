@@ -104,16 +104,40 @@ async function syncReceivedPayments(contractId, afNumber, receivedPayments) {
 
   let count = 0;
   for (const payment of receivedPayments) {
-    const amount = payment.Payment ?? payment.payment ?? null;
+    const rawAmount = payment.Payment ?? payment.payment ?? null;
     const date = payment.Date ?? payment.date ?? null;
-    const note = payment.Note ?? payment.note ?? null;
+    let note = payment.Note ?? payment.note ?? null;
 
-    if (amount == null || amount <= 0) continue;
+    if (rawAmount == null) continue;
+
+    // Parse dual-currency format: "12,960.00 (€1,186.81)" → extract EUR value
+    let amountEur = null;
+    if (typeof rawAmount === 'string') {
+      const eurMatch = rawAmount.match(/\(€([\d,.\s]+)\)/);
+      if (eurMatch) {
+        // Dual currency format — extract EUR from parentheses
+        const eurStr = eurMatch[1].replace(/[\s,]/g, '').replace(',', '.');
+        amountEur = parseFloat(eurStr);
+        // Preserve original currency info in note
+        const originalPart = rawAmount.replace(/\s*\(€[\d,.\s]+\)/, '').trim();
+        if (originalPart && amountEur) {
+          note = note ? `${note} | ${originalPart} → €${amountEur}` : `${originalPart} → €${amountEur}`;
+        }
+      } else {
+        // Plain string number — parse directly
+        const cleaned = rawAmount.replace(/[\s,]/g, '');
+        amountEur = parseFloat(cleaned);
+      }
+    } else {
+      amountEur = Number(rawAmount);
+    }
+
+    if (amountEur == null || isNaN(amountEur) || amountEur <= 0) continue;
 
     await query(
       `INSERT INTO contract_payments (contract_id, af_number, payment_date, amount_eur, note)
        VALUES ($1, $2, $3, $4, $5)`,
-      [contractId, afNumber, date || null, amount, note || null]
+      [contractId, afNumber, date || null, amountEur, note || null]
     );
     count++;
   }

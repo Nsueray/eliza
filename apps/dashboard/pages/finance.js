@@ -66,7 +66,7 @@ export default function FinancePage() {
   const [stageFilter, setStageFilter] = useState("");
   const [riskFilter, setRiskFilter] = useState("");
   const [searchFilter, setSearchFilter] = useState("");
-  const [actionSort, setActionSort] = useState({ key: "(ob.collection_risk_score + ob.event_risk_score)", dir: "desc" });
+  const [actionSort, setActionSort] = useState({ key: "total_risk_score", dir: "desc" });
   const [upcomingDays, setUpcomingDays] = useState(30);
   const [copyFeedback, setCopyFeedback] = useState("");
 
@@ -83,7 +83,7 @@ export default function FinancePage() {
     const params = `mode=${mode}`;
     Promise.all([
       fetch(`${API}/finance/summary?${params}`).then(r => r.json()),
-      fetch(`${API}/finance/action-list?${params}&stage=${stageFilter}&risk=${riskFilter}&search=${encodeURIComponent(searchFilter)}`).then(r => r.json()),
+      fetch(`${API}/finance/action-list?${params}&limit=500`).then(r => r.json()),
       fetch(`${API}/finance/aging?${params}`).then(r => r.json()),
       fetch(`${API}/finance/upcoming?days=${upcomingDays}&${params}`).then(r => r.json()),
       fetch(`${API}/finance/by-expo?${params}`).then(r => r.json()),
@@ -99,7 +99,7 @@ export default function FinancePage() {
       setRecentActivity(Array.isArray(ra) ? ra : []);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [mode, stageFilter, riskFilter, searchFilter, upcomingDays]);
+  }, [mode, upcomingDays]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -123,6 +123,23 @@ export default function FinancePage() {
 
   const sortedExpos = sortData(byExpo, expoSort);
   const sortedAgents = sortData(byAgent, agentSort);
+
+  // Client-side filtering + sorting for action list
+  const allActions = actionList.data || [];
+  const filteredActions = allActions.filter(r => {
+    if (stageFilter && r.collection_stage !== stageFilter) return false;
+    if (riskFilter) {
+      const rl = riskLevel(r.total_risk_score).label;
+      if (rl !== riskFilter) return false;
+    }
+    if (searchFilter) {
+      const q = searchFilter.toLowerCase();
+      const fields = [r.company_name, r.af_number, r.expo_name, r.sales_agent, r.country].map(f => (f || "").toLowerCase());
+      if (!fields.some(f => f.includes(q))) return false;
+    }
+    return true;
+  });
+  const sortedActions = sortData(filteredActions, actionSort);
 
   // Drawer: open contract detail
   async function openDrawer(contractId) {
@@ -181,7 +198,7 @@ export default function FinancePage() {
   }
 
   function buildActionRows() {
-    return (actionList.data || []).map(r => ({
+    return sortedActions.map(r => ({
       Company: r.company_name || "",
       Expo: r.expo_name || "",
       AF: r.af_number || "",
@@ -337,6 +354,7 @@ export default function FinancePage() {
           .two-col { grid-template-columns: 1fr; }
           .drawer { width: 100%; }
           .chart-wrap { height: 220px; }
+          .col-af, .col-paidpct, .col-overdue { display: none; }
         }
         @media (max-width: 480px) {
           .kpi-row { grid-template-columns: 1fr; }
@@ -433,7 +451,7 @@ export default function FinancePage() {
               <div className="section-title">Collection Action List</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1 }}>
-                  {actionList.total || 0} contracts
+                  {filteredActions.length === allActions.length ? `${allActions.length} contracts` : `${filteredActions.length} of ${allActions.length} contracts`}
                 </span>
                 <button className="btn-sm" onClick={() => handleCopyTable(buildActionRows(), "Actions")}>Copy</button>
                 <button className="btn-sm" onClick={() => exportCSV(buildActionRows(), "Collection_Actions")}>CSV</button>
@@ -444,36 +462,36 @@ export default function FinancePage() {
               <table className="tbl tbl-clickable">
                 <thead>
                   <tr>
-                    <th>Company</th>
-                    <th>Expo</th>
-                    <th>AF</th>
-                    <th>Agent</th>
-                    <th className="r">Contract</th>
-                    <th className="r">Paid</th>
-                    <th className="r">Balance</th>
-                    <th className="r">Paid %</th>
-                    <th className="r">Overdue</th>
-                    <th className="r">To Expo</th>
-                    <th>Stage</th>
-                    <th>Risk</th>
-                    <th>Action</th>
+                    <th onClick={() => handleSort(setActionSort, "company_name")} style={{ minWidth: 180 }}>Company{sortIcon(actionSort, "company_name")}</th>
+                    <th onClick={() => handleSort(setActionSort, "expo_name")} style={{ minWidth: 120 }}>Expo{sortIcon(actionSort, "expo_name")}</th>
+                    <th onClick={() => handleSort(setActionSort, "af_number")} className="col-af" style={{ minWidth: 80 }}>AF{sortIcon(actionSort, "af_number")}</th>
+                    <th onClick={() => handleSort(setActionSort, "sales_agent")} style={{ minWidth: 100 }}>Agent{sortIcon(actionSort, "sales_agent")}</th>
+                    <th onClick={() => handleSort(setActionSort, "contract_total_eur")} className="r" style={{ minWidth: 90 }}>Contract{sortIcon(actionSort, "contract_total_eur")}</th>
+                    <th onClick={() => handleSort(setActionSort, "paid_eur")} className="r" style={{ minWidth: 80 }}>Paid{sortIcon(actionSort, "paid_eur")}</th>
+                    <th onClick={() => handleSort(setActionSort, "balance_eur")} className="r" style={{ minWidth: 90 }}>Balance{sortIcon(actionSort, "balance_eur")}</th>
+                    <th onClick={() => handleSort(setActionSort, "paid_percent")} className="r col-paidpct" style={{ minWidth: 60 }}>Paid %{sortIcon(actionSort, "paid_percent")}</th>
+                    <th onClick={() => handleSort(setActionSort, "days_overdue")} className="r col-overdue" style={{ minWidth: 70 }}>Overdue{sortIcon(actionSort, "days_overdue")}</th>
+                    <th onClick={() => handleSort(setActionSort, "days_to_expo")} className="r" style={{ minWidth: 70 }}>To Expo{sortIcon(actionSort, "days_to_expo")}</th>
+                    <th onClick={() => handleSort(setActionSort, "collection_stage")} style={{ minWidth: 100 }}>Stage{sortIcon(actionSort, "collection_stage")}</th>
+                    <th onClick={() => handleSort(setActionSort, "total_risk_score")} style={{ minWidth: 60 }}>Risk{sortIcon(actionSort, "total_risk_score")}</th>
+                    <th style={{ minWidth: 160 }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(actionList.data || []).map((r, i) => {
+                  {sortedActions.map((r, i) => {
                     const risk = riskLevel(r.total_risk_score);
                     const stageColor = STAGE_COLORS[r.collection_stage] || "#5A7080";
                     return (
                       <tr key={i} onClick={() => openDrawer(r.id)}>
-                        <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company_name}</td>
+                        <td style={{ minWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company_name}</td>
                         <td className="muted" style={{ whiteSpace: "nowrap" }}>{r.expo_name}</td>
-                        <td className="mono" style={{ fontSize: 11, whiteSpace: "nowrap" }}>{r.af_number}</td>
+                        <td className="mono col-af" style={{ fontSize: 11, whiteSpace: "nowrap" }}>{r.af_number}</td>
                         <td className="muted" style={{ whiteSpace: "nowrap" }}>{r.sales_agent}</td>
                         <td className="mono r">{fmtEur(r.contract_total_eur)}</td>
                         <td className="mono r">{fmtEur(r.paid_eur)}</td>
                         <td className="mono r" style={{ fontWeight: 500 }}>{fmtEur(r.balance_eur)}</td>
-                        <td className="mono r">{r.paid_percent}%</td>
-                        <td className="mono r" style={{ color: Number(r.days_overdue) > 0 ? "var(--danger)" : "var(--text-secondary)" }}>
+                        <td className="mono r col-paidpct">{r.paid_percent}%</td>
+                        <td className="mono r col-overdue" style={{ color: Number(r.days_overdue) > 0 ? "var(--danger)" : "var(--text-secondary)" }}>
                           {r.days_overdue > 0 ? r.days_overdue + "d" : "-"}
                         </td>
                         <td className="mono r">{r.days_to_expo != null ? r.days_to_expo + "d" : "-"}</td>
@@ -491,7 +509,7 @@ export default function FinancePage() {
                       </tr>
                     );
                   })}
-                  {(!actionList.data || actionList.data.length === 0) && (
+                  {sortedActions.length === 0 && (
                     <tr><td colSpan={13} className="no-data">No outstanding balances</td></tr>
                   )}
                 </tbody>

@@ -124,7 +124,7 @@ router.get('/action-list', async (req, res) => {
     const sortDir = order === 'asc' ? 'ASC' : 'DESC';
     const secondarySort = sortCol.includes('risk') ? ', ob.days_to_expo ASC NULLS LAST' : '';
 
-    const lim = Math.min(Number(limit) || 100, 500);
+    const lim = Math.min(Number(limit) || 500, 500);
     const off = Number(offset) || 0;
 
     const result = await query(`
@@ -145,24 +145,24 @@ router.get('/action-list', async (req, res) => {
 
     // Add suggested_action to each row
     const rows = result.rows.map(r => {
-      let action = 'Planinda';
+      let action = 'On track';
       const daysToExpo = Number(r.days_to_expo);
       const daysOverdue = Number(r.days_overdue);
 
       if (r.collection_stage === 'deposit_missing') {
-        action = 'Kapora iste';
+        action = 'Request deposit';
       } else if (r.collection_stage === 'no_payment' && daysToExpo < 60) {
-        action = `ACiL — hic odeme yok, fuara ${daysToExpo} gun`;
+        action = `URGENT — no payment, ${daysToExpo}d to expo`;
       } else if (r.collection_stage === 'no_payment') {
-        action = 'Odeme takibi baslat';
+        action = 'Follow up payment';
       } else if (r.collection_stage === 'overdue' && daysOverdue > 30) {
-        action = `Escalation — ${daysOverdue} gun gecikmis`;
+        action = `Escalation — ${daysOverdue}d overdue`;
       } else if (r.collection_stage === 'overdue') {
-        action = `Odeme takibi — ${daysOverdue} gun gecikmis`;
+        action = `Follow up payment — ${daysOverdue}d overdue`;
       } else if (r.collection_stage === 'pre_event_balance_open') {
-        action = `Fuar oncesi bakiye kapat — fuara ${daysToExpo} gun`;
+        action = `Pre-event balance close — ${daysToExpo}d to expo`;
       } else if (r.collection_stage === 'partial_paid' && r.days_to_due !== null && Number(r.days_to_due) < 30) {
-        action = 'Taksit hatirlatma';
+        action = 'Installment reminder';
       }
 
       return { ...r, suggested_action: action };
