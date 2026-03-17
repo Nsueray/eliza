@@ -102,10 +102,9 @@ SELECT
   -- İlk ve son ödeme tarihleri
   (SELECT MIN(cp.payment_date) FROM contract_payments cp WHERE cp.contract_id = c.id) AS first_payment_date,
   (SELECT MAX(cp.payment_date) FROM contract_payments cp WHERE cp.contract_id = c.id) AS last_payment_date,
-  -- Collection stage
-  CASE 
+  -- Collection stage (simplified: no deposit_missing — merged into no_payment)
+  CASE
     WHEN c.payment_done = true THEN 'paid_complete'
-    WHEN COALESCE(c.paid_eur, 0) = 0 AND COALESCE(c.first_payment_eur, 0) > 0 THEN 'deposit_missing'
     WHEN COALESCE(c.paid_eur, 0) = 0 THEN 'no_payment'
     WHEN c.due_date < CURRENT_DATE AND COALESCE(c.balance_eur, 0) > 0 THEN 'overdue'
     WHEN e.start_date IS NOT NULL AND (e.start_date::date - CURRENT_DATE) < 45 AND COALESCE(c.balance_eur, 0) > 0 THEN 'pre_event_balance_open'
@@ -147,13 +146,15 @@ WHERE c.status IN ('Valid', 'Transferred In')
 
 | Stage | Açıklama | Renk |
 |-------|----------|------|
-| deposit_missing | Kapora isteniyor ama gelmemiş | Mor |
-| no_payment | Hiç ödeme yapmamış | Kırmızı |
-| overdue | Vadesi geçmiş, bakiye açık | Turuncu |
+| no_payment | Hiç ödeme yapmamış (deposit_missing buraya merge edildi) | Kırmızı |
+| overdue | Vadesi geçmiş, bakiye açık (şu an inaktif — due_date Zoho'da NULL) | Turuncu |
 | pre_event_balance_open | Fuara <45 gün, bakiye açık | Sarı |
 | partial_paid | Kısmen ödenmiş, vade geçmemiş | Mavi |
 | paid_complete | Ödeme tamamlanmış | Yeşil |
 | ok | Normal durumda | Gri |
+
+**Not:** `deposit_missing` stage kaldırıldı (migration 015). Zoho'daki st_Payment/nd_Payment alanları cancelled — her zaman NULL. `no_payment` stage tüm ödenmemiş kontratları kapsar.
+**Not:** `overdue` stage SQL'de korunuyor ama şu an aktif değil — 244 açık kontratın hepsinde due_date = NULL. Zoho'da Due_Date kullanılmaya başlarsa otomatik çalışacak.
 
 ---
 
@@ -202,13 +203,13 @@ Sortable, filterable, per-table export (Copy/CSV/Excel).
 | Action | Önerilen aksiyon (otomatik) |
 
 Önerilen aksiyonlar:
-- `deposit_missing`: "Kapora iste"
-- `no_payment` + fuara <60 gün: "⚠️ ACİL — hiç ödeme yok, fuara X gün"
-- `overdue` + >30 gün: "Escalation — X gün gecikmiş"
-- `overdue` + <30 gün: "Ödeme takibi — X gün gecikmiş"
-- `pre_event_balance_open`: "Fuar öncesi bakiye kapatma — fuara X gün"
-- `partial_paid` + due_soon: "Sonraki taksit hatırlatma"
-- `ok`: "Planında"
+- `no_payment` + fuara <60 gün: "URGENT — no payment, Xd to expo"
+- `no_payment`: "Request deposit"
+- `overdue` + >30 gün: "Escalation — Xd overdue"
+- `overdue` + <30 gün: "Follow up payment — Xd overdue"
+- `pre_event_balance_open`: "Pre-event balance close — Xd to expo"
+- `partial_paid` + due_soon: "Installment reminder"
+- `ok`: "On track"
 
 Default sıralama: Risk score DESC → Days to Expo ASC
 

@@ -605,27 +605,31 @@ Charts:
 Finance Page (/finance):
 - Collections Cockpit — default: Edition mode (upcoming expos)
 - 8 KPI cards: Contract Value, Collected, Outstanding, Overdue, Due Next 30d, Collection Rate, At-Risk, No Payment
-  - KPI cards clickable: Outstanding→reset filters, Overdue→stage:overdue, At-Risk→risk:HIGH, No Payment→stage:no_payment, Due Next 30d→scroll to upcoming, Collected→scroll to recent payments
-  - Overdue KPI: shows "No due dates set" when contracts have no due_date (currently 0/244 have due_date)
+  - KPI cards clickable: Outstanding→reset filters, At-Risk→risk:HIGH, No Payment→stage:no_payment, Due Next 30d→scroll to upcoming, Collected→scroll to recent payments
+  - Overdue KPI: shows "—" + "Due dates not set in Zoho" when due_date is NULL (currently all 244 contracts)
   - Collection Rate: shows "N/A" when no due dates set (instead of false 100%)
 - Collection Action List: main table with stage/risk filter chips + company search
-  - Scrollable container: max-height 600px, sticky thead, overflow-y auto (~15-20 rows visible)
+  - Scrollable container: max-height 600px, sticky thead (border-collapse:separate, background:var(--bg)), overflow-y auto
   - Filter summary bar: "SHOWING X of Y | Balance: €X | Value: €X | Paid: €X" — updates on filter change
+  - Stage filter chips: [All] [No Payment] [Pre-Event Open] [Partial Paid] — deposit_missing and overdue removed
   - Client-side filtering: stage, risk, multi-field search (company, AF, expo, agent, country)
-  - Client-side sorting: all 13 columns sortable via th onClick (Number coercion for numeric cols)
+  - Client-side sorting: all 11 columns sortable via th onClick (Number coercion for numeric cols)
+  - Columns: Company, Expo, AF, Agent, Contract, Paid, Balance, Paid%, To Expo, Stage, Risk, Action — Overdue column removed (data always 0)
   - Default sort: total_risk_score DESC, default filter: All (no stage/risk pre-selected)
   - Fetches all records once (limit=500), no server-side filter re-fetch
-  - Responsive: AF, Paid%, Overdue columns hidden on mobile (<768px)
+  - Responsive: AF, Paid% columns hidden on mobile (<768px)
   - All suggested_action text in English
 - Company detail drawer: 480px slide-in from right, contract info + payment schedule + received payments
-- A/R Aging chart + Upcoming Collections table (7d/14d/30d/60d toggle) — side by side
+- A/R Aging: shows "Aging requires due dates" placeholder when due_date not set in Zoho; chart renders when due dates available
+- Upcoming Collections table (7d/14d/30d/60d toggle) — side by side with aging
 - Outstanding by Expo + by Agent tables — side by side, sortable
 - Recent Payments table (ORDER BY payment_date DESC — most recent first)
 - Export: Copy/CSV/Excel per-table (exports use filtered+sorted data)
-- Stage badge colors: deposit_missing (#9B59B6), no_payment (#C0392B), overdue (#E67E22), pre_event_balance_open (#D4A017), partial_paid (#4A9EBF)
+- Stage badge colors: no_payment (#C0392B), overdue (#E67E22), pre_event_balance_open (#D4A017), partial_paid (#4A9EBF)
 - Risk badge colors: CRITICAL (#C0392B), HIGH (#E67E22), WATCH (#D4A017), OK (#2ECC71)
 - Mode filter: edition (expo_start_date within 12 months) vs fiscal (contract_date current year)
 - Dual currency parsing: Zoho Received_Payment "X (€Y)" → extract EUR value, preserve original in note
+- Collection stages simplified (migration 015): deposit_missing merged into no_payment, overdue kept in SQL but inactive (due_date NULL)
 - Known data issue: contracts.due_date is NULL for all 244 open contracts (Zoho Due_Date field not populated)
 
 Design:

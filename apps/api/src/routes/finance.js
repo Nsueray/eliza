@@ -32,7 +32,7 @@ router.get('/summary', async (req, res) => {
         COALESCE(SUM(ob.paid_eur), 0) AS collected,
         COALESCE(SUM(ob.balance_eur), 0) AS outstanding,
         COALESCE(SUM(CASE WHEN ob.is_overdue THEN ob.balance_eur ELSE 0 END), 0) AS overdue,
-        COALESCE(SUM(CASE WHEN ob.collection_stage IN ('overdue','pre_event_balance_open','deposit_missing','no_payment')
+        COALESCE(SUM(CASE WHEN ob.collection_stage IN ('overdue','pre_event_balance_open','no_payment')
           AND (ob.collection_risk_score + ob.event_risk_score) >= 5
           THEN ob.balance_eur ELSE 0 END), 0) AS at_risk,
         COUNT(*) AS total_contracts,
@@ -159,12 +159,10 @@ router.get('/action-list', async (req, res) => {
       const daysToExpo = Number(r.days_to_expo);
       const daysOverdue = Number(r.days_overdue);
 
-      if (r.collection_stage === 'deposit_missing') {
-        action = 'Request deposit';
-      } else if (r.collection_stage === 'no_payment' && daysToExpo < 60) {
+      if (r.collection_stage === 'no_payment' && daysToExpo < 60) {
         action = `URGENT — no payment, ${daysToExpo}d to expo`;
       } else if (r.collection_stage === 'no_payment') {
-        action = 'Follow up payment';
+        action = 'Request deposit';
       } else if (r.collection_stage === 'overdue' && daysOverdue > 30) {
         action = `Escalation — ${daysOverdue}d overdue`;
       } else if (r.collection_stage === 'overdue') {
@@ -281,10 +279,10 @@ router.get('/by-expo', async (req, res) => {
         COALESCE(SUM(ob.balance_eur), 0) AS outstanding,
         CASE WHEN SUM(ob.contract_total_eur) > 0
           THEN ROUND((SUM(ob.paid_eur) / SUM(ob.contract_total_eur) * 100)::numeric, 1) ELSE 0 END AS collection_pct,
-        COALESCE(SUM(CASE WHEN ob.collection_stage IN ('overdue','pre_event_balance_open','deposit_missing','no_payment')
+        COALESCE(SUM(CASE WHEN ob.collection_stage IN ('overdue','pre_event_balance_open','no_payment')
           AND (ob.collection_risk_score + ob.event_risk_score) >= 5
           THEN ob.balance_eur ELSE 0 END), 0) AS at_risk,
-        COUNT(CASE WHEN ob.collection_stage IN ('deposit_missing','no_payment') THEN 1 END) AS critical_count,
+        COUNT(CASE WHEN ob.collection_stage = 'no_payment' THEN 1 END) AS critical_count,
         COUNT(*) AS contracts
       FROM outstanding_balances ob
       WHERE ${where}

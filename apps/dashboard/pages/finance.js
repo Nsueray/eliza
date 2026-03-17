@@ -24,7 +24,6 @@ function fmtEur(n) {
 }
 
 const STAGE_COLORS = {
-  deposit_missing: "#9B59B6",
   no_payment: "#C0392B",
   overdue: "#E67E22",
   pre_event_balance_open: "#D4A017",
@@ -34,7 +33,6 @@ const STAGE_COLORS = {
 };
 
 const STAGE_LABELS = {
-  deposit_missing: "Deposit Missing",
   no_payment: "No Payment",
   overdue: "Overdue",
   pre_event_balance_open: "Pre-Event Open",
@@ -157,7 +155,6 @@ export default function FinancePage() {
   // KPI click handlers
   function kpiClick(type) {
     if (type === "outstanding") { setStageFilter(""); setRiskFilter(""); }
-    else if (type === "overdue") { setStageFilter("overdue"); setRiskFilter(""); }
     else if (type === "at_risk") { setStageFilter(""); setRiskFilter("HIGH"); }
     else if (type === "no_payment") { setStageFilter("no_payment"); setRiskFilter(""); }
     else if (type === "upcoming") { upcomingRef.current?.scrollIntoView({ behavior: "smooth" }); return; }
@@ -230,7 +227,6 @@ export default function FinancePage() {
       "Paid (EUR)": Number(r.paid_eur || 0),
       "Balance (EUR)": Number(r.balance_eur || 0),
       "Paid %": Number(r.paid_percent || 0),
-      "Days Overdue": Number(r.days_overdue || 0),
       "Days to Expo": r.days_to_expo != null ? Number(r.days_to_expo) : "",
       Stage: r.collection_stage || "",
       Risk: Number(r.total_risk_score || 0),
@@ -319,11 +315,16 @@ export default function FinancePage() {
         .action-list-wrap {
           max-height: 600px; overflow-y: auto; overflow-x: auto;
           border: 1px solid var(--border); border-radius: 4px;
+          position: relative;
         }
-        .action-list-wrap .tbl { margin: 0; }
+        .action-list-wrap .tbl { margin: 0; border-collapse: separate; border-spacing: 0; }
         .action-list-wrap .tbl thead th {
           position: sticky; top: 0; z-index: 2;
-          background: var(--surface-2, var(--surface)); box-shadow: 0 1px 0 var(--border);
+          background: var(--bg, #080B10);
+          border-bottom: 2px solid var(--border);
+        }
+        [data-theme="light"] .action-list-wrap .tbl thead th {
+          background: var(--bg, #F5F5F5);
         }
 
         .filter-summary {
@@ -399,7 +400,7 @@ export default function FinancePage() {
           .two-col { grid-template-columns: 1fr; }
           .drawer { width: 100%; }
           .chart-wrap { height: 220px; }
-          .col-af, .col-paidpct, .col-overdue { display: none; }
+          .col-af, .col-paidpct { display: none; }
         }
         @media (max-width: 480px) {
           .kpi-row { grid-template-columns: 1fr; }
@@ -441,12 +442,23 @@ export default function FinancePage() {
                 <div className="summary-label">Outstanding</div>
                 <div className="summary-val">{fmtEur(summary?.outstanding)}</div>
               </div>
-              <div className="summary-card kpi-clickable" onClick={() => kpiClick("overdue")}>
+              <div className="summary-card">
                 <div className="summary-label">Overdue</div>
-                <div className="summary-val" style={{ color: "var(--danger)" }}>{fmtEur(summary?.overdue)}</div>
-                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
-                  {summary?.has_due_dates === false ? "No due dates set" : `${summary?.overdue_count || 0} contracts`}
-                </div>
+                {summary?.has_due_dates === false ? (
+                  <>
+                    <div className="summary-val" style={{ color: "var(--text-secondary)" }}>&mdash;</div>
+                    <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
+                      Due dates not set in Zoho
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="summary-val" style={{ color: "var(--danger)" }}>{fmtEur(summary?.overdue)}</div>
+                    <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
+                      {summary?.overdue_count || 0} contracts
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             {/* KPI CARDS — Row 2 */}
@@ -480,7 +492,7 @@ export default function FinancePage() {
             {/* FILTER CHIPS */}
             <div className="filter-bar">
               <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", letterSpacing: 1, marginRight: 4 }}>STAGE:</span>
-              {["", "deposit_missing", "no_payment", "overdue", "pre_event_balance_open", "partial_paid"].map(s => (
+              {["", "no_payment", "pre_event_balance_open", "partial_paid"].map(s => (
                 <button key={s} className={`filter-chip${stageFilter === s ? " active" : ""}`}
                   onClick={() => setStageFilter(s)}
                   style={s && stageFilter === s ? { borderColor: STAGE_COLORS[s], color: STAGE_COLORS[s] } : {}}>
@@ -527,7 +539,6 @@ export default function FinancePage() {
                     <th onClick={() => handleSort(setActionSort, "paid_eur")} className="r" style={{ minWidth: 80 }}>Paid{sortIcon(actionSort, "paid_eur")}</th>
                     <th onClick={() => handleSort(setActionSort, "balance_eur")} className="r" style={{ minWidth: 90 }}>Balance{sortIcon(actionSort, "balance_eur")}</th>
                     <th onClick={() => handleSort(setActionSort, "paid_percent")} className="r col-paidpct" style={{ minWidth: 60 }}>Paid %{sortIcon(actionSort, "paid_percent")}</th>
-                    <th onClick={() => handleSort(setActionSort, "days_overdue")} className="r col-overdue" style={{ minWidth: 70 }}>Overdue{sortIcon(actionSort, "days_overdue")}</th>
                     <th onClick={() => handleSort(setActionSort, "days_to_expo")} className="r" style={{ minWidth: 70 }}>To Expo{sortIcon(actionSort, "days_to_expo")}</th>
                     <th onClick={() => handleSort(setActionSort, "collection_stage")} style={{ minWidth: 100 }}>Stage{sortIcon(actionSort, "collection_stage")}</th>
                     <th onClick={() => handleSort(setActionSort, "total_risk_score")} style={{ minWidth: 60 }}>Risk{sortIcon(actionSort, "total_risk_score")}</th>
@@ -548,9 +559,6 @@ export default function FinancePage() {
                         <td className="mono r">{fmtEur(r.paid_eur)}</td>
                         <td className="mono r" style={{ fontWeight: 500 }}>{fmtEur(r.balance_eur)}</td>
                         <td className="mono r col-paidpct">{r.paid_percent}%</td>
-                        <td className="mono r col-overdue" style={{ color: Number(r.days_overdue) > 0 ? "var(--danger)" : "var(--text-secondary)" }}>
-                          {r.days_overdue > 0 ? r.days_overdue + "d" : "-"}
-                        </td>
                         <td className="mono r">{r.days_to_expo != null ? r.days_to_expo + "d" : "-"}</td>
                         <td>
                           <span className="stage-badge" style={{ color: stageColor, background: stageColor + "18", border: `1px solid ${stageColor}40` }}>
@@ -567,7 +575,7 @@ export default function FinancePage() {
                     );
                   })}
                   {sortedActions.length === 0 && (
-                    <tr><td colSpan={13} className="no-data">No outstanding balances</td></tr>
+                    <tr><td colSpan={11} className="no-data">No outstanding balances</td></tr>
                   )}
                 </tbody>
               </table>
@@ -580,22 +588,32 @@ export default function FinancePage() {
                 <div className="section-hdr" style={{ marginTop: 0 }}>
                   <div className="section-title">A/R Aging</div>
                 </div>
-                {aging.length > 0 ? (
-                  <div className="chart-wrap">
-                    <Bar data={agingChartData} options={agingChartOptions} />
+                {summary?.has_due_dates === false ? (
+                  <div className="chart-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 13, color: "var(--text-secondary)" }}>
+                        Aging requires due dates
+                      </div>
+                      <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", marginTop: 8, opacity: 0.7 }}>
+                        Due Date field not set in Zoho CRM
+                      </div>
+                    </div>
                   </div>
+                ) : aging.length > 0 ? (
+                  <>
+                    <div className="chart-wrap">
+                      <Bar data={agingChartData} options={agingChartOptions} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                      {aging.map((a, i) => (
+                        <div key={i} style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)" }}>
+                          {a.bucket}: <span style={{ color: "var(--text-primary)" }}>{fmtEur(a.amount)}</span> ({a.count})
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 ) : (
                   <div className="no-data">No aging data</div>
-                )}
-                {/* Aging summary row */}
-                {aging.length > 0 && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                    {aging.map((a, i) => (
-                      <div key={i} style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)" }}>
-                        {a.bucket}: <span style={{ color: "var(--text-primary)" }}>{fmtEur(a.amount)}</span> ({a.count})
-                      </div>
-                    ))}
-                  </div>
                 )}
               </div>
               <div>
