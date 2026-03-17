@@ -62,9 +62,18 @@ router.get('/summary', async (req, res) => {
     // Collection rate: paid / (paid + overdue) — only counts amounts that were due
     const paidNum = Number(row.collected || 0);
     const overdueNum = Number(row.overdue || 0);
+    // If no due dates are set, overdue is always 0 → rate is meaningless
     const collectionRate = (paidNum + overdueNum) > 0
       ? Math.round(paidNum / (paidNum + overdueNum) * 1000) / 10
-      : 100;
+      : null;
+
+    // Check if any contracts have due_date set
+    const dueDateCheck = await query(`
+      SELECT COUNT(CASE WHEN ob.due_date IS NOT NULL THEN 1 END) AS with_due_date
+      FROM outstanding_balances ob
+      WHERE ${where}
+    `);
+    const hasDueDates = Number(dueDateCheck.rows[0].with_due_date) > 0;
 
     res.json({
       contract_value: Number(row.contract_value),
@@ -73,6 +82,7 @@ router.get('/summary', async (req, res) => {
       overdue: Number(row.overdue),
       due_next_30: Number(upcoming.rows[0].due_next_30),
       collection_rate: collectionRate,
+      has_due_dates: hasDueDates,
       at_risk: Number(row.at_risk),
       no_payment_count: Number(row.no_payment_count),
       total_contracts: Number(row.total_contracts),

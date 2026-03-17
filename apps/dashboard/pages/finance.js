@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Nav from "@/components/Nav";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -78,6 +78,10 @@ export default function FinancePage() {
   const [expoSort, setExpoSort] = useState({ key: "outstanding", dir: "desc" });
   const [agentSort, setAgentSort] = useState({ key: "outstanding", dir: "desc" });
 
+  // Refs for scroll targets
+  const upcomingRef = useRef(null);
+  const recentRef = useRef(null);
+
   const fetchData = useCallback(() => {
     setLoading(true);
     const params = `mode=${mode}`;
@@ -140,6 +144,25 @@ export default function FinancePage() {
     return true;
   });
   const sortedActions = sortData(filteredActions, actionSort);
+
+  // Filtered totals for summary bar
+  const filteredTotals = {
+    count: filteredActions.length,
+    total: allActions.length,
+    balance: filteredActions.reduce((s, c) => s + Number(c.balance_eur || 0), 0),
+    contractValue: filteredActions.reduce((s, c) => s + Number(c.contract_total_eur || 0), 0),
+    paid: filteredActions.reduce((s, c) => s + Number(c.paid_eur || 0), 0),
+  };
+
+  // KPI click handlers
+  function kpiClick(type) {
+    if (type === "outstanding") { setStageFilter(""); setRiskFilter(""); }
+    else if (type === "overdue") { setStageFilter("overdue"); setRiskFilter(""); }
+    else if (type === "at_risk") { setStageFilter(""); setRiskFilter("HIGH"); }
+    else if (type === "no_payment") { setStageFilter("no_payment"); setRiskFilter(""); }
+    else if (type === "upcoming") { upcomingRef.current?.scrollIntoView({ behavior: "smooth" }); return; }
+    else if (type === "collected") { recentRef.current?.scrollIntoView({ behavior: "smooth" }); return; }
+  }
 
   // Drawer: open contract detail
   async function openDrawer(contractId) {
@@ -293,6 +316,28 @@ export default function FinancePage() {
 
         .action-text { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 
+        .action-list-wrap {
+          max-height: 600px; overflow-y: auto; overflow-x: auto;
+          border: 1px solid var(--border); border-radius: 4px;
+        }
+        .action-list-wrap .tbl { margin: 0; }
+        .action-list-wrap .tbl thead th {
+          position: sticky; top: 0; z-index: 2;
+          background: var(--surface-2, var(--surface)); box-shadow: 0 1px 0 var(--border);
+        }
+
+        .filter-summary {
+          display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+          font-family: "DM Mono", monospace; font-size: 11px; color: var(--text-secondary);
+          padding: 8px 0;
+        }
+        .filter-summary .fs-label { letter-spacing: 1px; text-transform: uppercase; font-size: 10px; }
+        .filter-summary .fs-val { color: var(--text-primary); font-weight: 500; }
+        .filter-summary .fs-sep { color: var(--border); }
+
+        .kpi-clickable { cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; }
+        .kpi-clickable:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
         .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 40px; }
 
         .chart-wrap {
@@ -388,37 +433,42 @@ export default function FinancePage() {
                 <div className="summary-label">Contract Value</div>
                 <div className="summary-val">{fmtEur(summary?.contract_value)}</div>
               </div>
-              <div className="summary-card">
+              <div className="summary-card kpi-clickable" onClick={() => kpiClick("collected")}>
                 <div className="summary-label">Collected</div>
                 <div className="summary-val" style={{ color: "var(--success)" }}>{fmtEur(summary?.collected)}</div>
               </div>
-              <div className="summary-card">
+              <div className="summary-card kpi-clickable" onClick={() => kpiClick("outstanding")}>
                 <div className="summary-label">Outstanding</div>
                 <div className="summary-val">{fmtEur(summary?.outstanding)}</div>
               </div>
-              <div className="summary-card">
+              <div className="summary-card kpi-clickable" onClick={() => kpiClick("overdue")}>
                 <div className="summary-label">Overdue</div>
                 <div className="summary-val" style={{ color: "var(--danger)" }}>{fmtEur(summary?.overdue)}</div>
                 <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
-                  {summary?.overdue_count || 0} contracts
+                  {summary?.has_due_dates === false ? "No due dates set" : `${summary?.overdue_count || 0} contracts`}
                 </div>
               </div>
             </div>
             {/* KPI CARDS — Row 2 */}
             <div className="kpi-row">
-              <div className="summary-card">
+              <div className="summary-card kpi-clickable" onClick={() => kpiClick("upcoming")}>
                 <div className="summary-label">Due Next 30d</div>
                 <div className="summary-val">{fmtEur(summary?.due_next_30)}</div>
               </div>
               <div className="summary-card">
                 <div className="summary-label">Collection Rate</div>
-                <div className="summary-val">{summary?.collection_rate || 0}%</div>
+                <div className="summary-val">{summary?.collection_rate != null ? `${summary.collection_rate}%` : "N/A"}</div>
+                {summary?.has_due_dates === false && (
+                  <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
+                    No due dates set
+                  </div>
+                )}
               </div>
-              <div className="summary-card summary-card-danger">
+              <div className="summary-card summary-card-danger kpi-clickable" onClick={() => kpiClick("at_risk")}>
                 <div className="summary-label">At-Risk</div>
                 <div className="summary-val" style={{ color: "var(--danger)" }}>{fmtEur(summary?.at_risk)}</div>
               </div>
-              <div className="summary-card">
+              <div className="summary-card kpi-clickable" onClick={() => kpiClick("no_payment")}>
                 <div className="summary-label">No Payment</div>
                 <div className="summary-val" style={{ color: "var(--warning)" }}>{summary?.no_payment_count || 0}</div>
                 <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
@@ -450,15 +500,22 @@ export default function FinancePage() {
             <div className="section-hdr" style={{ marginTop: 16 }}>
               <div className="section-title">Collection Action List</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 11, color: "var(--text-secondary)", letterSpacing: 1 }}>
-                  {filteredActions.length === allActions.length ? `${allActions.length} contracts` : `${filteredActions.length} of ${allActions.length} contracts`}
-                </span>
                 <button className="btn-sm" onClick={() => handleCopyTable(buildActionRows(), "Actions")}>Copy</button>
                 <button className="btn-sm" onClick={() => exportCSV(buildActionRows(), "Collection_Actions")}>CSV</button>
                 <button className="btn-sm" onClick={() => exportExcel(buildActionRows(), "Collection_Actions")}>Excel</button>
               </div>
             </div>
-            <div style={{ overflowX: "auto" }}>
+            <div className="filter-summary">
+              <span className="fs-label">SHOWING</span>
+              <span className="fs-val">{filteredTotals.count === filteredTotals.total ? filteredTotals.total : `${filteredTotals.count} of ${filteredTotals.total}`}</span>
+              <span className="fs-sep">|</span>
+              <span>Balance: <span className="fs-val">{fmtEur(filteredTotals.balance)}</span></span>
+              <span className="fs-sep">|</span>
+              <span>Value: <span className="fs-val">{fmtEur(filteredTotals.contractValue)}</span></span>
+              <span className="fs-sep">|</span>
+              <span>Paid: <span className="fs-val">{fmtEur(filteredTotals.paid)}</span></span>
+            </div>
+            <div className="action-list-wrap">
               <table className="tbl tbl-clickable">
                 <thead>
                   <tr>
@@ -517,6 +574,7 @@ export default function FinancePage() {
             </div>
 
             {/* A/R AGING + UPCOMING — side by side */}
+            <div ref={upcomingRef}></div>
             <div className="two-col">
               <div>
                 <div className="section-hdr" style={{ marginTop: 0 }}>
@@ -680,7 +738,7 @@ export default function FinancePage() {
             </div>
 
             {/* RECENT ACTIVITY */}
-            <div className="section-hdr">
+            <div ref={recentRef} className="section-hdr">
               <div className="section-title">Recent Payments</div>
             </div>
             <table className="tbl">
