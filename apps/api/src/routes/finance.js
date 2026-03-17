@@ -74,6 +74,20 @@ router.get('/summary', async (req, res) => {
       ? Math.round(depositCollected / depositTotal * 1000) / 10
       : 0;
 
+    // Paid this month + last month for comparison
+    const paidThisMonth = await query(`
+      SELECT COALESCE(SUM(amount_eur), 0) AS amount, COUNT(*) AS count
+      FROM contract_payments
+      WHERE payment_date >= DATE_TRUNC('month', CURRENT_DATE)
+        AND payment_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+    `);
+    const paidLastMonth = await query(`
+      SELECT COALESCE(SUM(amount_eur), 0) AS amount
+      FROM contract_payments
+      WHERE payment_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month'
+        AND payment_date < DATE_TRUNC('month', CURRENT_DATE)
+    `);
+
     res.json({
       contract_value: Number(row.contract_value),
       collected: Number(row.collected),
@@ -84,6 +98,11 @@ router.get('/summary', async (req, res) => {
         collected_count: depositCollected,
         total_count: depositTotal,
         percentage: depositPercentage,
+      },
+      paid_this_month: {
+        amount: Number(paidThisMonth.rows[0].amount),
+        count: Number(paidThisMonth.rows[0].count),
+        last_month: Number(paidLastMonth.rows[0].amount),
       },
       at_risk: Number(row.at_risk),
       no_payment_count: Number(row.no_payment_count),

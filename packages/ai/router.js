@@ -183,7 +183,23 @@ const RULES = [
     ],
   },
 
-  // 4. collection_expo — "SIEMA tahsilat durumu"
+  // 4. company_collection — "pygar firmasının borcu", "ace group balance"
+  {
+    intent: 'company_collection',
+    keywords: [
+      ['firma', 'borc'],
+      ['firma', 'bakiye'],
+      ['firma', 'odeme'],
+      ['company', 'debt'],
+      ['company', 'balance'],
+      ['company', 'owes'],
+      ['ne kadar borc'],
+      ['borcu var'],
+      ['borcu ne'],
+    ],
+  },
+
+  // 5. collection_expo — "SIEMA tahsilat durumu"
   {
     intent: 'collection_expo',
     keywords: [
@@ -531,6 +547,32 @@ function extractEntities(norm, original) {
   const resolvedCountry = resolveCountry(norm);
   if (resolvedCountry) {
     entities.country = resolvedCountry;
+  }
+
+  // Company name extraction — "pygar firmasının", "ace group borcu", "XYZ company"
+  // Extract text before Turkish company suffixes or after "company"
+  const companyPatterns = [
+    /(\S+(?:\s+\S+)?)\s+firmasinin/,
+    /(\S+(?:\s+\S+)?)\s+firmasi/,
+    /(\S+(?:\s+\S+)?)\s+sirketi/,
+    /(\S+(?:\s+\S+){0,3})\s+borcu/,
+    /(\S+(?:\s+\S+){0,3})\s+borcunu/,
+    /company\s+(\S+(?:\s+\S+){0,2})/,
+  ];
+  if (!entities.expo_name && !entities.agent_name) {
+    for (const pat of companyPatterns) {
+      const m = norm.match(pat);
+      if (m) {
+        // Clean: remove known noise words
+        const raw = m[1].replace(/\b(ne kadar|kac|toplam|tum|the)\b/g, '').trim();
+        if (raw.length >= 2) {
+          entities.company_name = original
+            ? original.match(new RegExp(raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))?.[0] || raw
+            : raw;
+          break;
+        }
+      }
+    }
   }
 
   // Metric: risk

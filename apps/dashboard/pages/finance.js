@@ -440,23 +440,15 @@ export default function FinancePage() {
                 <div className="summary-label">Outstanding</div>
                 <div className="summary-val">{fmtEur(summary?.outstanding)}</div>
               </div>
-              <div className="summary-card">
-                <div className="summary-label">Overdue</div>
-                {summary?.has_due_dates === false ? (
-                  <>
-                    <div className="summary-val" style={{ color: "var(--text-secondary)" }}>&mdash;</div>
-                    <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
-                      Due dates not set in Zoho
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="summary-val" style={{ color: "var(--danger)" }}>{fmtEur(summary?.overdue)}</div>
-                    <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
-                      {summary?.overdue_count || 0} contracts
-                    </div>
-                  </>
-                )}
+              <div className="summary-card" onClick={() => { if (recentRef.current) recentRef.current.scrollIntoView({ behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+                <div className="summary-label">Paid This Month</div>
+                <div className="summary-val" style={{ color: "var(--success)" }}>{fmtEur(summary?.paid_this_month?.amount)}</div>
+                <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", marginTop: 4 }}>
+                  {summary?.paid_this_month?.count || 0} payments
+                  {summary?.paid_this_month?.last_month > 0 && (
+                    <span> | {summary.paid_this_month.amount >= summary.paid_this_month.last_month ? "\u2191" : "\u2193"} vs {fmtEur(summary.paid_this_month.last_month)} last mo</span>
+                  )}
+                </div>
               </div>
             </div>
             {/* KPI CARDS — Row 2 */}

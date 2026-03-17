@@ -604,9 +604,9 @@ Charts:
 
 Finance Page (/finance):
 - Collections Cockpit — default: Edition mode (upcoming expos)
-- 8 KPI cards: Contract Value, Collected, Outstanding, Overdue, Due Next 30d, Deposit Rate, At-Risk, No Payment
-  - KPI cards clickable: Outstanding→reset filters, At-Risk→risk:HIGH, No Payment→stage:no_payment, Due Next 30d→scroll to upcoming, Collected→scroll to recent payments
-  - Overdue KPI: shows "—" + "Due dates not set in Zoho" when due_date is NULL (currently all 244 contracts)
+- 8 KPI cards: Contract Value, Collected, Outstanding, Paid This Month, Due Next 30d, Deposit Rate, At-Risk, No Payment
+  - KPI cards clickable: Outstanding→reset filters, At-Risk→risk:HIGH, No Payment→stage:no_payment, Due Next 30d→scroll to upcoming, Collected→scroll to recent payments, Paid This Month→scroll to recent payments
+  - Paid This Month: SUM(contract_payments.amount_eur) this month, green, shows payment count + vs last month comparison
   - Deposit Rate: paid_eur > 0 contracts / total open contracts * 100, color-coded (green >70%, orange 40-70%, red <40%)
 - Collection Action List: main table with stage/risk filter chips + company search
   - Scrollable container: max-height 600px, sticky thead (border-collapse:separate, background:var(--bg)), overflow-y auto
@@ -724,7 +724,7 @@ Architecture:
 4. SQL Validator → SELECT only, whitelist tables, LIMIT 200
 5. Answer Generator (Claude) → 1-3 sentence insight, no markdown
 
-Supported intents (22):
+Supported intents (23):
 - expo_progress: expo ilerleme durumu
 - agent_performance: agent toplam satış
 - agent_country_breakdown: agent ülke dağılımı
@@ -737,7 +737,7 @@ Supported intents (22):
 - expo_list: expo listesi (risk filtreli)
 - monthly_trend: ay ay satış trendi
 - cluster_performance: cluster bazlı performans
-- payment_status: ödeme durumu (TODO: Balance1 field)
+- payment_status: ödeme durumu (balance_eur, paid_eur aktif)
 - rebooking_rate: tekrar katılım oranı
 - price_per_m2: ortalama m2 fiyatı
 - revenue_summary: yıllık gelir özeti
@@ -747,6 +747,7 @@ Supported intents (22):
 - collection_summary: toplam alacak/tahsilat özeti (outstanding_balances view)
 - collection_no_payment: hiç ödeme yapmayan firmalar listesi
 - collection_expo: expo bazlı tahsilat durumu
+- company_collection: firma bazlı borç/bakiye/ödeme sorgusu (company_name entity extraction)
 
 Allowed tables: edition_contracts, fiscal_contracts, expos, contracts, expo_metrics, outstanding_balances
 Forbidden: INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE

@@ -157,6 +157,7 @@ function getDashboardLink(intent, entities) {
   // Collection/finance intents → Finance page
   const COLLECTION_INTENTS = [
     'collection_summary', 'collection_no_payment', 'collection_expo',
+    'company_collection',
   ];
   if (COLLECTION_INTENTS.includes(intent)) {
     return `${DASHBOARD_BASE}/finance`;

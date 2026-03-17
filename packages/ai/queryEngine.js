@@ -46,14 +46,7 @@ function fuzzyExpoPattern(expoName) {
 
 // Unavailability registry — topics ELIZA cannot answer
 const METRIC_AVAILABILITY = {
-  payment_balance: {
-    keywords: ['bakiye', 'kalan odeme', 'remaining payment', 'borc', 'debt', 'solde restant', 'odenmemis tutar', 'unpaid amount'],
-    reason: {
-      tr: 'Ödeme bakiyesi verisi ELIZA\'da mevcut değil. Zoho CRM\'den sadece kontrat geliri (Grand_Total) senkronize ediliyor, gerçek ödeme durumu (Balance1, Received_Payment) henüz aktarılmadı. Gerçek ödeme bilgisi için Zoho CRM\'i kontrol edin.',
-      en: 'Payment balance data is not available in ELIZA. Only contract revenue (Grand_Total) is synced from Zoho CRM — actual payment status (Balance1, Received_Payment) is not yet imported. Check Zoho CRM for real payment info.',
-      fr: 'Les données de solde de paiement ne sont pas disponibles dans ELIZA. Seul le revenu contractuel (Grand_Total) est synchronisé depuis Zoho CRM. Vérifiez Zoho CRM pour les informations de paiement réelles.',
-    },
-  },
+  // payment_balance removed — balance_eur, paid_eur, contract_payments now synced from Zoho
   currency: {
     keywords: ['kur', 'doviz', 'euro kac', 'dolar', 'tl', 'lira', 'exchange rate', 'currency convert', 'taux de change'],
     reason: {
@@ -119,7 +112,7 @@ Database schema:
 
 Extract intent and entities from the question. Return ONLY valid JSON:
 {
-  "intent": "one of [expo_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown, expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance, payment_status, rebooking_rate, price_per_m2, country_count, exhibitors_by_country, top_agents, revenue_summary, expo_list, company_search, days_to_event, general_stats]",
+  "intent": "one of [expo_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown, expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance, payment_status, rebooking_rate, price_per_m2, country_count, exhibitors_by_country, top_agents, revenue_summary, expo_list, company_search, company_collection, collection_summary, collection_expo, collection_no_payment, days_to_event, general_stats]",
   "entities": {
     "expo_name": "string or null",
     "agent_name": "string or null",
@@ -139,6 +132,10 @@ Q: top agents this month → {"intent":"top_agents","entities":{"month":"current
 Q: Turkish exhibitors in Kenya expo → {"intent":"exhibitors_by_country","entities":{"expo_name":"Kenya","country":"Turkey"}}
 Q: total revenue this year → {"intent":"revenue_summary","entities":{"year":"current"}}
 Q: find company Bosch → {"intent":"company_search","entities":{"expo_name":null,"agent_name":null,"country":null}}
+Q: pygar firmasının borcu ne kadar → {"intent":"company_collection","entities":{"company_name":"pygar"}}
+Q: ace group balance → {"intent":"company_collection","entities":{"company_name":"ace group"}}
+Q: SIEMA tahsilat durumu → {"intent":"collection_expo","entities":{"expo_name":"SIEMA"}}
+Q: kaç alacağımız var → {"intent":"collection_summary","entities":{}}
 Q: which country did Elif get most from in 2025 → {"intent":"agent_country_breakdown","entities":{"agent_name":"Elif","year":2025}}
 Q: which expos did Emircan sell to → {"intent":"agent_expo_breakdown","entities":{"agent_name":"Emircan"}}
 Q: elif 2025 senesinde en cok hangi ulkeden exhibitor bulmus → {"intent":"agent_country_breakdown","entities":{"agent_name":"Elif","year":2025}}
@@ -286,7 +283,8 @@ expo_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown,
 expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance,
 payment_status, rebooking_rate, price_per_m2, country_count,
 exhibitors_by_country, top_agents, revenue_summary, expo_list,
-company_search, days_to_event, general_stats, compound
+company_search, company_collection, collection_summary, collection_expo,
+collection_no_payment, days_to_event, general_stats, compound
 
 IMPORTANT COUNT RULE: When the question asks "how many" / "kaç tane" / "combien" and expects a NUMBER answer (not a list), set metric to "count".
 
@@ -1115,6 +1113,55 @@ function buildQuery(intent, entities) {
       };
     }
 
+    case 'company_collection': {
+      const companyName = e.company_name || e.expo_name || '';
+      if (!companyName) {
+        // No company specified — show top debtors
+        return {
+          sql: `WITH matched AS (
+            SELECT company_name,
+              ROUND(SUM(contract_total_eur)::numeric, 2) AS total_eur,
+              ROUND(SUM(paid_eur)::numeric, 2) AS paid_eur,
+              ROUND(SUM(balance_eur)::numeric, 2) AS balance_eur,
+              COUNT(*) AS contracts
+            FROM outstanding_balances
+            WHERE expo_start_date >= CURRENT_DATE
+            GROUP BY company_name
+            ORDER BY balance_eur DESC
+            LIMIT 10
+          )
+          SELECT 'TOTAL: ' || SUM(contracts) || ' contracts' AS company_name,
+            ROUND(SUM(total_eur)::numeric, 2) AS total_eur,
+            ROUND(SUM(paid_eur)::numeric, 2) AS paid_eur,
+            ROUND(SUM(balance_eur)::numeric, 2) AS balance_eur,
+            COUNT(*)::bigint AS contracts
+          FROM matched
+          UNION ALL
+          SELECT * FROM matched`,
+          params: [],
+        };
+      }
+      return {
+        sql: `WITH matched AS (
+          SELECT company_name, expo_name, af_number, sales_agent,
+            ROUND(contract_total_eur::numeric, 2) AS total_eur,
+            COALESCE(ROUND(paid_eur::numeric, 2), 0) AS paid_eur,
+            COALESCE(ROUND(balance_eur::numeric, 2), 0) AS balance_eur
+          FROM outstanding_balances
+          WHERE company_name ILIKE $1
+        )
+        SELECT 'TOTAL: ' || COUNT(*) || ' contracts' AS company_name,
+          '' AS expo_name, '' AS af_number, '' AS sales_agent,
+          ROUND(SUM(total_eur)::numeric, 2) AS total_eur,
+          ROUND(SUM(paid_eur)::numeric, 2) AS paid_eur,
+          ROUND(SUM(balance_eur)::numeric, 2) AS balance_eur
+        FROM matched
+        UNION ALL
+        (SELECT * FROM matched ORDER BY balance_eur DESC LIMIT 10)`,
+        params: [`%${companyName}%`],
+      };
+    }
+
     case 'company_search':
       return {
         sql: `SELECT DISTINCT company_name, country, sales_agent,
@@ -1157,6 +1204,7 @@ const NO_AGENT_FILTER_INTENTS = new Set([
   'country_count', 'exhibitors_by_country', 'cluster_performance',
   'rebooking_rate', 'payment_status', 'company_search',
   'collection_summary', 'collection_no_payment', 'collection_expo',
+  'company_collection',
 ]);
 
 function applyScope(sql, params, intent, user) {
