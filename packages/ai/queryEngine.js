@@ -9,7 +9,7 @@ const client = new Anthropic();
 const INTENT_MODEL = process.env.AI_INTENT_MODEL || 'claude-haiku-4-5-20251001';
 const ANSWER_MODEL = process.env.AI_ANSWER_MODEL || 'claude-sonnet-4-6';
 
-const ALLOWED_TABLES = ['expos', 'contracts', 'edition_contracts', 'fiscal_contracts', 'expo_metrics'];
+const ALLOWED_TABLES = ['expos', 'contracts', 'edition_contracts', 'fiscal_contracts', 'expo_metrics', 'outstanding_balances'];
 const FORBIDDEN_KEYWORDS = ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE', 'CREATE', 'EXEC'];
 
 // ELAN EXPO business rule: internal operations agent
@@ -880,6 +880,77 @@ function buildQuery(intent, entities) {
       };
     }
 
+    case 'collection_summary': {
+      return {
+        sql: `SELECT
+          COUNT(*) AS open_contracts,
+          ROUND(SUM(balance_eur)::numeric, 2) AS total_outstanding_eur,
+          ROUND(SUM(paid_eur)::numeric, 2) AS total_paid_eur,
+          ROUND(AVG(paid_percent)::numeric, 1) AS avg_paid_percent,
+          COUNT(CASE WHEN collection_stage = 'no_payment' THEN 1 END) AS no_payment_count,
+          COUNT(CASE WHEN collection_stage = 'partial_paid' THEN 1 END) AS partial_paid_count,
+          COUNT(CASE WHEN collection_stage = 'pre_event_balance_open' THEN 1 END) AS pre_event_count
+        FROM outstanding_balances`,
+        params: [],
+      };
+    }
+
+    case 'collection_no_payment': {
+      const hasExpo = e.expo_name && e.expo_name.length > 0;
+      if (hasExpo) {
+        return {
+          sql: `SELECT company_name, expo_name, contract_total_eur AS total_eur,
+            sales_agent, contract_date, days_to_expo,
+            collection_risk_score + event_risk_score AS risk_score
+          FROM outstanding_balances
+          WHERE collection_stage = 'no_payment'
+            AND expo_name ILIKE $1
+          ORDER BY contract_total_eur DESC LIMIT 50`,
+          params: [fuzzyExpoPattern(e.expo_name)],
+        };
+      }
+      return {
+        sql: `SELECT company_name, expo_name, contract_total_eur AS total_eur,
+          sales_agent, contract_date, days_to_expo,
+          collection_risk_score + event_risk_score AS risk_score
+        FROM outstanding_balances
+        WHERE collection_stage = 'no_payment'
+        ORDER BY contract_total_eur DESC LIMIT 50`,
+        params: [],
+      };
+    }
+
+    case 'collection_expo': {
+      const expoName = e.expo_name && e.expo_name.length > 0 ? e.expo_name : null;
+      if (expoName) {
+        return {
+          sql: `SELECT company_name, collection_stage,
+            ROUND(contract_total_eur::numeric, 2) AS total_eur,
+            ROUND(paid_eur::numeric, 2) AS paid_eur,
+            ROUND(balance_eur::numeric, 2) AS balance_eur,
+            paid_percent, sales_agent,
+            collection_risk_score + event_risk_score AS risk_score
+          FROM outstanding_balances
+          WHERE expo_name ILIKE $1
+          ORDER BY balance_eur DESC LIMIT 50`,
+          params: [fuzzyExpoPattern(expoName)],
+        };
+      }
+      // No expo specified — show per-expo summary
+      return {
+        sql: `SELECT expo_name,
+          COUNT(*) AS contracts,
+          ROUND(SUM(balance_eur)::numeric, 2) AS total_outstanding_eur,
+          ROUND(SUM(paid_eur)::numeric, 2) AS total_paid_eur,
+          ROUND(AVG(paid_percent)::numeric, 1) AS avg_paid_percent,
+          COUNT(CASE WHEN collection_stage = 'no_payment' THEN 1 END) AS no_payment_count
+        FROM outstanding_balances
+        GROUP BY expo_name
+        ORDER BY total_outstanding_eur DESC LIMIT 30`,
+        params: [],
+      };
+    }
+
     // TODO: Add balance field from Zoho Balance1 formula field
     case 'payment_status': {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
@@ -1060,6 +1131,7 @@ const NO_AGENT_FILTER_INTENTS = new Set([
   'expo_progress', 'expo_list', 'expo_agent_breakdown', 'expo_company_list',
   'country_count', 'exhibitors_by_country', 'cluster_performance',
   'rebooking_rate', 'payment_status', 'company_search',
+  'collection_summary', 'collection_no_payment', 'collection_expo',
 ]);
 
 function applyScope(sql, params, intent, user) {
@@ -1180,7 +1252,8 @@ Rules:
 11. Language: respond in ${langName} (match the question language)
 12. When Total rows > shown rows, ALWAYS calculate and state the real total, not just shown items
 13. When no year was specified, you are seeing current year data. When no metric was specified, default is revenue. ALWAYS state your assumption briefly at the start: 'SIEMA 2026 gelire göre: ...' or '2026 revenue: ...' — this helps the user know what they're looking at
-14. If the question is about payment balance, exchange rates, salaries, or topics outside Elan Expo business data, say clearly that this data is not available in ELIZA
+14. If the question is about exchange rates, salaries, or topics outside Elan Expo business data, say clearly that this data is not available in ELIZA
+16. For collection/receivables queries: collection_stage meanings — no_payment (zero payments received), partial_paid (some payment made, balance remaining), pre_event_balance_open (expo <45 days away, balance open), overdue (past due date). risk_score = collection_risk + event_risk (higher = more urgent). Always state total outstanding amount first, then breakdown by stage or risk
 15. Terminology (mandatory):
   - Turkish: exhibitor → "katılımcı" (NEVER "sergici"/"sergileyici"), expo/fair → "fuar" (NEVER "sergi"), revenue → "gelir" (NEVER "ciro"/"hasılat"), sales agent → "satış temsilcisi" or "agent", contract → "sözleşme"/"kontrat", edition → "edisyon", square meters → "m²", progress → "ilerleme"/"tamamlanma", target → "hedef", cluster → "cluster"
   - French: exhibitor → "exposant", expo → "salon", contract → "contrat", revenue → "chiffre d'affaires"/"revenu"

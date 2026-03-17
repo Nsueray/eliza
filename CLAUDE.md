@@ -720,7 +720,7 @@ Architecture:
 4. SQL Validator → SELECT only, whitelist tables, LIMIT 200
 5. Answer Generator (Claude) → 1-3 sentence insight, no markdown
 
-Supported intents (19):
+Supported intents (22):
 - expo_progress: expo ilerleme durumu
 - agent_performance: agent toplam satış
 - agent_country_breakdown: agent ülke dağılımı
@@ -740,8 +740,11 @@ Supported intents (19):
 - days_to_event: etkinliğe kaç gün kaldı
 - general_stats: genel istatistik
 - compound: birden fazla soru (max 2)
+- collection_summary: toplam alacak/tahsilat özeti (outstanding_balances view)
+- collection_no_payment: hiç ödeme yapmayan firmalar listesi
+- collection_expo: expo bazlı tahsilat durumu
 
-Allowed tables: edition_contracts, fiscal_contracts, expos, contracts, expo_metrics
+Allowed tables: edition_contracts, fiscal_contracts, expos, contracts, expo_metrics, outstanding_balances
 Forbidden: INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE
 
 Answer format rules:

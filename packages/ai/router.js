@@ -152,7 +152,48 @@ const RULES = [
     ],
   },
 
-  // 2. payment_status
+  // 2. collection_summary — "kaç alacağımız var?", "outstanding balance"
+  {
+    intent: 'collection_summary',
+    keywords: [
+      ['alacak'],
+      ['tahsilat', 'ozet'],
+      ['tahsilat', 'toplam'],
+      ['tahsilat', 'durum'],
+      ['outstanding'],
+      ['collection', 'summary'],
+      ['collection', 'status'],
+      ['total', 'receivable'],
+      ['recouvrement', 'total'],
+    ],
+  },
+
+  // 3. collection_no_payment — "ödeme yapmayan firmalar"
+  {
+    intent: 'collection_no_payment',
+    keywords: [
+      ['odeme yapmayan'],
+      ['hic odeme'],
+      ['no payment', 'compan'],
+      ['no payment', 'list'],
+      ['zero payment'],
+      ['aucun paiement'],
+      ['odemesiz'],
+    ],
+  },
+
+  // 4. collection_expo — "SIEMA tahsilat durumu"
+  {
+    intent: 'collection_expo',
+    keywords: [
+      ['tahsilat'],
+      ['collection', 'expo'],
+      ['collection', 'fair'],
+      ['recouvrement', 'salon'],
+    ],
+  },
+
+  // 5. payment_status
   {
     intent: 'payment_status',
     keywords: [

@@ -335,3 +335,19 @@ Rules:
 **Root cause:** revenue_summary intent always queries fiscal_contracts. When an expo_name entity is present, the user is asking about expo performance (edition view), not company sales performance (fiscal view). No intent redirection logic existed.
 **Fix:** Added intent redirection in queryEngine.js run(): `if (intent === 'revenue_summary' && entities.expo_name) intent = 'expo_progress';`
 **Files:** packages/ai/queryEngine.js
+
+---
+
+## [ISSUE-029] Finance sticky header not working + WhatsApp collection intents missing
+**Status:** FIXED (2026-03-17)
+**First seen:** 2026-03-17
+**Description:** 
+1. Finance page action list table header disappears when scrolling — sticky CSS not taking effect.
+2. No WhatsApp intents for collection/receivables queries (tahsilat sorguları).
+**Root cause:** 
+1. `<style jsx>` scoped styles prevented sticky positioning from applying. z-index was too low (2). `position: relative` on wrapper interfered.
+2. Collection queries via outstanding_balances view were only available on dashboard, not through WhatsApp AI query engine.
+**Fix:**
+1. Changed `<style jsx>` → `<style jsx global>`, removed `position: relative` from wrapper, set z-index to 10, used opaque hex backgrounds instead of CSS variables for thead.
+2. Added 3 new intents: collection_summary, collection_no_payment, collection_expo. Router rules (before payment_status), buildQuery cases (outstanding_balances view), getDashboardLink → /finance, Sonnet prompt rule 16 for collection context.
+**Files:** apps/dashboard/pages/finance.js, packages/ai/router.js, packages/ai/queryEngine.js, apps/whatsapp-bot/src/handler.js

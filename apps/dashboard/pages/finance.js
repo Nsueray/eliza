@@ -271,7 +271,7 @@ export default function FinancePage() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <style jsx>{`
+      <style jsx global>{`
         .mode-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
         .mode-btn {
           font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: 1px;
@@ -315,16 +315,15 @@ export default function FinancePage() {
         .action-list-wrap {
           max-height: 600px; overflow-y: auto; overflow-x: auto;
           border: 1px solid var(--border); border-radius: 4px;
-          position: relative;
         }
         .action-list-wrap .tbl { margin: 0; border-collapse: separate; border-spacing: 0; }
         .action-list-wrap .tbl thead th {
-          position: sticky; top: 0; z-index: 2;
-          background: var(--bg, #080B10);
+          position: sticky; top: 0; z-index: 10;
+          background: #080B10;
           border-bottom: 2px solid var(--border);
         }
         [data-theme="light"] .action-list-wrap .tbl thead th {
-          background: var(--bg, #F5F5F5);
+          background: #F5F5F5;
         }
 
         .filter-summary {
