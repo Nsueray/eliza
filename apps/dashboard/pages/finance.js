@@ -517,74 +517,84 @@ export default function FinancePage() {
               <span className="fs-sep">|</span>
               <span>Paid: <span className="fs-val">{fmtEur(filteredTotals.paid)}</span></span>
             </div>
-            <div style={{ maxHeight: 600, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 4 }}>
-              <table className="tbl tbl-clickable" style={{ margin: 0, borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead>
-                  <tr>
-                    {[
-                      { key: "company_name", label: "Company", min: 180 },
-                      { key: "expo_name", label: "Expo", min: 120 },
-                      { key: "af_number", label: "AF", min: 80, cls: "col-af" },
-                      { key: "sales_agent", label: "Agent", min: 100 },
-                      { key: "contract_total_eur", label: "Contract", min: 90, align: "right" },
-                      { key: "paid_eur", label: "Paid", min: 80, align: "right" },
-                      { key: "balance_eur", label: "Balance", min: 90, align: "right" },
-                      { key: "paid_percent", label: "Paid %", min: 60, align: "right", cls: "col-paidpct" },
-                      { key: "days_to_expo", label: "To Expo", min: 70, align: "right" },
-                      { key: "collection_stage", label: "Stage", min: 100 },
-                      { key: "total_risk_score", label: "Risk", min: 60 },
-                      { key: null, label: "Action", min: 160 },
-                    ].map(col => (
-                      <th key={col.label}
-                        className={[col.cls, col.align === "right" ? "r" : ""].filter(Boolean).join(" ")}
-                        onClick={col.key ? () => handleSort(setActionSort, col.key) : undefined}
-                        style={{
-                          position: 'sticky', top: 0, zIndex: 10,
-                          background: isLight ? '#FFFFFF' : '#080B10',
-                          borderBottom: isLight ? '2px solid #ddd' : '2px solid #333',
-                          minWidth: col.min, cursor: col.key ? 'pointer' : 'default',
-                          whiteSpace: 'nowrap',
-                        }}>
-                        {col.label}{col.key ? sortIcon(actionSort, col.key) : ""}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedActions.map((r, i) => {
-                    const risk = riskLevel(r.total_risk_score);
-                    const stageColor = STAGE_COLORS[r.collection_stage] || "#5A7080";
-                    return (
-                      <tr key={i} onClick={() => openDrawer(r.id)}>
-                        <td style={{ minWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company_name}</td>
-                        <td className="muted" style={{ whiteSpace: "nowrap" }}>{r.expo_name}</td>
-                        <td className="mono col-af" style={{ fontSize: 11, whiteSpace: "nowrap" }}>{r.af_number}</td>
-                        <td className="muted" style={{ whiteSpace: "nowrap" }}>{r.sales_agent}</td>
-                        <td className="mono r">{fmtEur(r.contract_total_eur)}</td>
-                        <td className="mono r">{fmtEur(r.paid_eur)}</td>
-                        <td className="mono r" style={{ fontWeight: 500 }}>{fmtEur(r.balance_eur)}</td>
-                        <td className="mono r col-paidpct">{r.paid_percent}%</td>
-                        <td className="mono r">{r.days_to_expo != null ? r.days_to_expo + "d" : "-"}</td>
-                        <td>
-                          <span className="stage-badge" style={{ color: stageColor, background: stageColor + "18", border: `1px solid ${stageColor}40` }}>
-                            {STAGE_LABELS[r.collection_stage] || r.collection_stage}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="risk-badge" style={{ color: risk.color, background: risk.color + "18", border: `1px solid ${risk.color}40` }}>
-                            {risk.label}
-                          </span>
-                        </td>
-                        <td><span className="action-text">{r.suggested_action}</span></td>
-                      </tr>
-                    );
-                  })}
-                  {sortedActions.length === 0 && (
-                    <tr><td colSpan={11} className="no-data">No outstanding balances</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            {(() => {
+              const actionCols = [
+                { key: "company_name", label: "Company", w: "180px" },
+                { key: "expo_name", label: "Expo", w: "120px" },
+                { key: "af_number", label: "AF", w: "80px", cls: "col-af" },
+                { key: "sales_agent", label: "Agent", w: "100px" },
+                { key: "contract_total_eur", label: "Contract", w: "90px", align: "right" },
+                { key: "paid_eur", label: "Paid", w: "80px", align: "right" },
+                { key: "balance_eur", label: "Balance", w: "90px", align: "right" },
+                { key: "paid_percent", label: "Paid %", w: "60px", align: "right", cls: "col-paidpct" },
+                { key: "days_to_expo", label: "To Expo", w: "70px", align: "right" },
+                { key: "collection_stage", label: "Stage", w: "100px" },
+                { key: "total_risk_score", label: "Risk", w: "60px" },
+                { key: null, label: "Action", w: "160px" },
+              ];
+              const colGroup = <colgroup>{actionCols.map((c, i) => <col key={i} style={{ minWidth: c.w }} />)}</colgroup>;
+              return (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                  {/* Fixed header table */}
+                  <div style={{ overflowX: 'auto', borderBottom: isLight ? '2px solid #ddd' : '2px solid #333' }}>
+                    <table className="tbl" style={{ margin: 0, tableLayout: 'auto' }}>
+                      {colGroup}
+                      <thead>
+                        <tr>
+                          {actionCols.map(col => (
+                            <th key={col.label}
+                              className={[col.cls, col.align === "right" ? "r" : ""].filter(Boolean).join(" ")}
+                              onClick={col.key ? () => handleSort(setActionSort, col.key) : undefined}
+                              style={{ cursor: col.key ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>
+                              {col.label}{col.key ? sortIcon(actionSort, col.key) : ""}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                    </table>
+                  </div>
+                  {/* Scrollable body */}
+                  <div style={{ maxHeight: 540, overflowY: 'auto', overflowX: 'auto' }}>
+                    <table className="tbl tbl-clickable" style={{ margin: 0, tableLayout: 'auto' }}>
+                      {colGroup}
+                      <tbody>
+                        {sortedActions.map((r, i) => {
+                          const risk = riskLevel(r.total_risk_score);
+                          const stageColor = STAGE_COLORS[r.collection_stage] || "#5A7080";
+                          return (
+                            <tr key={i} onClick={() => openDrawer(r.id)}>
+                              <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company_name}</td>
+                              <td className="muted" style={{ whiteSpace: "nowrap" }}>{r.expo_name}</td>
+                              <td className="mono col-af" style={{ fontSize: 11, whiteSpace: "nowrap" }}>{r.af_number}</td>
+                              <td className="muted" style={{ whiteSpace: "nowrap" }}>{r.sales_agent}</td>
+                              <td className="mono r">{fmtEur(r.contract_total_eur)}</td>
+                              <td className="mono r">{fmtEur(r.paid_eur)}</td>
+                              <td className="mono r" style={{ fontWeight: 500 }}>{fmtEur(r.balance_eur)}</td>
+                              <td className="mono r col-paidpct">{r.paid_percent}%</td>
+                              <td className="mono r">{r.days_to_expo != null ? r.days_to_expo + "d" : "-"}</td>
+                              <td>
+                                <span className="stage-badge" style={{ color: stageColor, background: stageColor + "18", border: `1px solid ${stageColor}40` }}>
+                                  {STAGE_LABELS[r.collection_stage] || r.collection_stage}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="risk-badge" style={{ color: risk.color, background: risk.color + "18", border: `1px solid ${risk.color}40` }}>
+                                  {risk.label}
+                                </span>
+                              </td>
+                              <td><span className="action-text">{r.suggested_action}</span></td>
+                            </tr>
+                          );
+                        })}
+                        {sortedActions.length === 0 && (
+                          <tr><td colSpan={12} className="no-data">No outstanding balances</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* A/R AGING + UPCOMING — side by side */}
             <div ref={upcomingRef}></div>

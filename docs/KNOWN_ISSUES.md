@@ -370,3 +370,25 @@ Rules:
 2. Added `WHERE expo_start_date >= CURRENT_DATE` to collection_summary, collection_expo (no-expo), collection_no_payment (no-expo) SQL.
 3. Added `['alacag']` keyword to collection_summary router rule (matches normalized stem).
 **Files:** packages/ai/queryEngine.js, packages/ai/router.js
+
+---
+
+## [ISSUE-031] company_collection Haiku fallback, FR month parse, bu hafta sözleşme, sticky header
+**Status:** FIXED (2026-03-22)
+**First seen:** 2026-03-22
+**Description:**
+1. "ace group 2026 borcu" → "No data found" — Haiku returns company_collection intent but VALID_INTENTS normalizes to general_stats.
+2. "Combien de m2 a elif vendu en janvier 2026" → crash or wrong data — French month names not extracted.
+3. "bu hafta kaç sözleşme var?" → returns all 138 contracts instead of this week — "sozlesme" keyword missing from revenue_summary time rules.
+4. Sticky header still not working after 3 CSS attempts.
+**Root cause:**
+1. VALID_INTENTS array (extractSemanticFrame + extractIntent) missing collection_summary, collection_no_payment, collection_expo, company_collection — Haiku intent silently normalized to general_stats.
+2. extractEntities had no French/English/Turkish month name detection — only "this month"/"ce mois" patterns.
+3. revenue_summary keywords had "this week" + "kontrat"/"gelir"/"satis" but NOT "sozlesme" ("sözleşme" normalizes to "sozlesme").
+4. CSS sticky positioning doesn't work reliably with overflow containers in Next.js.
+**Fix:**
+1. Added 4 collection intents to both VALID_INTENTS arrays in queryEngine.js.
+2. Added MONTH_NAMES map (FR/EN/TR) to router.js, named month extraction in extractEntities.
+3. Added "sozlesme" variant to all time period keywords (today, yesterday, this week, last week) in revenue_summary.
+4. Split table approach: separate header table + scrollable body table with matching colgroup.
+**Files:** packages/ai/queryEngine.js, packages/ai/router.js, apps/dashboard/pages/finance.js, apps/whatsapp-bot/src/handler.js

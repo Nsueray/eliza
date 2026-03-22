@@ -40,6 +40,19 @@ function normalize(text) {
   return result;
 }
 
+// Month name mapping (normalized) — for French, English, Turkish month extraction
+const MONTH_NAMES = {
+  // French
+  'janvier': 1, 'fevrier': 2, 'mars': 3, 'avril': 4, 'mai': 5, 'juin': 6,
+  'juillet': 7, 'aout': 8, 'septembre': 9, 'octobre': 10, 'novembre': 11, 'decembre': 12,
+  // English
+  'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+  'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12,
+  // Turkish (after accent normalization: ş→s, ü→u, ı→i)
+  'ocak': 1, 'subat': 2, 'mart': 3, 'nisan': 4, 'mayis': 5, 'haziran': 6,
+  'temmuz': 7, 'agustos': 8, 'eylul': 9, 'ekim': 10, 'kasim': 11, 'aralik': 12,
+};
+
 // Known expo brand keywords for entity extraction
 const EXPO_BRANDS = [
   'siema', 'mega clima', 'megaclima', 'foodexpo', 'food expo',
@@ -196,6 +209,8 @@ const RULES = [
       ['ne kadar borc'],
       ['borcu var'],
       ['borcu ne'],
+      ['borcu'],
+      ['borcunu'],
     ],
   },
 
@@ -417,12 +432,14 @@ const RULES = [
       ['this week', 'contract'],
       ['this week', 'revenue'],
       ['this week', 'sales'],
+      ['this week', 'sozlesme'],
       ['this week', 'kontrat'],
       ['this week', 'gelir'],
       ['this week', 'satis'],
       ['last week', 'contract'],
       ['last week', 'revenue'],
       ['last week', 'sales'],
+      ['last week', 'sozlesme'],
       ['last week', 'kontrat'],
       ['last week', 'gelir'],
       ['last week', 'satis'],
@@ -495,6 +512,16 @@ function extractEntities(norm, original) {
   if (/\bthis month\b|\bce mois\b/.test(norm)) {
     entities.month = new Date().getMonth() + 1;
   }
+  // Named month extraction: "janvier", "February", "Mart", etc.
+  if (!entities.month) {
+    const words = norm.split(/\s+/);
+    for (const w of words) {
+      if (MONTH_NAMES[w]) {
+        entities.month = MONTH_NAMES[w];
+        break;
+      }
+    }
+  }
 
   // Period: today / yesterday
   if (norm.includes('today') || norm.includes("aujourd'hui")) {
@@ -563,8 +590,8 @@ function extractEntities(norm, original) {
     for (const pat of companyPatterns) {
       const m = norm.match(pat);
       if (m) {
-        // Clean: remove known noise words
-        const raw = m[1].replace(/\b(ne kadar|kac|toplam|tum|the)\b/g, '').trim();
+        // Clean: remove known noise words and year digits
+        const raw = m[1].replace(/\b(ne kadar|kac|toplam|tum|the|20[12]\d)\b/g, '').trim();
         if (raw.length >= 2) {
           entities.company_name = original
             ? original.match(new RegExp(raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))?.[0] || raw

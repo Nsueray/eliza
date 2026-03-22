@@ -91,7 +91,7 @@ function detectLang(text) {
 
   // All keywords are accent-normalized (ç→c, ş→s, ü→u, ı→i, ö→o, ğ→g)
   const trWords = ['kac', 'nasil', 'nedir', 'ne', 'hangi', 'kim', 'toplam', 'satis', 'fuar', 'goster', 'bana', 'kontrat', 'yil', 'gelir', 'ulke', 'durumu', 'risk', 'iyi', 'kotu', 'hiz', 'hedef', 'gun', 'ver', 'soyle', 'mi', 'bu', 'icin', 'var', 'olan', 'kacinci', 'kadar', 'tane', 'sonuc', 'firma', 'agent', 'sozlesme', 'bunlar', 'listele', 'sirala', 'peki', 'ile', 'ise', 'veya', 'ya', 'ayrica', 'orada', 'bugun', 'dun', 'satmis', 'yapilmis', 'gelen', 'katilimci', 'odeme'];
-  const frWords = ['combien', 'quel', 'quels', 'comment', 'les', 'des', 'pour', 'dans', 'sont', 'avec', 'cette', 'exposition', 'ventes', 'contrats', 'revenu', 'montre', 'donne', 'meilleurs', 'jours', 'avant'];
+  const frWords = ['combien', 'quel', 'quels', 'comment', 'les', 'des', 'pour', 'dans', 'sont', 'avec', 'cette', 'exposition', 'ventes', 'contrats', 'revenu', 'montre', 'donne', 'meilleurs', 'jours', 'avant', 'vendu', 'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre', 'salon', 'exposant'];
   const enWords = ['how', 'what', 'which', 'who', 'top', 'best', 'worst', 'total', 'show', 'give', 'list', 'agents', 'revenue', 'contracts', 'sold', 'sales', 'many', 'much', 'this', 'year', 'month', 'risk', 'performance', 'progress'];
 
   // Word boundary match — each input word checked against keyword lists
@@ -680,7 +680,12 @@ async function handleMessage(text, user) {
       is_command: false,
       error: err.message,
     });
-    return 'Sorgu işlenirken hata oluştu. Lütfen tekrar deneyin.';
+    const errorMsg = {
+      tr: 'Sorgu işlenirken hata oluştu. Lütfen tekrar deneyin.',
+      en: 'An error occurred while processing your query. Please try again.',
+      fr: 'Une erreur est survenue lors du traitement de votre requête. Veuillez réessayer.',
+    };
+    return errorMsg[lang] || errorMsg.tr;
   }
 }
 

@@ -236,6 +236,7 @@ async function extractIntent(question) {
     'payment_status', 'rebooking_rate', 'price_per_m2', 'country_count',
     'exhibitors_by_country', 'top_agents', 'revenue_summary', 'expo_list',
     'company_search', 'days_to_event', 'general_stats', 'compound',
+    'collection_summary', 'collection_no_payment', 'collection_expo', 'company_collection',
   ];
   if (!parsed.intent || !validIntents.includes(parsed.intent)) {
     parsed.intent = 'general_stats';
@@ -375,6 +376,7 @@ const VALID_INTENTS = [
   'payment_status', 'rebooking_rate', 'price_per_m2', 'country_count',
   'exhibitors_by_country', 'top_agents', 'revenue_summary', 'expo_list',
   'company_search', 'days_to_event', 'general_stats', 'compound',
+  'collection_summary', 'collection_no_payment', 'collection_expo', 'company_collection',
 ];
 
 /**

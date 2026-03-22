@@ -609,7 +609,7 @@ Finance Page (/finance):
   - Paid This Month: SUM(contract_payments.amount_eur) this month, green, shows payment count + vs last month comparison
   - Deposit Rate: paid_eur > 0 contracts / total open contracts * 100, color-coded (green >70%, orange 40-70%, red <40%)
 - Collection Action List: main table with stage/risk filter chips + company search
-  - Scrollable container: max-height 600px, sticky thead (border-collapse:separate, background:var(--bg)), overflow-y auto
+  - Split table sticky header: fixed header table + scrollable body table (540px max-height), matching colgroup widths, MutationObserver for theme-aware border color
   - Filter summary bar: "SHOWING X of Y | Balance: €X | Value: €X | Paid: €X" — updates on filter change
   - Stage filter chips: [All] [No Payment] [Pre-Event Open] [Partial Paid] — deposit_missing and overdue removed
   - Client-side filtering: stage, risk, multi-field search (company, AF, expo, agent, country)
@@ -961,13 +961,16 @@ Intent Engine Notlari:
 - Env: AI_INTENT_MODEL, AI_ANSWER_MODEL
 
 ## Router Architecture
-- 15 rules total (was 12, added: expo_progress, agent_performance, expo_agent_breakdown)
+- 16 rules total (was 15, added: borcu/borcunu single keyword for company_collection)
 - Accent normalization: è→e, ç→c, ü→u, ı→i, ş→s, ğ→g, ö→o
-- Priority order: days_to_event → payment_status → rebooking_rate → price_per_m2 → monthly_trend → expo_progress → agent_performance → expo_agent_breakdown → top_agents → agent_country_breakdown → agent_expo_breakdown → exhibitors_by_country → country_count → revenue_summary → expo_list
+- Priority order: days_to_event → collection_summary → collection_no_payment → company_collection → collection_expo → payment_status → rebooking_rate → price_per_m2 → expo_progress → agent_performance → expo_agent_breakdown → monthly_trend → top_agents → agent_country_breakdown → agent_expo_breakdown → exhibitors_by_country → country_count → revenue_summary → expo_list
 - Returns: { intent, entities, confidence: 1.0 }
-- Entities: year, month, relative_days, expo_name, agent_name, country, metric
+- Entities: year, month, relative_days, expo_name, agent_name, country, metric, company_name
+- Named month extraction: MONTH_NAMES map (FR: janvier..décembre, EN: january..december, TR: ocak..aralık)
+- Company name extraction: Turkish suffix patterns (firması, borcu, şirketi) + year digit cleanup
 - Ambiguity flags: missing_year, missing_metric, missing_expo (for clarification system)
-- Relative time: "son 30 gün" → relative_days: 30, "bu hafta" → 7
+- Relative time: "son 30 gün" → relative_days: 30, "bu hafta" → this_week
+- Time+sözleşme: "bu hafta kaç sözleşme" → revenue_summary with period=this_week
 
 ## Sonnet System Prompt
 "You are ELIZA, the CEO's personal business assistant for Elan Expo."
@@ -1082,7 +1085,7 @@ Kurallar:
 - Her yeni bug bulunduğunda KNOWN_ISSUES.md'e ekle
 - Fix edilince Status: FIXED + commit hash yaz
 - Aynı bug 2+ kez çıkarsa Root cause mutlaka yaz
-Fixed: ISSUE-001..028
+Fixed: ISSUE-001..031
 ISSUE-016: applyScope team subquery sales_agents tablosunu kullanıyordu (sales_group yok) → users tablosuna düzeltildi
 ISSUE-017: Dashboard link localhost:3000 → production URL (eliza.elanfairs.com)
 ISSUE-018: Elif expo bazlı sorguları göremiyordu → NO_AGENT_FILTER intent listesi genişletildi
@@ -1100,6 +1103,9 @@ ISSUE-025: Answer quality batch — fuzzy expo matching, country aliases (30+ co
 ISSUE-026: Tüm yıllar loop (yearAlreadyResolved guard), bugün clarification (hasTimeScope in context ambiguity), iptal no pending (check draft first)
 ISSUE-027: Compound expo queries — multi-metric questions ("kaç sözleşme, m2, geliri?") mapped to expo_progress not compound; parent entities inherited in sub-queries
 ISSUE-028: Edition vs Fiscal inconsistency — revenue_summary + expo_name → expo_progress redirect (edition view for expo-specific queries)
+ISSUE-029: Sticky header + WhatsApp collection intents (collection_summary, collection_no_payment, collection_expo)
+ISSUE-030: SIEMA filter + summary numbers mismatch + alacag normalization
+ISSUE-031: company_collection VALID_INTENTS missing (Haiku→general_stats), company_name year cleanup, FR month parse, bu hafta sozlesme, sticky header split table
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js
