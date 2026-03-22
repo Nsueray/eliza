@@ -444,6 +444,8 @@ router.get('/recent-activity', async (req, res) => {
         c.company_name,
         e.name AS expo_name,
         cp.amount_eur AS amount,
+        cp.amount_local,
+        cp.currency,
         cp.note
       FROM contract_payments cp
       JOIN contracts c ON cp.contract_id = c.id

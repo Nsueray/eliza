@@ -93,14 +93,18 @@ function mapRecord(record, expoMap) {
 
 /**
  * Sync received payments (Zoho Received_Payment subform) for a contract.
+ * currency/exchangeRate come from the parent contract's Currency and Exchange_Rate fields.
+ * Payment amounts in Zoho are ALWAYS in the contract's currency — we convert to EUR here.
  */
-async function syncReceivedPayments(contractId, afNumber, receivedPayments) {
+async function syncReceivedPayments(contractId, afNumber, receivedPayments, currency, exchangeRate) {
   if (!receivedPayments || !Array.isArray(receivedPayments) || receivedPayments.length === 0) {
     return 0;
   }
 
   // Delete existing payments for this contract and re-insert
   await query('DELETE FROM contract_payments WHERE contract_id = $1', [contractId]);
+
+  const needsConversion = currency && currency !== 'EUR' && exchangeRate && exchangeRate > 1;
 
   let count = 0;
   for (const payment of receivedPayments) {
@@ -110,34 +114,52 @@ async function syncReceivedPayments(contractId, afNumber, receivedPayments) {
 
     if (rawAmount == null) continue;
 
-    // Parse dual-currency format: "12,960.00 (€1,186.81)" → extract EUR value
+    // Parse the raw amount (may be string or number)
+    let amountLocal = null;
     let amountEur = null;
+
     if (typeof rawAmount === 'string') {
+      // Check for dual-currency format: "12,960.00 (€1,186.81)"
       const eurMatch = rawAmount.match(/\(€([\d,.\s]+)\)/);
       if (eurMatch) {
-        // Dual currency format — extract EUR from parentheses
-        const eurStr = eurMatch[1].replace(/[\s,]/g, '').replace(',', '.');
+        // Dual currency format — extract EUR from parentheses (most accurate)
+        const eurStr = eurMatch[1].replace(/[\s,]/g, '');
         amountEur = parseFloat(eurStr);
+        // Extract local currency amount (before the parentheses)
+        const localPart = rawAmount.replace(/\s*\(€[\d,.\s]+\)/, '').trim();
+        const localCleaned = localPart.replace(/[\s,]/g, '');
+        amountLocal = parseFloat(localCleaned) || null;
         // Preserve original currency info in note
-        const originalPart = rawAmount.replace(/\s*\(€[\d,.\s]+\)/, '').trim();
-        if (originalPart && amountEur) {
-          note = note ? `${note} | ${originalPart} → €${amountEur}` : `${originalPart} → €${amountEur}`;
+        if (localPart && amountEur) {
+          note = note ? `${note} | ${localPart} → €${amountEur}` : `${localPart} → €${amountEur}`;
         }
       } else {
-        // Plain string number — parse directly
+        // Plain string number — this is in contract currency
         const cleaned = rawAmount.replace(/[\s,]/g, '');
-        amountEur = parseFloat(cleaned);
+        amountLocal = parseFloat(cleaned);
       }
     } else {
-      amountEur = Number(rawAmount);
+      amountLocal = Number(rawAmount);
+    }
+
+    // If we already extracted EUR from dual-currency format, use that
+    // Otherwise convert from local currency using exchange rate
+    if (amountEur == null && amountLocal != null && !isNaN(amountLocal)) {
+      if (needsConversion) {
+        amountEur = Math.round((amountLocal / exchangeRate) * 100) / 100;
+      } else {
+        // EUR contract or no exchange rate — amount is already in EUR
+        amountEur = amountLocal;
+        amountLocal = null; // no separate local amount needed
+      }
     }
 
     if (amountEur == null || isNaN(amountEur) || amountEur <= 0) continue;
 
     await query(
-      `INSERT INTO contract_payments (contract_id, af_number, payment_date, amount_eur, note)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [contractId, afNumber, date || null, amountEur, note || null]
+      `INSERT INTO contract_payments (contract_id, af_number, payment_date, amount_eur, amount_local, currency, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [contractId, afNumber, date || null, amountEur, amountLocal || null, currency || 'EUR', note || null]
     );
     count++;
   }
@@ -268,7 +290,8 @@ async function syncSalesOrders() {
       // Sync received payments (subform)
       try {
         const pCount = await syncReceivedPayments(
-          contractId, mapped.af_number, mapped._received_payments
+          contractId, mapped.af_number, mapped._received_payments,
+          mapped.currency, mapped.exchange_rate
         );
         paymentsSync += pCount;
       } catch (err) {
@@ -334,7 +357,8 @@ async function syncSalesOrders() {
       if (!record || !record.Received_Payment) continue;
 
       const pCount = await syncReceivedPayments(
-        row.id, row.af_number, record.Received_Payment
+        row.id, row.af_number, record.Received_Payment,
+        record.Currency || null, record.Exchange_Rate ?? null
       );
       if (pCount > 0) {
         paymentsFetched += pCount;

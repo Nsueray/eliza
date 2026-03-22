@@ -846,7 +846,14 @@ export default function FinancePage() {
                     <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company_name}</td>
                     <td className="muted">{r.expo_name}</td>
                     <td className="mono" style={{ fontSize: 11 }}>{r.af_number}</td>
-                    <td className="mono r" style={{ color: "var(--success)" }}>{fmtEur(r.amount)}</td>
+                    <td className="mono r" style={{ color: "var(--success)" }}>
+                      {fmtEur(r.amount)}
+                      {r.currency && r.currency !== "EUR" && r.amount_local ? (
+                        <span style={{ fontSize: 10, color: "var(--text-secondary)", display: "block" }}>
+                          {r.currency} {fmt(r.amount_local)}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="muted" style={{ fontSize: 11, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.note || "-"}</td>
                   </tr>
                 ))}

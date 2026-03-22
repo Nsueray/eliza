@@ -235,6 +235,7 @@ Completed (cont. 5):
 - Finance Module Sprint 1A: Payment Sync
   - Migration 013: balance_eur, paid_eur, remaining_payment_eur, due_date, payment_done, payment_method, validity on contracts
   - contract_payments tablosu: Zoho Received_Payment subform → her ödeme ayrı satır (individual record fetch required — Zoho list API doesn't return subforms)
+  - Currency conversion: Payment amounts in Zoho are in contract currency. syncReceivedPayments() divides by Exchange_Rate for non-EUR contracts. Dual-format "X (€Y)" preferred when available.
   - contract_payment_schedule tablosu: synthetic only (%30 deposit + %70 pre-event)
   - outstanding_balances view: collection_stage, collection_risk_score, event_risk_score
   - Zoho sync: 2-pass — bulk for all fields, individual fetch for Received_Payment (paid_eur > 0 only)
@@ -632,7 +633,12 @@ Finance Page (/finance):
 - Stage badge colors: no_payment (#C0392B), overdue (#E67E22), pre_event_balance_open (#D4A017), partial_paid (#4A9EBF)
 - Risk badge colors: CRITICAL (#C0392B), HIGH (#E67E22), WATCH (#D4A017), OK (#2ECC71)
 - Mode filter: edition (expo_start_date within 12 months) vs fiscal (contract_date current year)
-- Dual currency parsing: Zoho Received_Payment "X (€Y)" → extract EUR value, preserve original in note
+- Currency conversion: contract_payments use Contract.Currency + Exchange_Rate to convert local payments to EUR
+  - Zoho "X (€Y)" dual format → prefer EUR from parentheses
+  - Plain amounts → divide by exchange_rate when currency != EUR
+  - contract_payments columns: amount_eur (converted), amount_local (original), currency
+  - Dashboard recent payments: dual display "€1.579 (NGN 2.625.000)" for non-EUR
+  - Migration 016: amount_local + currency columns on contract_payments
 - Collection stages simplified (migration 015): deposit_missing merged into no_payment, overdue kept in SQL but inactive (due_date NULL)
 - Known data issue: contracts.due_date is NULL for all 244 open contracts (Zoho Due_Date field not populated)
 

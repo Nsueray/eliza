@@ -119,7 +119,11 @@ router.post('/migrate', async (req, res) => {
     await query(`UPDATE users SET dashboard_permissions = dashboard_permissions || '{"finance":true}'::jsonb WHERE role = 'ceo'`);
     await query(`UPDATE users SET dashboard_permissions = dashboard_permissions || '{"finance":true}'::jsonb WHERE role = 'manager' AND dashboard_permissions IS NOT NULL AND dashboard_permissions != '{}'::jsonb`);
 
-    res.json({ success: true, message: 'Migrations 011 + 013 + 014 applied' });
+    // Migration 016: payment currency columns
+    await query(`ALTER TABLE contract_payments ADD COLUMN IF NOT EXISTS amount_local DECIMAL(12,2)`);
+    await query(`ALTER TABLE contract_payments ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'EUR'`);
+
+    res.json({ success: true, message: 'Migrations 011 + 013 + 014 + 016 applied' });
   } catch (err) {
     console.error('Migration error:', err);
     res.status(500).json({ error: err.message });
