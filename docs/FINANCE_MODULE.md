@@ -334,20 +334,23 @@ Mevcut `payment_reminder` message template'i kullanılır.
 - [x] Nav.js: "Finance" link added after "Sales" with permission key
 - [x] Dashboard permissions: "finance" module added (CEO+Manager=true, Agent=false)
 
-### Sprint 3: WhatsApp + Aksiyon
-- [ ] 3 temel WhatsApp sorgu
+### Sprint 3: WhatsApp + Aksiyon — 🟡 PARTIALLY DONE
+- [x] 3 temel WhatsApp sorgu (collection_summary, collection_expo, collection_no_payment)
+- [x] Company collection intent ("pygar firmasının borcu?" → company_collection)
 - [ ] Morning brief tahsilat bölümü
-- [ ] Aksiyon döngüsü
+- [ ] Aksiyon döngüsü (hatırlatma → onay → gönder)
 
 ---
 
 ## 6. ÖNEMLİ KURALLAR
 
 1. **Zoho source of truth** — ELIZA read-only, Zoho'ya yazmaz
-2. **Tüm tutarlar EUR** — kolon isimleri `_eur` suffix ile, currency ambiguity yok
+2. **Tüm tutarlar EUR** — kolon isimleri `_eur` suffix ile. Currency + Exchange_Rate sync edilir, local currency → EUR dönüşümü otomatik.
 3. **Authoritative balance** — `balance_eur` tek kaynak. `remaining_payment_eur` referans alanı.
 4. **ELAN EXPO internal agent** — finansal raporlarda gelir DAHİL, agent ranking HARİÇ
 5. **Default: Edition view** — yaklaşan fuarlar odaklı. Fiscal toggle ile şirket geneli.
 6. **Risk iki eksenli** — collection risk (overdue + tutar + ödeme) + event risk (fuara yakınlık + büyüklük)
 7. **Deposit Rate** — paid_eur > 0 olan kontrat sayısı / toplam açık kontrat. Collection Rate kaldırıldı (due_date NULL)
-8. **Her yeni finans alanı** → CLAUDE.md'ye ve bu dokümana ekle
+8. **Currency conversion** — Zoho Currency + Exchange_Rate kullanılır. contract_payments'ta amount_eur (converted) + amount_local (original) + currency tutulur.
+9. **Cancelled Zoho fields** — st_Payment, nd_Payment, Date_Amount_Type1..5 artık kullanılmıyor (2025 öncesi eski). Sync'ten çıkarıldı.
+10. **Her yeni finans alanı** → CLAUDE.md'ye ve bu dokümana ekle

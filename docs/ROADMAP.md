@@ -60,8 +60,8 @@
 ### Quality & Monitoring
 - Message Logging (message_logs table, token tracking, duration, intent/model split)
 - Log enrichment (rewritten_question column, migration 008)
-- Benchmark: 92% PASS (46/50, 0 FAIL, 4 WARN)
-- 28 known issues tracked and fixed (docs/KNOWN_ISSUES.md)
+- Benchmark: 86% PASS (43/50, 1 FAIL, 6 WARN)
+- 35 known issues tracked and fixed (docs/KNOWN_ISSUES.md)
 
 ## Production URLs
 - Dashboard: https://eliza.elanfairs.com
@@ -69,11 +69,57 @@
 - Bot: https://eliza-bot-r1vx.onrender.com
 - WhatsApp: Twilio sandbox
 
+### Finance Module — Collections Cockpit
+- Payment Sync (Balance1, Total_Payment, Received_Payment subform, Currency + Exchange_Rate)
+- Currency Conversion (NGN/MAD/USD/TRY → EUR using Zoho Exchange_Rate)
+- contract_payments table (received payments with dual currency: amount_eur + amount_local)
+- contract_payment_schedule table (synthetic schedule: 30% deposit + 70% pre-event)
+- outstanding_balances SQL view (collection_stage, dual-axis risk score)
+- Finance Dashboard (/finance — Collections Cockpit):
+  - 8 KPI cards (Contract Value, Collected, Outstanding, Paid This Month, Due Next 30d, Deposit Rate, At-Risk, No Payment)
+  - Collection Action List (scrollable, filterable by stage/risk, sortable, search, per-table export)
+  - Company detail drawer (payment schedule + received payments)
+  - A/R Aging chart + Upcoming Collections table
+  - Outstanding by Expo + by Agent tables
+  - Weekly Cash Forecast (8 week, synthetic schedule)
+  - Recent Payments table (dual currency display)
+  - Edition/Fiscal toggle
+  - Split-table sticky header
+- Finance API (8 endpoints: summary, action-list, aging, upcoming, by-expo, by-agent, contract detail, recent-activity)
+- WhatsApp Finance Intents:
+  - collection_summary ("kaç alacağımız var?")
+  - collection_expo ("SIEMA tahsilat durumu?")
+  - collection_no_payment ("ödeme yapmayan firmalar?")
+  - company_collection ("pygar firmasının borcu?")
+- Architecture docs: docs/FINANCE_MODULE.md, docs/FINANCE_UI_PLAN.md
+
+### Quality Fixes (Session 2)
+- Fuzzy expo name matching (megaclima → Mega Clima)
+- Country aliases (30+ countries, TR/EN/FR, demonym suffix stripping)
+- Cancel clarification fix (iptal/cancel when pending)
+- Unnecessary clarification skip (time-based queries skip expo)
+- Compound query fix (multi-metric → expo_progress)
+- Edition vs fiscal redirection (expo_name → edition view)
+- French month parsing (janvier, février, mars...)
+- Turkish "bu hafta" time parsing
+- Company name extraction for debt queries
+
+## Production URLs
+- Dashboard: https://eliza.elanfairs.com
+- API: https://eliza-api-8tkr.onrender.com
+- Bot: https://eliza-bot-r1vx.onrender.com
+- WhatsApp: +1 810-255-5377
+
 ## In Progress
 
 (none currently)
 
 ## Next Phases
+
+### Target System (Hedef Belirleme)
+- m² + revenue targets per edition and fiscal year
+- Target vs actual comparison on dashboard
+- WhatsApp target queries
 
 ### Phase 12c: CEO Notes with Semantic Recall
 - .note command + entity matching
