@@ -41,8 +41,8 @@ function GaugeChart({ actual, target, label, isArea }) {
     : percentage >= 50 ? '#E67E22'
     : '#E74C3C';
 
-  const size = 180;
-  const strokeWidth = 14;
+  const size = 140;
+  const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const arcLength = circumference * 0.75;
@@ -52,36 +52,43 @@ function GaugeChart({ actual, target, label, isArea }) {
   const actualLabel = isArea ? `${fmt(actual)}` : fmtK(actual).replace('€', '');
   const unit = isArea ? 'm²' : '€';
   const tgtLabel = isArea ? `${fmt(target)} m²` : fmtK(target);
-  const remLabel = isArea ? `${fmt(remaining)} m²` : fmtEur(remaining);
+  const remLabel = isArea ? `${fmt(remaining)} m²` : fmtK(remaining);
 
   return (
     <div className="gauge-item">
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}
         style={{ overflow: 'visible' }}>
+        <defs>
+          <filter id={`glow-${isArea ? 'area' : 'rev'}`}>
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
         <circle cx={size / 2} cy={size / 2} r={radius}
           fill="none" stroke="var(--surface-2)" strokeWidth={strokeWidth}
           strokeDasharray={`${arcLength} ${circumference}`}
           strokeLinecap="round"
           transform={`rotate(${rotation} ${size / 2} ${size / 2})`}
-          style={{ opacity: 0.6 }} />
+          style={{ opacity: 0.3 }} />
         <circle cx={size / 2} cy={size / 2} r={radius}
           fill="none" stroke={color} strokeWidth={strokeWidth}
           strokeDasharray={`${arcLength} ${circumference}`}
           strokeDashoffset={dashOffset}
           strokeLinecap="round"
           transform={`rotate(${rotation} ${size / 2} ${size / 2})`}
+          filter={`url(#glow-${isArea ? 'area' : 'rev'})`}
           style={{ transition: 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
-        <text x={size / 2} y={size / 2 - 14} textAnchor="middle"
-          fill={color} fontSize="28" fontFamily="DM Mono, monospace" fontWeight="700">
+        <text x={size / 2} y={size / 2 - 10} textAnchor="middle"
+          fill={color} fontSize="22" fontFamily="DM Mono, monospace" fontWeight="700">
           {actualLabel}
         </text>
         <text x={size / 2} y={size / 2 + 6} textAnchor="middle"
-          fill={color} fontSize="13" fontFamily="DM Mono, monospace" fontWeight="500"
+          fill={color} fontSize="11" fontFamily="DM Mono, monospace" fontWeight="500"
           style={{ opacity: 0.8 }}>
           {unit}
         </text>
-        <text x={size / 2} y={size / 2 + 26} textAnchor="middle"
-          fill="var(--text-secondary)" fontSize="12" fontFamily="DM Mono, monospace">
+        <text x={size / 2} y={size / 2 + 22} textAnchor="middle"
+          fill="var(--text-secondary)" fontSize="11" fontFamily="DM Mono, monospace">
           {percentage}%
         </text>
       </svg>
@@ -323,9 +330,9 @@ export default function TargetsPage() {
   }
 
   // Render expo row
-  function ExpoRow({ e }) {
+  function ExpoRow({ e, highlight }) {
     return (
-      <tr key={e.expo_id}>
+      <tr key={e.expo_id} className={highlight ? "expo-row-highlight" : ""}>
         <td>
           <Link href={`/expos/detail?name=${encodeURIComponent(e.expo_name.replace(/\s*\d{4}$/, ""))}&year=${year}`}
             style={{ color: "var(--accent)", textDecoration: "none" }}>
@@ -443,16 +450,18 @@ export default function TargetsPage() {
           letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
         .kpi-val { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--text-primary); }
         .kpi-sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-        .gauge-row { display: flex; gap: 40px; margin-bottom: 24px; justify-content: center;
+        .gauge-row { display: flex; gap: 32px; margin-bottom: 24px; justify-content: center;
           align-items: center; background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--radius); padding: 32px 24px; box-shadow: var(--card-shadow); }
-        .gauge-item { text-align: center; flex: 1; min-width: 220; max-width: 280px; }
-        .gauge-info { margin-top: 4px; font-family: var(--font-mono); font-size: 11px;
+          border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--card-shadow); }
+        .gauge-item { text-align: center; flex: 1; min-width: 160px; max-width: 220px; }
+        .gauge-info { margin-top: 2px; font-family: var(--font-mono); font-size: 10px;
           color: var(--text-secondary); letter-spacing: 0.5px; }
         .gauge-sub { margin-top: 2px; font-family: var(--font-mono); font-size: 10px;
           color: var(--text-secondary); opacity: 0.6; }
-        .gauge-label { margin-top: 8px; font-family: var(--font-mono); font-size: 9px;
+        .gauge-label { margin-top: 6px; font-family: var(--font-mono); font-size: 9px;
           letter-spacing: 2px; text-transform: uppercase; color: var(--text-secondary); opacity: 0.5; }
+        .expo-row-highlight td { border-left: 3px solid var(--accent) !important; }
+        .expo-row-highlight td:first-child { padding-left: 12px; }
         .summary-bar { background: var(--surface); border: 1px solid var(--border);
           border-radius: 0 0 var(--radius) var(--radius); padding: 14px 20px;
           border-top: none; }
@@ -630,7 +639,14 @@ export default function TargetsPage() {
             ))}
 
             {/* Standalone expos */}
-            {(data.standalone || []).length > 0 && (
+            {(data.standalone || []).length > 0 && (() => {
+              const isSiema = (name) => /siema/i.test(name);
+              const sorted = [...data.standalone].sort((a, b) => {
+                const aS = isSiema(a.expo_name) ? 0 : 1;
+                const bS = isSiema(b.expo_name) ? 0 : 1;
+                return aS - bS;
+              });
+              return (
               <div style={{ marginBottom: 16 }}>
                 <div className="section-hdr" style={{ marginBottom: 8 }}>
                   <div className="section-title">
@@ -641,7 +657,7 @@ export default function TargetsPage() {
                   <table className="tbl">
                     <THead />
                     <tbody>
-                      {data.standalone.map(e => <ExpoRow key={e.expo_id} e={e} />)}
+                      {sorted.map(e => <ExpoRow key={e.expo_id} e={e} highlight={isSiema(e.expo_name)} />)}
                     </tbody>
                   </table>
                 </div>
@@ -658,7 +674,8 @@ export default function TargetsPage() {
                   return <ClusterSummaryBar totals={st} label="STANDALONE TOTAL" />;
                 })()}
               </div>
-            )}
+              );
+            })()}
 
             {/* Company Grand Total */}
             <ClusterSummaryBar totals={grandTotals} label="COMPANY TOTAL" isGrand />

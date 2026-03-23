@@ -300,9 +300,10 @@ Completed (cont. 6):
   - Auto target: strips year from expo name → finds previous edition → applies percentage (default +15%, supports negative)
   - Cluster detection: proximity-based connected-components (JS-based)
     - inferCountry(city, country, name): country field → CITY_COUNTRY map (lagos→Nigeria, algiers→Algeria, casablanca→Morocco) → NAME_COUNTRY_KEYWORDS from expo name
-    - CLUSTER_PROXIMITY_DAYS = 35: consecutive expos in same country within 35 days → same cluster
+    - CLUSTER_PROXIMITY_DAYS = 45: consecutive expos in same country within 45 days → same cluster (increased from 35 to capture Coren→Nigeria Aug at 43d gap)
     - Connected-components: chains expos A→B→C if each pair is within proximity window
     - Handles NULL country, inconsistent city spellings (Alger vs Algiers)
+    - 2026 result: 7 clusters + 1 standalone (SIEMA — 83d gap from nearest Morocco expo)
   - API: apps/api/src/routes/targets.js
     - GET /api/targets?year=2026&mode=edition|fiscal → summary + clusters (with totals) + standalone expos
     - PUT /api/targets/:expo_id → { method: "manual"|"auto", target_m2, target_revenue, percentage, notes }
@@ -312,10 +313,10 @@ Completed (cont. 6):
   - Dashboard: /targets — Target Tracker page
     - Edition/Fiscal mode toggle, year selector (2024/2025/2026)
     - 4 KPI cards: Target m², Actual m², Target Revenue, Actual Revenue (with progress bars)
-    - SVG 270° donut arc gauge charts: Area Progress (m²) + Revenue Progress (€) with animated progress, remaining/target labels
+    - SVG 270° donut arc gauge charts (140px, strokeWidth 12): Area Progress (m²) + Revenue Progress (€) with animated progress, subtle glow filter, remaining in compact format (fmtK), bg arc opacity 0.3
     - Cluster-grouped collapsible tables with expand/collapse chevron animation (7 clusters for 2026)
     - ClusterSummaryBar component: summary bars below tables (not table rows) with m²/revenue/progress/contracts + gap indicator
-    - Standalone expos section with standalone total bar (when 2+ standalone)
+    - Standalone expos: SIEMA sorted to top with gold accent border-left highlight (expo-row-highlight class)
     - Company grand total bar with accent border
     - Edit modal: Auto (percentage + preview) or Manual (direct m²/€ input), previous edition info
     - Seed Auto Targets button (confirm modal → POST /api/targets/seed)

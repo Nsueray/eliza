@@ -95,7 +95,7 @@ function inferCountry(city, country, name) {
  * of each other form a cluster (connected-components via sorted merge).
  * Country is inferred from city/name when NULL.
  */
-const CLUSTER_PROXIMITY_DAYS = 35; // ~1 month tolerance
+const CLUSTER_PROXIMITY_DAYS = 45; // ~1.5 month tolerance (captures Coren→Nigeria Aug at 43d gap)
 
 async function detectClusters(year) {
   const result = await query(`
