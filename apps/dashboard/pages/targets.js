@@ -35,7 +35,8 @@ function ProgressRing({ actual, target, label, isArea }) {
   const percentage = target > 0 ? Math.round((actual / target) * 100) : 0;
   const remaining = Math.max(target - actual, 0);
 
-  const ringColor = percentage >= 80 ? '#2ECC71' : percentage >= 50 ? '#E67E22' : '#E74C3C';
+  // m² always orange, revenue always green — distinct at a glance
+  const ringColor = isArea ? '#E67E22' : '#2ECC71';
 
   const radius = 32;
   const circumference = 2 * Math.PI * radius;
@@ -452,11 +453,11 @@ export default function TargetsPage() {
         .kpi-sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
         .expo-row-highlight td { border-left: 3px solid var(--accent) !important; }
         .expo-row-highlight td:first-child { padding-left: 12px; }
-        .summary-bar { background: var(--surface); border: 1px solid var(--border);
+        .summary-bar { background: rgba(200, 169, 122, 0.06); border: 1px solid var(--border);
           border-radius: 0 0 var(--radius) var(--radius); padding: 14px 20px;
-          border-top: none; }
-        .summary-bar-grand { background: var(--surface-2); border: 1px solid var(--accent);
-          border-radius: var(--radius); margin-top: 24px; }
+          border-top: none; border-left: 2px solid rgba(200, 169, 122, 0.3); }
+        .summary-bar-grand { background: rgba(200, 169, 122, 0.1); border: 1px solid var(--accent);
+          border-radius: var(--radius); margin-top: 24px; border-left: 3px solid var(--accent); }
         .summary-bar-main { display: flex; align-items: center; justify-content: space-between;
           font-family: var(--font-mono); font-size: 12px; }
         .summary-bar-label { font-weight: 700; font-size: 11px; letter-spacing: 1.5px;
@@ -627,44 +628,43 @@ export default function TargetsPage() {
               </div>
             ))}
 
-            {/* Standalone expos */}
-            {(data.standalone || []).length > 0 && (() => {
-              const isSiema = (name) => /siema/i.test(name);
-              const sorted = [...data.standalone].sort((a, b) => {
-                const aS = isSiema(a.expo_name) ? 0 : 1;
-                const bS = isSiema(b.expo_name) ? 0 : 1;
-                return aS - bS;
-              });
-              return (
-              <div style={{ marginBottom: 16 }}>
-                <div className="section-hdr" style={{ marginBottom: 8 }}>
-                  <div className="section-title">
-                    {mode === "fiscal" ? "All Expos" : `Standalone Expos (${data.standalone.length})`}
+            {/* Individual expos (no cluster) */}
+            {(data.standalone || [])
+              .sort((a, b) => {
+                const aS = a.expo_name.toLowerCase().includes('siema');
+                const bS = b.expo_name.toLowerCase().includes('siema');
+                if (aS && !bS) return -1;
+                if (!aS && bS) return 1;
+                return (b.actual_m2 || 0) - (a.actual_m2 || 0);
+              })
+              .map(e => (
+                <div key={e.expo_id} style={{ marginBottom: 16 }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px',
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    marginBottom: 2,
+                  }}>
+                    <span className="cluster-name">{e.expo_name}</span>
+                    <div className="cluster-summary">
+                      {e.target_m2 > 0 ? `${fmt(e.actual_m2)} / ${fmt(e.target_m2)} m² (${e.m2_progress}%)` : `${fmt(e.actual_m2)} m²`}
+                      {" | "}
+                      {e.target_revenue > 0 ? `${fmtK(e.actual_revenue)} / ${fmtK(e.target_revenue)} (${e.revenue_progress}%)` : fmtK(e.actual_revenue)}
+                    </div>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="tbl" style={{ marginTop: 0 }}>
+                      <THead />
+                      <tbody>
+                        <ExpoRow e={e} highlight={e.expo_name.toLowerCase().includes('siema')} />
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table className="tbl">
-                    <THead />
-                    <tbody>
-                      {sorted.map(e => <ExpoRow key={e.expo_id} e={e} highlight={isSiema(e.expo_name)} />)}
-                    </tbody>
-                  </table>
-                </div>
-                {data.standalone.length >= 2 && (() => {
-                  const st = {
-                    target_m2: data.standalone.reduce((s, e) => s + e.target_m2, 0),
-                    actual_m2: data.standalone.reduce((s, e) => s + e.actual_m2, 0),
-                    target_revenue: data.standalone.reduce((s, e) => s + e.target_revenue, 0),
-                    actual_revenue: data.standalone.reduce((s, e) => s + e.actual_revenue, 0),
-                    contracts: data.standalone.reduce((s, e) => s + e.contracts, 0),
-                  };
-                  st.m2_progress = st.target_m2 > 0 ? Math.round((st.actual_m2 / st.target_m2) * 1000) / 10 : 0;
-                  st.revenue_progress = st.target_revenue > 0 ? Math.round((st.actual_revenue / st.target_revenue) * 1000) / 10 : 0;
-                  return <ClusterSummaryBar totals={st} label="STANDALONE TOTAL" />;
-                })()}
-              </div>
-              );
-            })()}
+              ))
+            }
 
             {/* Company Grand Total */}
             <ClusterSummaryBar totals={grandTotals} label="COMPANY TOTAL" isGrand />

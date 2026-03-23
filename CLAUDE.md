@@ -314,11 +314,11 @@ Completed (cont. 6):
   - Dashboard: /targets — Target Tracker page
     - Edition/Fiscal mode toggle, year selector (2024/2025/2026)
     - 4 KPI cards: Target m², Actual m², Target Revenue, Actual Revenue (with progress bars)
-    - ProgressRing component: compact ring (72px SVG) + side metrics layout. m² ring orange (#E67E22), revenue ring green (#2ECC71), >80% both green. Replaces old 270° donut arc GaugeChart.
+    - ProgressRing component: compact ring (72px SVG) + side metrics layout. m² ALWAYS orange (#E67E22), revenue ALWAYS green (#2ECC71) — fixed colors regardless of percentage.
     - Cluster-grouped collapsible tables with expand/collapse chevron animation (7 clusters for 2026)
-    - ClusterSummaryBar component: summary bars below tables (not table rows) with m²/revenue/progress/contracts + gap indicator
-    - Standalone expos: SIEMA sorted to top with gold accent border-left highlight (expo-row-highlight class)
-    - Company grand total bar with accent border
+    - ClusterSummaryBar component: summary bars below tables with accent-tinted bg (rgba(200,169,122,0.06)) + left accent border. Gap indicator for remaining.
+    - Individual expos (no cluster): each standalone expo rendered as mini-section (header + single-row table). No "Standalone Expos" group title. SIEMA sorted to top with accent border-left highlight.
+    - Company grand total bar: accent border-left (3px) + slightly darker accent bg (rgba 0.1)
     - Edit modal: Auto (percentage + preview) or Manual (direct m²/€ input), previous edition info
     - Seed Auto Targets button (confirm modal → POST /api/targets/seed)
     - No-targets banner with generate button on first visit
