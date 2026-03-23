@@ -144,7 +144,37 @@ router.post('/migrate', async (req, res) => {
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'Europe/Istanbul'`);
     await query(`UPDATE users SET user_country = 'Turkey', timezone = 'Europe/Istanbul' WHERE user_country IS NULL`);
 
-    res.json({ success: true, message: 'Migrations 011 + 013 + 014 + 016 + 017 + 018 applied' });
+    // Migration 019: target system
+    await query(`CREATE TABLE IF NOT EXISTS expo_clusters (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(200) NOT NULL UNIQUE,
+      city VARCHAR(100),
+      country VARCHAR(100),
+      start_date DATE,
+      end_date DATE,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await query(`ALTER TABLE expos ADD COLUMN IF NOT EXISTS cluster_id INTEGER REFERENCES expo_clusters(id)`);
+    await query(`CREATE TABLE IF NOT EXISTS expo_targets (
+      id SERIAL PRIMARY KEY,
+      expo_id INTEGER REFERENCES expos(id) UNIQUE,
+      target_m2 DECIMAL(10,2),
+      target_revenue DECIMAL(12,2),
+      source VARCHAR(20) DEFAULT 'auto',
+      auto_base_expo_id INTEGER,
+      auto_percentage DECIMAL(5,2) DEFAULT 15.0,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_expo_targets_expo ON expo_targets(expo_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_expos_cluster ON expos(cluster_id)`);
+
+    // Add targets permission to CEO + manager
+    await query(`UPDATE users SET dashboard_permissions = dashboard_permissions || '{"targets":true}'::jsonb WHERE role = 'ceo'`);
+    await query(`UPDATE users SET dashboard_permissions = dashboard_permissions || '{"targets":true}'::jsonb WHERE role = 'manager' AND dashboard_permissions IS NOT NULL AND dashboard_permissions != '{}'::jsonb`);
+
+    res.json({ success: true, message: 'Migrations 011-019 applied' });
   } catch (err) {
     console.error('Migration error:', err);
     res.status(500).json({ error: err.message });

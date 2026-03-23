@@ -1,0 +1,6 @@
+{
+  "name": "@eliza/targets",
+  "version": "1.0.0",
+  "description": "ELIZA Target System — expo targets, clusters, auto-calculation",
+  "main": "index.js"
+}

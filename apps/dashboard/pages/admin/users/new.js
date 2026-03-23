@@ -36,6 +36,7 @@ const DASHBOARD_MODULES = [
   { key: "expo_detail", label: "Expo Detail" },
   { key: "sales", label: "Sales" },
   { key: "finance", label: "Finance" },
+  { key: "targets", label: "Targets" },
   { key: "logs", label: "Logs" },
   { key: "intelligence", label: "Intelligence" },
   { key: "system", label: "System" },
@@ -44,9 +45,9 @@ const DASHBOARD_MODULES = [
 ];
 
 const ROLE_PERM_DEFAULTS = {
-  ceo: { war_room: true, expo_directory: true, expo_detail: true, sales: true, finance: true, logs: true, intelligence: true, system: true, users: true, settings: true },
-  manager: { war_room: true, expo_directory: true, expo_detail: true, sales: true, finance: true, logs: false, intelligence: false, system: false, users: false, settings: true },
-  agent: { war_room: false, expo_directory: false, expo_detail: false, sales: true, finance: false, logs: false, intelligence: false, system: false, users: false, settings: true },
+  ceo: { war_room: true, expo_directory: true, expo_detail: true, sales: true, finance: true, targets: true, logs: true, intelligence: true, system: true, users: true, settings: true },
+  manager: { war_room: true, expo_directory: true, expo_detail: true, sales: true, finance: true, targets: true, logs: false, intelligence: false, system: false, users: false, settings: true },
+  agent: { war_room: false, expo_directory: false, expo_detail: false, sales: true, finance: false, targets: false, logs: false, intelligence: false, system: false, users: false, settings: true },
 };
 
 export default function NewUser() {

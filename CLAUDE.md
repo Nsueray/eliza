@@ -282,6 +282,32 @@ Completed (cont. 6):
   - Push scheduler uses per-user timezone: getUserLocalTime() converts to user's local time
   - Each user receives push messages at their configured local time
   - Weekend/weekday checks use user's local timezone
+- Target System
+  - Migration 019: expo_targets (target_m2, target_revenue, source, auto_base_expo_id, auto_percentage) + expo_clusters (name UNIQUE, city, country, dates) + expos.cluster_id FK
+  - packages/targets/index.js: calculateAutoTarget (prev edition × growth%), detectClusters (same city+week), createOrUpdateClusters, seedAutoTargets, getPreviousEdition
+  - Auto target: strips year from expo name → finds previous edition → applies percentage (default +15%, supports negative)
+  - Cluster detection: GROUP BY city + DATE_TRUNC('week', start_date) HAVING COUNT > 1
+  - API: apps/api/src/routes/targets.js
+    - GET /api/targets?year=2026&mode=edition|fiscal → summary + clusters (with totals) + standalone expos
+    - PUT /api/targets/:expo_id → { method: "manual"|"auto", target_m2, target_revenue, percentage, notes }
+    - POST /api/targets/seed?year=2026&percentage=15 → create clusters + seed auto targets
+    - GET /api/targets/clusters?year=2026 → cluster list
+    - GET /api/targets/previous/:expo_id → previous edition actuals
+  - Dashboard: /targets — Target Tracker page
+    - Edition/Fiscal mode toggle, year selector (2024/2025/2026)
+    - 4 KPI cards: Target m², Actual m², Target Revenue, Actual Revenue (with progress bars)
+    - Cluster-grouped collapsible tables (7 clusters for 2026)
+    - Standalone expos section
+    - Company total row at bottom
+    - Edit modal: Auto (percentage + preview) or Manual (direct m²/€ input), previous edition info
+    - Seed Auto Targets button (confirm modal → POST /api/targets/seed)
+    - No-targets banner with generate button on first visit
+    - Export: Copy Summary (text), Excel All (xlsx)
+    - Progress colors: >80% green, 50-80% yellow, <50% red
+    - Expo names link to /expos/detail
+  - Dashboard permissions: "targets" module (CEO+Manager=true, Agent=false)
+  - Nav: "Targets" after "Finance"
+  - ROUTE_PERMISSIONS: /targets → targets
 
 In Progress:
 
@@ -562,7 +588,7 @@ Pages:
 - /settings → User settings (change password, logout)
 
 Navigation (all pages — unified via components/Nav.js):
-- Order: War Room | Expo Directory | Sales | Finance | Logs | Intelligence | System | Users | Settings
+- Order: War Room | Expo Directory | Sales | Finance | Targets | Logs | Intelligence | System | Users | Settings
 - Active page highlighted with accent color
 - Nav component: components/Nav.js (single source of truth)
 

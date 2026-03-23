@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/expos", label: "Expo Directory", permission: "expo_directory" },
   { href: "/sales", label: "Sales", permission: "sales" },
   { href: "/finance", label: "Finance", permission: "finance" },
+  { href: "/targets", label: "Targets", permission: "targets" },
   { href: "/admin/logs", label: "Logs", permission: "logs" },
   { href: "/admin/intelligence", label: "Intelligence", permission: "intelligence" },
   { href: "/admin/system", label: "System", permission: "system" },
