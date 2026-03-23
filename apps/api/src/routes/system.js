@@ -140,8 +140,8 @@ router.post('/sync-now', async (req, res) => {
   }
 });
 
-// POST /api/system/test-push — Test push message generation (and optionally send)
-router.post('/test-push', async (req, res) => {
+// GET /api/system/test-push — Test push message generation (and optionally send)
+router.get('/test-push', async (req, res) => {
   try {
     const userId = req.query.user_id;
     const pushType = req.query.type || 'morning_brief';

@@ -2,9 +2,9 @@
  * ELIZA Push Messages — scheduled WhatsApp notifications.
  *
  * 5 message types:
- *   - morning_brief  (08:00 daily)   — alerts + yesterday's stats
+ *   - morning_brief  (08:00 daily)   — alerts + yesterday's stats + finance overview
  *   - midday_pulse   (13:00 daily)   — today's progress so far
- *   - daily_wrap     (16:00 daily)   — end-of-day summary
+ *   - daily_wrap     (16:00 daily)   — end-of-day summary + tomorrow preview
  *   - weekly_report  (08:00 Monday)  — week overview
  *   - weekly_close   (16:00 Friday)  — week close + next week preview
  */
@@ -21,6 +21,16 @@ const DEFAULT_TIMES = {
   weekly_report: '08:00',
   weekly_close: '16:00',
 };
+
+const DASH = 'https://eliza.elanfairs.com';
+
+function fmtEur(val) {
+  return '€' + Number(val).toLocaleString('de-DE', { maximumFractionDigits: 0 });
+}
+
+function fmtNum(val) {
+  return Number(val).toLocaleString('de-DE', { maximumFractionDigits: 0 });
+}
 
 /**
  * Check if a push was already sent today for this user+type.
@@ -39,7 +49,6 @@ async function wasAlreadySent(userId, pushType) {
 
 /**
  * Build scope filter SQL for a user's push_settings.scope.
- * Returns { where, params, paramOffset } for edition_contracts queries.
  */
 function buildScopeFilter(user, paramOffset = 1) {
   const scope = user.push_settings?.scope || user.data_scope || 'all';
@@ -61,200 +70,329 @@ function buildScopeFilter(user, paramOffset = 1) {
   return { where: '', params: [], paramOffset };
 }
 
+// ═══ VALID_STATUSES: use contracts table directly for broader coverage ═══
+const VALID_STATUSES = `('Valid', 'Transferred In', 'Transferred Out')`;
+
 /**
  * Generate morning brief content.
- * Alerts + yesterday's sales stats.
  */
 async function generateMorningBrief(user) {
   const scope = buildScopeFilter(user);
   const today = new Date();
   const dateStr = today.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Yesterday's stats
-  const statsResult = await query(
+  // Yesterday's contracts
+  const yesterdayResult = await query(
     `SELECT
       COUNT(*) AS contracts,
       COALESCE(SUM(c.m2), 0) AS total_m2,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
-    FROM edition_contracts c
-    WHERE c.contract_date = CURRENT_DATE - INTERVAL '1 day'${scope.where}`,
+    FROM contracts c
+    WHERE c.contract_date::date = CURRENT_DATE - INTERVAL '1 day'
+      AND c.status IN ${VALID_STATUSES}${scope.where}`,
     scope.params
   );
-  const stats = statsResult.rows[0] || { contracts: 0, total_m2: 0, revenue_eur: 0 };
+  const yday = yesterdayResult.rows[0];
 
-  // Upcoming expos in next 60 days
-  const expoResult = await query(`
-    SELECT name, start_date,
-      GREATEST(start_date::date - CURRENT_DATE, 0) AS days_left
-    FROM expos
-    WHERE start_date >= CURRENT_DATE
-      AND start_date <= CURRENT_DATE + INTERVAL '60 days'
-    ORDER BY start_date ASC
-    LIMIT 5
+  // Yesterday's top contracts (for detail)
+  const ydayDetails = await query(
+    `SELECT c.company_name, e.name AS expo_name, c.revenue_eur
+    FROM contracts c
+    LEFT JOIN expos e ON c.expo_id = e.id
+    WHERE c.contract_date::date = CURRENT_DATE - INTERVAL '1 day'
+      AND c.status IN ${VALID_STATUSES}${scope.where}
+    ORDER BY c.revenue_eur DESC NULLS LAST
+    LIMIT 3`,
+    scope.params
+  );
+
+  // Yesterday's payments
+  const ydayPay = await query(`
+    SELECT COUNT(*) AS count,
+      COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payments
+    WHERE payment_date = CURRENT_DATE - INTERVAL '1 day'
   `);
+  const yp = ydayPay.rows[0] || { count: 0, total: 0 };
 
-  // Outstanding payments summary
-  const payResult = await query(`
+  // Outstanding balances summary
+  const outResult = await query(`
     SELECT
       COUNT(*) AS open_count,
-      COALESCE(ROUND(SUM(balance_eur)::numeric, 0), 0) AS total_outstanding
+      COALESCE(ROUND(SUM(balance_eur)::numeric, 0), 0) AS total_outstanding,
+      COUNT(*) FILTER (WHERE collection_stage = 'no_payment') AS no_payment_count,
+      COALESCE(ROUND(SUM(balance_eur) FILTER (WHERE (collection_risk_score + event_risk_score) >= 5)::numeric, 0), 0) AS at_risk_amount
     FROM outstanding_balances
   `);
-  const pay = payResult.rows[0] || { open_count: 0, total_outstanding: 0 };
+  const out = outResult.rows[0] || {};
 
+  // Deposit rate
+  const depositResult = await query(`
+    SELECT
+      COUNT(*) FILTER (WHERE paid_eur > 0) AS with_payment,
+      COUNT(*) AS total
+    FROM outstanding_balances
+  `);
+  const dep = depositResult.rows[0] || { with_payment: 0, total: 1 };
+  const depositRate = dep.total > 0 ? ((Number(dep.with_payment) / Number(dep.total)) * 100).toFixed(1) : '0';
+
+  // Upcoming expos (top 3)
+  const expoResult = await query(`
+    SELECT name, GREATEST(start_date::date - CURRENT_DATE, 0) AS days_left
+    FROM expos
+    WHERE start_date >= CURRENT_DATE
+      AND start_date <= CURRENT_DATE + INTERVAL '90 days'
+    ORDER BY start_date ASC
+    LIMIT 3
+  `);
+
+  // This week expected payments
+  const expectedResult = await query(`
+    SELECT
+      COUNT(*) AS count,
+      COALESCE(ROUND(SUM(planned_amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payment_schedule
+    WHERE due_date >= date_trunc('week', CURRENT_DATE)
+      AND due_date < date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
+  `);
+  const expected = expectedResult.rows[0] || { count: 0, total: 0 };
+
+  // Build message
   const lines = [];
-  lines.push(`ELIZA Sabah Brifing — ${dateStr}`);
-  lines.push('');
+  lines.push(`☀️ Günaydın`);
+  lines.push(`📊 ${dateStr} — Durum Raporu`);
 
-  const c = Number(stats.contracts);
-  const m2 = Number(stats.total_m2);
-  const rev = Number(stats.revenue_eur).toLocaleString('de-DE');
-  if (c > 0) {
-    lines.push(`Dun: ${c} yeni kontrat / ${m2} m2 / €${rev}`);
+  // Yesterday
+  lines.push('');
+  lines.push('Dün:');
+  const yc = Number(yday.contracts);
+  if (yc > 0) {
+    lines.push(`  ${yc} yeni sözleşme: ${fmtEur(yday.revenue_eur)}`);
+    for (const d of ydayDetails.rows) {
+      const expo = d.expo_name ? ` (${d.expo_name})` : '';
+      lines.push(`  → ${d.company_name}${expo} ${fmtEur(d.revenue_eur)}`);
+    }
   } else {
-    lines.push('Dun yeni kontrat yok.');
+    lines.push('  Yeni sözleşme yok');
+  }
+  if (Number(yp.total) > 0) {
+    lines.push(`  ${yp.count} ödeme geldi: ${fmtEur(yp.total)}`);
   }
 
+  // Finance attention
+  lines.push('');
+  lines.push('Dikkat:');
+  if (Number(out.no_payment_count) > 0) {
+    lines.push(`  ${out.no_payment_count} firma hiç ödeme yapmamış`);
+  }
+  if (Number(out.at_risk_amount) > 0) {
+    lines.push(`  At-risk alacak: ${fmtEur(out.at_risk_amount)}`);
+  }
+  lines.push(`  Deposit rate: %${depositRate}`);
+
+  // Upcoming expos
   if (expoResult.rows.length > 0) {
     lines.push('');
-    lines.push('Yaklasan fuarlar:');
+    lines.push('Yaklaşan fuarlar:');
     for (const expo of expoResult.rows) {
-      lines.push(`  ${expo.name} — ${expo.days_left} gun`);
+      lines.push(`  ${expo.name} — ${expo.days_left} gün`);
     }
   }
 
-  if (Number(pay.total_outstanding) > 0) {
+  // Expected collections this week
+  if (Number(expected.total) > 0) {
     lines.push('');
-    lines.push(`Acik bakiye: ${pay.open_count} kontrat / €${Number(pay.total_outstanding).toLocaleString('de-DE')}`);
+    lines.push(`Bu hafta beklenen tahsilat: ${fmtEur(expected.total)}`);
   }
+
+  lines.push(`📊 ${DASH}/finance`);
 
   return lines.join('\n');
 }
 
 /**
  * Generate midday pulse content.
- * Today's progress so far.
  */
 async function generateMiddayPulse(user) {
   const scope = buildScopeFilter(user);
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
 
   // Today's contracts
   const todayResult = await query(
     `SELECT
       COUNT(*) AS contracts,
-      COALESCE(SUM(c.m2), 0) AS total_m2,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
-    FROM edition_contracts c
-    WHERE c.contract_date = CURRENT_DATE${scope.where}`,
+    FROM contracts c
+    WHERE c.contract_date::date = CURRENT_DATE
+      AND c.status IN ${VALID_STATUSES}${scope.where}`,
     scope.params
   );
-  const today = todayResult.rows[0] || { contracts: 0, total_m2: 0, revenue_eur: 0 };
+  const td = todayResult.rows[0];
 
-  // This week's contracts
-  const weekResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
-      COALESCE(SUM(c.m2), 0) AS total_m2,
-      COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
-    FROM edition_contracts c
-    WHERE c.contract_date >= date_trunc('week', CURRENT_DATE)${scope.where}`,
-    scope.params
-  );
-  const week = weekResult.rows[0] || { contracts: 0, total_m2: 0, revenue_eur: 0 };
-
-  // Payments received today
+  // Today's payments
   const payToday = await query(`
-    SELECT
-      COUNT(*) AS count,
+    SELECT COUNT(*) AS count,
       COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
     FROM contract_payments
     WHERE payment_date = CURRENT_DATE
   `);
   const pt = payToday.rows[0] || { count: 0, total: 0 };
 
+  // This week's contracts (Mon-Sun)
+  const weekResult = await query(
+    `SELECT
+      COUNT(*) AS contracts,
+      COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
+    FROM contracts c
+    WHERE c.contract_date::date >= date_trunc('week', CURRENT_DATE)
+      AND c.contract_date::date < date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
+      AND c.status IN ${VALID_STATUSES}${scope.where}`,
+    scope.params
+  );
+  const wk = weekResult.rows[0];
+
+  // This week's payments
+  const payWeek = await query(`
+    SELECT COUNT(*) AS count,
+      COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payments
+    WHERE payment_date >= date_trunc('week', CURRENT_DATE)
+      AND payment_date < date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
+  `);
+  const pw = payWeek.rows[0] || { count: 0, total: 0 };
+
+  // Outstanding total
+  const outResult = await query(`
+    SELECT COALESCE(ROUND(SUM(balance_eur)::numeric, 0), 0) AS total
+    FROM outstanding_balances
+  `);
+  const outstanding = outResult.rows[0]?.total || 0;
+
   const lines = [];
-  lines.push('ELIZA Ogle Raporu');
-  lines.push('');
+  lines.push(`🕐 Öğle Raporu — ${dateStr}`);
 
-  const c = Number(today.contracts);
-  if (c > 0) {
-    lines.push(`Bugun: ${c} kontrat / ${Number(today.total_m2)} m2 / €${Number(today.revenue_eur).toLocaleString('de-DE')}`);
-  } else {
-    lines.push('Bugun henuz yeni kontrat yok.');
-  }
+  // Today
+  const tc = Number(td.contracts);
+  const todayParts = [];
+  todayParts.push(tc > 0 ? `${tc} sözleşme (${fmtEur(td.revenue_eur)})` : 'sözleşme yok');
+  if (Number(pt.total) > 0) todayParts.push(`${pt.count} ödeme (${fmtEur(pt.total)})`);
+  lines.push(`Bugün: ${todayParts.join(', ')}`);
 
-  lines.push(`Bu hafta: ${Number(week.contracts)} kontrat / ${Number(week.total_m2)} m2 / €${Number(week.revenue_eur).toLocaleString('de-DE')}`);
+  // This week
+  const weekParts = [];
+  weekParts.push(`${Number(wk.contracts)} sözleşme (${fmtEur(wk.revenue_eur)})`);
+  if (Number(pw.total) > 0) weekParts.push(`${pw.count} ödeme (${fmtEur(pw.total)})`);
+  lines.push(`Bu hafta: ${weekParts.join(', ')}`);
 
-  if (Number(pt.total) > 0) {
-    lines.push(`Bugun gelen odeme: ${pt.count} islem / €${Number(pt.total).toLocaleString('de-DE')}`);
-  }
+  lines.push(`Outstanding: ${fmtEur(outstanding)}`);
+  lines.push(`📊 ${DASH}/sales`);
 
   return lines.join('\n');
 }
 
 /**
  * Generate daily wrap content.
- * End-of-day summary.
  */
 async function generateDailyWrap(user) {
   const scope = buildScopeFilter(user);
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
 
-  // Today's full stats
+  // Today's contracts
   const todayResult = await query(
     `SELECT
       COUNT(*) AS contracts,
-      COALESCE(SUM(c.m2), 0) AS total_m2,
-      COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur,
-      COUNT(DISTINCT c.sales_agent) AS agents_active
-    FROM edition_contracts c
-    WHERE c.contract_date = CURRENT_DATE${scope.where}`,
+      COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
+    FROM contracts c
+    WHERE c.contract_date::date = CURRENT_DATE
+      AND c.status IN ${VALID_STATUSES}${scope.where}`,
     scope.params
   );
-  const today = todayResult.rows[0];
+  const td = todayResult.rows[0];
 
-  // Top agent today
-  const topAgentResult = await query(
-    `SELECT c.sales_agent, COUNT(*) AS cnt,
-      COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS rev
-    FROM edition_contracts c
-    WHERE c.contract_date = CURRENT_DATE
-      AND c.sales_agent IS NOT NULL
-      AND c.sales_agent != 'ELAN EXPO'${scope.where}
-    GROUP BY c.sales_agent
-    ORDER BY rev DESC
-    LIMIT 1`,
-    scope.params
-  );
-
-  // Payments today
+  // Today's payments
   const payToday = await query(`
-    SELECT
-      COUNT(*) AS count,
+    SELECT COUNT(*) AS count,
       COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
     FROM contract_payments
     WHERE payment_date = CURRENT_DATE
   `);
   const pt = payToday.rows[0] || { count: 0, total: 0 };
 
+  // This week totals
+  const weekResult = await query(
+    `SELECT
+      COUNT(*) AS contracts,
+      COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
+    FROM contracts c
+    WHERE c.contract_date::date >= date_trunc('week', CURRENT_DATE)
+      AND c.contract_date::date < date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
+      AND c.status IN ${VALID_STATUSES}${scope.where}`,
+    scope.params
+  );
+  const wk = weekResult.rows[0];
+
+  // This week's payments
+  const payWeek = await query(`
+    SELECT COUNT(*) AS count,
+      COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payments
+    WHERE payment_date >= date_trunc('week', CURRENT_DATE)
+      AND payment_date < date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
+  `);
+  const pw = payWeek.rows[0] || { count: 0, total: 0 };
+
+  // Tomorrow's expected payments
+  const tomorrowPay = await query(`
+    SELECT
+      COUNT(DISTINCT cps.contract_id) AS firms,
+      COALESCE(ROUND(SUM(cps.planned_amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payment_schedule cps
+    WHERE cps.due_date = CURRENT_DATE + INTERVAL '1 day'
+  `);
+  const tp = tomorrowPay.rows[0] || { firms: 0, total: 0 };
+
+  // Nearest expo
+  const nearestExpo = await query(`
+    SELECT name, GREATEST(start_date::date - CURRENT_DATE, 0) AS days_left
+    FROM expos
+    WHERE start_date >= CURRENT_DATE
+    ORDER BY start_date ASC
+    LIMIT 1
+  `);
+
   const lines = [];
-  lines.push('ELIZA Gun Sonu Ozeti');
-  lines.push('');
+  lines.push(`🌙 Gün Sonu — ${dateStr}`);
 
-  const c = Number(today.contracts);
-  if (c > 0) {
-    lines.push(`Bugun: ${c} kontrat / ${Number(today.total_m2)} m2 / €${Number(today.revenue_eur).toLocaleString('de-DE')}`);
-    lines.push(`Aktif agent: ${today.agents_active}`);
-    if (topAgentResult.rows.length > 0) {
-      const top = topAgentResult.rows[0];
-      lines.push(`Gunun en iyisi: ${top.sales_agent} — ${top.cnt} kontrat / €${Number(top.rev).toLocaleString('de-DE')}`);
+  // Today
+  const todayParts = [];
+  const tc = Number(td.contracts);
+  todayParts.push(tc > 0 ? `${tc} sözleşme (${fmtEur(td.revenue_eur)})` : 'sözleşme yok');
+  if (Number(pt.total) > 0) todayParts.push(`${pt.count} ödeme (${fmtEur(pt.total)})`);
+  lines.push(`Bugün: ${todayParts.join(', ')}`);
+
+  // Week
+  const weekParts = [];
+  weekParts.push(`${Number(wk.contracts)} sözleşme (${fmtEur(wk.revenue_eur)})`);
+  if (Number(pw.total) > 0) weekParts.push(`${pw.count} ödeme (${fmtEur(pw.total)})`);
+  lines.push(`Bu hafta toplam: ${weekParts.join(', ')}`);
+
+  // Tomorrow attention
+  const hasAttention = Number(tp.total) > 0 || nearestExpo.rows.length > 0;
+  if (hasAttention) {
+    lines.push('');
+    lines.push('Yarın dikkat:');
+    if (Number(tp.total) > 0) {
+      lines.push(`  Beklenen ödeme: ${tp.firms} firma, ${fmtEur(tp.total)}`);
     }
-  } else {
-    lines.push('Bugun yeni kontrat yok.');
+    if (nearestExpo.rows.length > 0) {
+      const ne = nearestExpo.rows[0];
+      lines.push(`  En yakın fuar: ${ne.name} — ${ne.days_left} gün`);
+    }
   }
 
-  if (Number(pt.total) > 0) {
-    lines.push(`Tahsilat: ${pt.count} islem / €${Number(pt.total).toLocaleString('de-DE')}`);
-  }
+  lines.push(`📊 ${DASH}/finance`);
 
   return lines.join('\n');
 }
@@ -272,20 +410,32 @@ async function generateWeeklyReport(user) {
       COUNT(*) AS contracts,
       COALESCE(SUM(c.m2), 0) AS total_m2,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
-    FROM edition_contracts c
-    WHERE c.contract_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
-      AND c.contract_date < date_trunc('week', CURRENT_DATE)${scope.where}`,
+    FROM contracts c
+    WHERE c.contract_date::date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
+      AND c.contract_date::date < date_trunc('week', CURRENT_DATE)
+      AND c.status IN ${VALID_STATUSES}${scope.where}`,
     scope.params
   );
   const week = weekResult.rows[0];
+
+  // Last week payments
+  const payResult = await query(`
+    SELECT COUNT(*) AS count,
+      COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payments
+    WHERE payment_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
+      AND payment_date < date_trunc('week', CURRENT_DATE)
+  `);
+  const pt = payResult.rows[0] || { count: 0, total: 0 };
 
   // Top agents last week
   const agentsResult = await query(
     `SELECT c.sales_agent, COUNT(*) AS cnt,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS rev
-    FROM edition_contracts c
-    WHERE c.contract_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
-      AND c.contract_date < date_trunc('week', CURRENT_DATE)
+    FROM contracts c
+    WHERE c.contract_date::date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
+      AND c.contract_date::date < date_trunc('week', CURRENT_DATE)
+      AND c.status IN ${VALID_STATUSES}
       AND c.sales_agent IS NOT NULL
       AND c.sales_agent != 'ELAN EXPO'${scope.where}
     GROUP BY c.sales_agent
@@ -294,10 +444,9 @@ async function generateWeeklyReport(user) {
     scope.params
   );
 
-  // This week's upcoming expos
+  // Upcoming expos (next 14 days)
   const expoResult = await query(`
-    SELECT name, start_date,
-      GREATEST(start_date::date - CURRENT_DATE, 0) AS days_left
+    SELECT name, GREATEST(start_date::date - CURRENT_DATE, 0) AS days_left
     FROM expos
     WHERE start_date >= CURRENT_DATE
       AND start_date <= CURRENT_DATE + INTERVAL '14 days'
@@ -305,42 +454,47 @@ async function generateWeeklyReport(user) {
     LIMIT 5
   `);
 
-  // Payments last week
-  const payResult = await query(`
-    SELECT
-      COUNT(*) AS count,
-      COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
-    FROM contract_payments
-    WHERE payment_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'
-      AND payment_date < date_trunc('week', CURRENT_DATE)
+  // This week expected
+  const expectedResult = await query(`
+    SELECT COUNT(*) AS count,
+      COALESCE(ROUND(SUM(planned_amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payment_schedule
+    WHERE due_date >= date_trunc('week', CURRENT_DATE)
+      AND due_date < date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
   `);
-  const pt = payResult.rows[0] || { count: 0, total: 0 };
+  const expected = expectedResult.rows[0] || { count: 0, total: 0 };
 
   const lines = [];
-  lines.push('ELIZA Haftalik Rapor');
+  lines.push('📋 ELIZA Haftalık Rapor');
   lines.push('');
 
-  lines.push(`Gecen hafta: ${Number(week.contracts)} kontrat / ${Number(week.total_m2)} m2 / €${Number(week.revenue_eur).toLocaleString('de-DE')}`);
-
+  lines.push(`Geçen hafta: ${fmtNum(week.contracts)} sözleşme / ${fmtNum(week.total_m2)} m² / ${fmtEur(week.revenue_eur)}`);
   if (Number(pt.total) > 0) {
-    lines.push(`Tahsilat: ${pt.count} islem / €${Number(pt.total).toLocaleString('de-DE')}`);
+    lines.push(`Tahsilat: ${pt.count} işlem / ${fmtEur(pt.total)}`);
   }
 
   if (agentsResult.rows.length > 0) {
     lines.push('');
     lines.push('En iyi agentlar:');
     for (const a of agentsResult.rows) {
-      lines.push(`  ${a.sales_agent} — ${a.cnt} kontrat / €${Number(a.rev).toLocaleString('de-DE')}`);
+      lines.push(`  ${a.sales_agent} — ${a.cnt} sözleşme / ${fmtEur(a.rev)}`);
     }
   }
 
   if (expoResult.rows.length > 0) {
     lines.push('');
-    lines.push('Bu hafta/sonraki hafta:');
+    lines.push('Yaklaşan fuarlar:');
     for (const expo of expoResult.rows) {
-      lines.push(`  ${expo.name} — ${expo.days_left} gun`);
+      lines.push(`  ${expo.name} — ${expo.days_left} gün`);
     }
   }
+
+  if (Number(expected.total) > 0) {
+    lines.push('');
+    lines.push(`Bu hafta beklenen tahsilat: ${fmtEur(expected.total)}`);
+  }
+
+  lines.push(`📊 ${DASH}/sales`);
 
   return lines.join('\n');
 }
@@ -352,43 +506,45 @@ async function generateWeeklyReport(user) {
 async function generateWeeklyClose(user) {
   const scope = buildScopeFilter(user);
 
-  // This week stats (Mon-Fri)
+  // This week stats
   const weekResult = await query(
     `SELECT
       COUNT(*) AS contracts,
       COALESCE(SUM(c.m2), 0) AS total_m2,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
-    FROM edition_contracts c
-    WHERE c.contract_date >= date_trunc('week', CURRENT_DATE)${scope.where}`,
+    FROM contracts c
+    WHERE c.contract_date::date >= date_trunc('week', CURRENT_DATE)
+      AND c.contract_date::date < date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
+      AND c.status IN ${VALID_STATUSES}${scope.where}`,
     scope.params
   );
   const week = weekResult.rows[0];
+
+  // This week payments
+  const payResult = await query(`
+    SELECT COUNT(*) AS count,
+      COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payments
+    WHERE payment_date >= date_trunc('week', CURRENT_DATE)
+      AND payment_date < date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
+  `);
+  const pt = payResult.rows[0] || { count: 0, total: 0 };
 
   // Year-to-date
   const ytdResult = await query(
     `SELECT
       COUNT(*) AS contracts,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
-    FROM edition_contracts c
-    WHERE EXTRACT(YEAR FROM c.contract_date) = EXTRACT(YEAR FROM CURRENT_DATE)${scope.where}`,
+    FROM contracts c
+    WHERE EXTRACT(YEAR FROM c.contract_date) = EXTRACT(YEAR FROM CURRENT_DATE)
+      AND c.status IN ${VALID_STATUSES}${scope.where}`,
     scope.params
   );
   const ytd = ytdResult.rows[0];
 
-  // Payments this week
-  const payResult = await query(`
-    SELECT
-      COUNT(*) AS count,
-      COALESCE(ROUND(SUM(amount_eur)::numeric, 0), 0) AS total
-    FROM contract_payments
-    WHERE payment_date >= date_trunc('week', CURRENT_DATE)
-  `);
-  const pt = payResult.rows[0] || { count: 0, total: 0 };
-
   // Next week expos
   const nextWeekExpos = await query(`
-    SELECT name, start_date,
-      GREATEST(start_date::date - CURRENT_DATE, 0) AS days_left
+    SELECT name, GREATEST(start_date::date - CURRENT_DATE, 0) AS days_left
     FROM expos
     WHERE start_date >= CURRENT_DATE + INTERVAL '2 days'
       AND start_date <= CURRENT_DATE + INTERVAL '9 days'
@@ -396,28 +552,40 @@ async function generateWeeklyClose(user) {
     LIMIT 5
   `);
 
+  // Next week expected payments
+  const nextExpected = await query(`
+    SELECT COUNT(*) AS count,
+      COALESCE(ROUND(SUM(planned_amount_eur)::numeric, 0), 0) AS total
+    FROM contract_payment_schedule
+    WHERE due_date >= date_trunc('week', CURRENT_DATE) + INTERVAL '1 week'
+      AND due_date < date_trunc('week', CURRENT_DATE) + INTERVAL '2 weeks'
+  `);
+  const ne = nextExpected.rows[0] || { count: 0, total: 0 };
+
   const lines = [];
-  lines.push('ELIZA Hafta Kapanisi');
+  lines.push('🏁 ELIZA Hafta Kapanışı');
   lines.push('');
 
-  lines.push(`Bu hafta: ${Number(week.contracts)} kontrat / ${Number(week.total_m2)} m2 / €${Number(week.revenue_eur).toLocaleString('de-DE')}`);
-
+  lines.push(`Bu hafta: ${fmtNum(week.contracts)} sözleşme / ${fmtNum(week.total_m2)} m² / ${fmtEur(week.revenue_eur)}`);
   if (Number(pt.total) > 0) {
-    lines.push(`Tahsilat: ${pt.count} islem / €${Number(pt.total).toLocaleString('de-DE')}`);
+    lines.push(`Tahsilat: ${pt.count} işlem / ${fmtEur(pt.total)}`);
   }
+  lines.push(`YTD: ${fmtNum(ytd.contracts)} sözleşme / ${fmtEur(ytd.revenue_eur)}`);
 
-  lines.push(`YTD: ${Number(ytd.contracts)} kontrat / €${Number(ytd.revenue_eur).toLocaleString('de-DE')}`);
-
-  if (nextWeekExpos.rows.length > 0) {
+  if (nextWeekExpos.rows.length > 0 || Number(ne.total) > 0) {
     lines.push('');
     lines.push('Gelecek hafta:');
     for (const expo of nextWeekExpos.rows) {
-      lines.push(`  ${expo.name} — ${expo.days_left} gun`);
+      lines.push(`  ${expo.name} — ${expo.days_left} gün`);
+    }
+    if (Number(ne.total) > 0) {
+      lines.push(`  Beklenen tahsilat: ${fmtEur(ne.total)}`);
     }
   }
 
   lines.push('');
-  lines.push('Iyi hafta sonlari!');
+  lines.push('İyi hafta sonları!');
+  lines.push(`📊 ${DASH}/finance`);
 
   return lines.join('\n');
 }
@@ -489,13 +657,11 @@ async function sendPushMessage(user, pushType, messageText) {
 
 /**
  * Process a single push type for all eligible users.
- * Called by the scheduler at the appropriate time.
  */
 async function processPushType(pushType) {
   const now = new Date();
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  // Find users who have this push type enabled and scheduled for now
   const usersResult = await query(`
     SELECT u.id, u.name, u.whatsapp_phone, u.role, u.push_settings,
            u.sales_agent_name, u.sales_group,
@@ -524,11 +690,11 @@ async function processPushType(pushType) {
     const curMin = curH * 60 + curM;
     if (Math.abs(curMin - schedMin) > 5) { skipped++; continue; }
 
-    // Dedup: check if already sent today
+    // Dedup
     if (await wasAlreadySent(user.id, pushType)) { skipped++; continue; }
 
     // Weekly checks
-    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ... 5=Fri
+    const dayOfWeek = now.getDay();
     if (pushType === 'weekly_report' && dayOfWeek !== 1) { skipped++; continue; }
     if (pushType === 'weekly_close' && dayOfWeek !== 5) { skipped++; continue; }
 
