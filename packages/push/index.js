@@ -442,18 +442,22 @@ async function generatePushMessage(pushType, user) {
 async function sendPushMessage(user, pushType, messageText) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
-  const toNumber = user.whatsapp_phone;
+  const rawFrom = process.env.TWILIO_WHATSAPP_FROM || '';
+  const rawTo = user.whatsapp_phone || '';
+
+  // Avoid double whatsapp: prefix (env may already include it)
+  const from = rawFrom.startsWith('whatsapp:') ? rawFrom : `whatsapp:${rawFrom}`;
+  const to = rawTo.startsWith('whatsapp:') ? rawTo : `whatsapp:${rawTo}`;
 
   let sentVia = 'log';
 
-  if (accountSid && authToken && fromNumber && toNumber) {
+  if (accountSid && authToken && rawFrom && rawTo) {
     try {
       const twilio = require('twilio')(accountSid, authToken);
       await twilio.messages.create({
         body: messageText,
-        from: `whatsapp:${fromNumber}`,
-        to: `whatsapp:${toNumber}`,
+        from,
+        to,
       });
       sentVia = 'whatsapp';
     } catch (err) {
