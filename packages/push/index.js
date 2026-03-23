@@ -26,6 +26,41 @@ const DEFAULT_TIMES = {
 
 const DASH = 'https://eliza.elanfairs.com';
 
+// ═══ Country → Timezone mapping ═══
+
+const COUNTRY_TIMEZONES = {
+  'Turkey': 'Europe/Istanbul',
+  'Nigeria': 'Africa/Lagos',
+  'Morocco': 'Africa/Casablanca',
+  'Kenya': 'Africa/Nairobi',
+  'Algeria': 'Africa/Algiers',
+  'Ghana': 'Africa/Accra',
+  'China': 'Asia/Shanghai',
+  'France': 'Europe/Paris',
+  'Germany': 'Europe/Berlin',
+  'United Kingdom': 'Europe/London',
+  'UAE': 'Asia/Dubai',
+  'India': 'Asia/Kolkata',
+  'Italy': 'Europe/Rome',
+  'Spain': 'Europe/Madrid',
+  'Portugal': 'Europe/Lisbon',
+  'USA': 'America/New_York',
+};
+
+/**
+ * Get user's current local time as { hours, minutes, dayOfWeek }.
+ */
+function getUserLocalTime(user) {
+  const tz = user.timezone || COUNTRY_TIMEZONES[user.user_country] || 'Europe/Istanbul';
+  const now = new Date();
+  const userNow = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+  return {
+    hours: userNow.getHours(),
+    minutes: userNow.getMinutes(),
+    dayOfWeek: userNow.getDay(), // 0=Sun, 1=Mon, ... 5=Fri, 6=Sat
+  };
+}
+
 // ═══ Language helpers ═══
 
 function normalizeLang(raw) {
@@ -700,12 +735,10 @@ async function sendPushMessage(user, pushType, messageText) {
 }
 
 async function processPushType(pushType) {
-  const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
   const usersResult = await query(`
     SELECT u.id, u.name, u.whatsapp_phone, u.role, u.push_settings,
            u.sales_agent_name, u.sales_group, u.language,
+           u.user_country, u.timezone,
            up.data_scope
     FROM users u
     LEFT JOIN user_permissions up ON up.user_id = u.id
@@ -723,27 +756,32 @@ async function processPushType(pushType) {
     const settings = user.push_settings[pushType];
     if (!settings || !settings.enabled) { skipped++; continue; }
 
-    // Check time match (within 5 minute window)
+    // Get user's local time (per-user timezone)
+    const userTime = getUserLocalTime(user);
+    const curMin = userTime.hours * 60 + userTime.minutes;
+
+    // Check time match (within 5 minute window) in user's timezone
     const scheduledTime = settings.time || DEFAULT_TIMES[pushType];
     const [schedH, schedM] = scheduledTime.split(':').map(Number);
-    const [curH, curM] = currentTime.split(':').map(Number);
     const schedMin = schedH * 60 + schedM;
-    const curMin = curH * 60 + curM;
     if (Math.abs(curMin - schedMin) > 5) { skipped++; continue; }
+
+    // Weekend check in user's timezone
+    if (userTime.dayOfWeek === 0 || userTime.dayOfWeek === 6) { skipped++; continue; }
+
+    // Weekly checks in user's timezone
+    if (pushType === 'weekly_report' && userTime.dayOfWeek !== 1) { skipped++; continue; }
+    if (pushType === 'weekly_close' && userTime.dayOfWeek !== 5) { skipped++; continue; }
 
     // Dedup
     if (await wasAlreadySent(user.id, pushType)) { skipped++; continue; }
-
-    // Weekly checks
-    const dayOfWeek = now.getDay();
-    if (pushType === 'weekly_report' && dayOfWeek !== 1) { skipped++; continue; }
-    if (pushType === 'weekly_close' && dayOfWeek !== 5) { skipped++; continue; }
 
     try {
       const messageText = await generatePushMessage(pushType, user);
       const result = await sendPushMessage(user, pushType, messageText);
       if (result.sent) sent++;
-      console.log(`[push] ${pushType} → ${user.name} (${normalizeLang(user.language)}): ${result.via}`);
+      const tz = user.timezone || 'Europe/Istanbul';
+      console.log(`[push] ${pushType} → ${user.name} (${normalizeLang(user.language)}, ${tz}): ${result.via}`);
     } catch (err) {
       console.error(`[push] Error generating ${pushType} for ${user.name}: ${err.message}`);
     }
@@ -756,6 +794,7 @@ async function testPush(userId, pushType, send = false) {
   const userResult = await query(`
     SELECT u.id, u.name, u.whatsapp_phone, u.role, u.push_settings,
            u.sales_agent_name, u.sales_group, u.language,
+           u.user_country, u.timezone,
            up.data_scope
     FROM users u
     LEFT JOIN user_permissions up ON up.user_id = u.id
@@ -764,24 +803,27 @@ async function testPush(userId, pushType, send = false) {
 
   if (userResult.rows.length === 0) throw new Error('User not found');
   const user = userResult.rows[0];
+  const tz = user.timezone || COUNTRY_TIMEZONES[user.user_country] || 'Europe/Istanbul';
 
   const messageText = await generatePushMessage(pushType, user);
 
   if (send) {
     const result = await sendPushMessage(user, pushType, messageText);
-    return { user: user.name, pushType, language: normalizeLang(user.language), messageText, ...result };
+    return { user: user.name, pushType, language: normalizeLang(user.language), timezone: tz, messageText, ...result };
   }
 
-  return { user: user.name, pushType, language: normalizeLang(user.language), messageText, sent: false, via: 'preview' };
+  return { user: user.name, pushType, language: normalizeLang(user.language), timezone: tz, messageText, sent: false, via: 'preview' };
 }
 
 module.exports = {
   PUSH_TYPES,
   DEFAULT_TIMES,
+  COUNTRY_TIMEZONES,
   generatePushMessage,
   sendPushMessage,
   processPushType,
   testPush,
   wasAlreadySent,
   normalizeLang,
+  getUserLocalTime,
 };

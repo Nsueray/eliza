@@ -264,6 +264,25 @@ Completed (cont. 5):
   - Nav.js: "Finance" link added after "Sales" (permission: finance)
   - Dashboard permissions: "finance" module (CEO+Manager=true, Agent=false)
 
+Completed (cont. 6):
+- Push Messages System
+  - packages/push/index.js: 5 message types (morning_brief, midday_pulse, daily_wrap, weekly_report, weekly_close)
+  - packages/push/scheduler.js: node-cron every 5 minutes, per-user timezone scheduling
+  - Migration 017: push_settings JSONB on users, push_log table
+  - Per-user settings: enable/disable per type, custom time, data scope (all/team/own)
+  - Multi-language: TR/EN/FR based on users.language (normalizeLang: "Turkce"→tr, null→en)
+  - Dedup via push_log (one per user per type per day)
+  - Twilio WhatsApp send with double-prefix protection
+  - Admin UI: PushSettings component in /admin/users/[id] with test preview
+  - API: GET /api/system/test-push, GET /api/system/push-status
+- User Country + Timezone
+  - Migration 018: user_country VARCHAR(50), timezone VARCHAR(50) on users
+  - COUNTRY_TIMEZONES: 16 countries (Turkey, Nigeria, Morocco, Kenya, Algeria, Ghana, China, France, Germany, UK, UAE, India, Italy, Spain, Portugal, USA)
+  - Country dropdown in UserForm (new + edit), timezone auto-resolved from country
+  - Push scheduler uses per-user timezone: getUserLocalTime() converts to user's local time
+  - Each user receives push messages at their configured local time
+  - Weekend/weekday checks use user's local timezone
+
 In Progress:
 
 Pending:
@@ -657,7 +676,7 @@ Design:
 Settings Page (/settings):
 - Profile: name, role, office (read-only cards)
 - Appearance: theme toggle (dark/light), accent color (6 swatches), table density (comfortable/compact)
-- Language & Region: language + timezone (coming soon — disabled)
+- Language & Region: language + timezone (timezone set via user_country in admin)
 - Security: change password + logout
 - Settings saved to users.settings JSONB column (migration 012)
 - API: PUT /api/auth/settings — debounced save (500ms)

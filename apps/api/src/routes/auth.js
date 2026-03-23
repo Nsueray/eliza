@@ -139,7 +139,12 @@ router.post('/migrate', async (req, res) => {
     await query(`CREATE INDEX IF NOT EXISTS idx_push_log_user_id ON push_log(user_id)`);
     await query(`CREATE INDEX IF NOT EXISTS idx_push_log_type_date ON push_log(push_type, created_at)`);
 
-    res.json({ success: true, message: 'Migrations 011 + 013 + 014 + 016 + 017 applied' });
+    // Migration 018: user country + timezone
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS user_country VARCHAR(50) DEFAULT 'Turkey'`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) DEFAULT 'Europe/Istanbul'`);
+    await query(`UPDATE users SET user_country = 'Turkey', timezone = 'Europe/Istanbul' WHERE user_country IS NULL`);
+
+    res.json({ success: true, message: 'Migrations 011 + 013 + 014 + 016 + 017 + 018 applied' });
   } catch (err) {
     console.error('Migration error:', err);
     res.status(500).json({ error: err.message });

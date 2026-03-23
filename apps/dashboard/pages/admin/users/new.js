@@ -7,6 +7,25 @@ import Nav from "@/components/Nav";
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
 const LANG_LABELS = { tr: "Turkce", en: "English", fr: "Francais" };
+
+const COUNTRY_TIMEZONES = {
+  'Turkey': 'Europe/Istanbul',
+  'Nigeria': 'Africa/Lagos',
+  'Morocco': 'Africa/Casablanca',
+  'Kenya': 'Africa/Nairobi',
+  'Algeria': 'Africa/Algiers',
+  'Ghana': 'Africa/Accra',
+  'China': 'Asia/Shanghai',
+  'France': 'Europe/Paris',
+  'Germany': 'Europe/Berlin',
+  'United Kingdom': 'Europe/London',
+  'UAE': 'Asia/Dubai',
+  'India': 'Asia/Kolkata',
+  'Italy': 'Europe/Rome',
+  'Spain': 'Europe/Madrid',
+  'Portugal': 'Europe/Lisbon',
+  'USA': 'America/New_York',
+};
 const ROLE_LABELS = { ceo: "CEO", manager: "Manager", agent: "Agent" };
 
 const DEFAULT_SCOPE = { ceo: "all", manager: "team", agent: "own" };
@@ -37,7 +56,7 @@ export default function NewUser() {
   const [error, setError] = useState(null);
 
   const [form, setForm] = useState({
-    name: "", email: "", whatsapp_phone: "", language: "tr", nicknames: "",
+    name: "", email: "", whatsapp_phone: "", language: "tr", nicknames: "", user_country: "Turkey",
     role: "agent", office: "", sales_group: "", sales_agent_name: "", is_manager: false,
     data_scope: "own", visible_years: [2025, 2026],
     can_see_expenses: false, can_take_notes: false, can_use_message_generator: false, can_see_financials: false,
@@ -209,6 +228,13 @@ export function UserForm({ form, set, toggleYear, config, setPermission }) {
             <select className="input" value={form.language} onChange={e => set("language", e.target.value)}>
               {config.languages.map(l => <option key={l} value={l}>{LANG_LABELS[l] || l}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="input-label">Country</label>
+            <select className="input" value={form.user_country || "Turkey"} onChange={e => set("user_country", e.target.value)}>
+              {Object.keys(COUNTRY_TIMEZONES).sort().map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <div className="form-hint">{COUNTRY_TIMEZONES[form.user_country || "Turkey"] || "Europe/Istanbul"}</div>
           </div>
           <div className="form-full">
             <label className="input-label">Nicknames</label>

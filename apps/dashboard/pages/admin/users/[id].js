@@ -163,7 +163,7 @@ export default function EditUser() {
   const [pushTest, setPushTest] = useState({ loading: false, result: null, type: "morning_brief" });
 
   const [form, setForm] = useState({
-    name: "", email: "", whatsapp_phone: "", language: "tr", nicknames: "",
+    name: "", email: "", whatsapp_phone: "", language: "tr", nicknames: "", user_country: "Turkey",
     role: "agent", office: "", sales_group: "", sales_agent_name: "", is_manager: false,
     data_scope: "own", visible_years: [2025, 2026],
     can_see_expenses: false, can_take_notes: false, can_use_message_generator: false, can_see_financials: false,
@@ -187,6 +187,7 @@ export default function EditUser() {
           whatsapp_phone: user.whatsapp_phone || "",
           language: user.language || "tr",
           nicknames: user.nicknames || "",
+          user_country: user.user_country || "Turkey",
           role: user.role || "agent",
           office: user.office || "",
           sales_group: user.sales_group || "",

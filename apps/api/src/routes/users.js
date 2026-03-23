@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../../../../packages/db/index.js');
+const { COUNTRY_TIMEZONES } = require('../../../../packages/push/index.js');
 
 const ALL_PERMISSIONS = {
   war_room: true, expo_directory: true, expo_detail: true, sales: true, finance: true,
@@ -33,6 +34,7 @@ router.get('/config', (req, res) => {
     sales_groups: ['International', 'Morocco Office', 'Nigeria Office', 'Kenya Office', 'China Office', 'Algeria Office'],
     years: [2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026],
     languages: ['tr', 'en', 'fr'],
+    countries: Object.keys(COUNTRY_TIMEZONES).sort(),
   });
 });
 
@@ -81,7 +83,7 @@ router.post('/', async (req, res) => {
       sales_agent_name, is_manager, language, nicknames,
       data_scope, visible_years,
       can_see_expenses, can_take_notes, can_use_message_generator, can_see_financials,
-      dashboard_permissions,
+      dashboard_permissions, user_country,
     } = req.body;
 
     if (!name || !role) {
@@ -94,11 +96,15 @@ router.post('/', async (req, res) => {
 
     const perms = resolvePermissions(role, dashboard_permissions);
 
+    // Auto-resolve timezone from country
+    const country = user_country || 'Turkey';
+    const timezone = COUNTRY_TIMEZONES[country] || 'Europe/Istanbul';
+
     const userResult = await query(`
-      INSERT INTO users (name, email, whatsapp_phone, role, office, sales_group, sales_agent_name, is_manager, language, nicknames, dashboard_permissions)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO users (name, email, whatsapp_phone, role, office, sales_group, sales_agent_name, is_manager, language, nicknames, dashboard_permissions, user_country, timezone)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
-    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager || false, language || 'tr', nicknames || null, JSON.stringify(perms)]);
+    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager || false, language || 'tr', nicknames || null, JSON.stringify(perms), country, timezone]);
 
     const user = userResult.rows[0];
 
@@ -142,7 +148,7 @@ router.put('/:id', async (req, res) => {
       sales_agent_name, is_manager, language, is_active, nicknames,
       data_scope, visible_years,
       can_see_expenses, can_take_notes, can_use_message_generator, can_see_financials,
-      password_hash, dashboard_permissions, push_settings,
+      password_hash, dashboard_permissions, push_settings, user_country,
     } = req.body;
 
     // Business rule: CEO always gets 'all' scope
@@ -150,6 +156,10 @@ router.put('/:id', async (req, res) => {
       : data_scope || (role === 'manager' ? 'team' : 'own');
 
     const perms = resolvePermissions(role, dashboard_permissions);
+
+    // Auto-resolve timezone from country
+    const country = user_country || null;
+    const timezone = country ? (COUNTRY_TIMEZONES[country] || 'Europe/Istanbul') : null;
 
     await query(`
       UPDATE users SET
@@ -166,9 +176,11 @@ router.put('/:id', async (req, res) => {
         nicknames = $11,
         password_hash = COALESCE($13, password_hash),
         dashboard_permissions = $14,
-        push_settings = COALESCE($15, push_settings)
+        push_settings = COALESCE($15, push_settings),
+        user_country = COALESCE($16, user_country),
+        timezone = COALESCE($17, timezone)
       WHERE id = $12
-    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager, language, is_active, nicknames || null, req.params.id, password_hash || null, JSON.stringify(perms), push_settings ? JSON.stringify(push_settings) : null]);
+    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager, language, is_active, nicknames || null, req.params.id, password_hash || null, JSON.stringify(perms), push_settings ? JSON.stringify(push_settings) : null, country, timezone]);
 
     await query(`
       UPDATE user_permissions SET
