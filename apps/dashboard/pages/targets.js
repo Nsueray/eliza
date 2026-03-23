@@ -9,12 +9,12 @@ function fmt(n) {
   return Number(n || 0).toLocaleString("de-DE", { minimumFractionDigits: 0 });
 }
 function fmtEur(n) {
-  return "\u20AC" + Number(n || 0).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return "€" + Number(n || 0).toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 function fmtK(n) {
   const v = Number(n || 0);
-  if (v >= 1000000) return "\u20AC" + (v / 1000000).toFixed(1) + "M";
-  if (v >= 1000) return "\u20AC" + Math.round(v / 1000) + "K";
+  if (v >= 1000000) return "€" + (v / 1000000).toFixed(1) + "M";
+  if (v >= 1000) return "€" + Math.round(v / 1000) + "K";
   return fmtEur(v);
 }
 function pctColor(pct) {
@@ -30,7 +30,7 @@ function sourceLabel(source, pct) {
 }
 
 /* ─── Gauge Chart (SVG semi-circle) ─── */
-function GaugeChart({ actual, target, label, unit }) {
+function GaugeChart({ actual, target, label, isArea }) {
   const progress = target > 0 ? Math.min(actual / target, 1) : 0;
   const percentage = Math.round(progress * 100);
   const remaining = Math.max(target - actual, 0);
@@ -41,9 +41,9 @@ function GaugeChart({ actual, target, label, unit }) {
 
   const color = percentage >= 80 ? '#2ECC71' : percentage >= 50 ? '#E67E22' : '#E74C3C';
 
-  const fmtVal = unit === 'm\u00B2' ? fmt : fmtEur;
-  const remLabel = unit === 'm\u00B2' ? `${fmt(remaining)} m\u00B2` : fmtEur(remaining);
-  const targetLabel = unit === 'm\u00B2' ? `${fmt(target)} m\u00B2` : fmtEur(target);
+  const actualLabel = isArea ? `${fmt(actual)} m²` : fmtK(actual);
+  const remLabel = isArea ? `${fmt(remaining)} m²` : fmtEur(remaining);
+  const tgtLabel = isArea ? `${fmt(target)} m²` : fmtEur(target);
 
   return (
     <div style={{ textAlign: 'center', padding: '20px', flex: 1, minWidth: 280 }}>
@@ -53,14 +53,14 @@ function GaugeChart({ actual, target, label, unit }) {
           strokeDasharray={circumference} strokeDashoffset={dashOffset}
           style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
         <text x="100" y="58" textAnchor="middle" fill={color} fontSize="22" fontFamily="DM Mono, monospace" fontWeight="700">
-          {fmtVal(actual)}
+          {actualLabel}
         </text>
         <text x="100" y="78" textAnchor="middle" fill="var(--text-secondary)" fontSize="13" fontFamily="DM Mono, monospace">
           {percentage}%
         </text>
         <text x="20" y="115" textAnchor="middle" fill="var(--text-secondary)" fontSize="10" fontFamily="DM Mono, monospace">0</text>
         <text x="180" y="115" textAnchor="end" fill="var(--text-secondary)" fontSize="10" fontFamily="DM Mono, monospace">
-          {targetLabel}
+          {tgtLabel}
         </text>
       </svg>
       <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '-5px', fontFamily: 'var(--font-mono)' }}>
@@ -216,19 +216,19 @@ export default function TargetsPage() {
     for (const c of (data.clusters || [])) {
       for (const e of c.expos) {
         rows.push({
-          Cluster: c.cluster_name, Expo: e.expo_name, "Target m\u00B2": e.target_m2,
-          "Actual m\u00B2": e.actual_m2, "m\u00B2 %": e.m2_progress,
-          "Target \u20AC": e.target_revenue, "Actual \u20AC": e.actual_revenue,
-          "\u20AC %": e.revenue_progress, Contracts: e.contracts, Source: sourceLabel(e.source, e.auto_percentage),
+          Cluster: c.cluster_name, Expo: e.expo_name, "Target m²": e.target_m2,
+          "Actual m²": e.actual_m2, "m² %": e.m2_progress,
+          "Target €": e.target_revenue, "Actual €": e.actual_revenue,
+          "€ %": e.revenue_progress, Contracts: e.contracts, Source: sourceLabel(e.source, e.auto_percentage),
         });
       }
     }
     for (const e of (data.standalone || [])) {
       rows.push({
-        Cluster: "Standalone", Expo: e.expo_name, "Target m\u00B2": e.target_m2,
-        "Actual m\u00B2": e.actual_m2, "m\u00B2 %": e.m2_progress,
-        "Target \u20AC": e.target_revenue, "Actual \u20AC": e.actual_revenue,
-        "\u20AC %": e.revenue_progress, Contracts: e.contracts, Source: sourceLabel(e.source, e.auto_percentage),
+        Cluster: "Standalone", Expo: e.expo_name, "Target m²": e.target_m2,
+        "Actual m²": e.actual_m2, "m² %": e.m2_progress,
+        "Target €": e.target_revenue, "Actual €": e.actual_revenue,
+        "€ %": e.revenue_progress, Contracts: e.contracts, Source: sourceLabel(e.source, e.auto_percentage),
       });
     }
     return rows;
@@ -237,25 +237,25 @@ export default function TargetsPage() {
   function buildSummaryText() {
     if (!data) return "";
     const s = data.summary;
-    const lines = [`Targets Summary \u2014 ${year}`];
-    lines.push(`Total: ${fmt(s.total_target_m2)} m\u00B2 target / ${fmt(s.total_actual_m2)} m\u00B2 actual (${s.m2_progress}%)`);
+    const lines = [`Targets Summary — ${year}`];
+    lines.push(`Total: ${fmt(s.total_target_m2)} m² target / ${fmt(s.total_actual_m2)} m² actual (${s.m2_progress}%)`);
     lines.push(`Revenue: ${fmtEur(s.total_target_revenue)} target / ${fmtEur(s.total_actual_revenue)} actual (${s.revenue_progress}%)`);
-    lines.push(`Gap: ${fmt(s.total_target_m2 - s.total_actual_m2)} m\u00B2 | ${fmtEur(s.total_target_revenue - s.total_actual_revenue)}`);
+    lines.push(`Gap: ${fmt(s.total_target_m2 - s.total_actual_m2)} m² | ${fmtEur(s.total_target_revenue - s.total_actual_revenue)}`);
     for (const c of (data.clusters || [])) {
       lines.push("");
       lines.push(`${c.cluster_name}:`);
       for (const e of c.expos) {
-        lines.push(`  ${e.expo_name}: ${fmt(e.target_m2)} / ${fmt(e.actual_m2)} m\u00B2 (${e.m2_progress}%)`);
+        lines.push(`  ${e.expo_name}: ${fmt(e.target_m2)} / ${fmt(e.actual_m2)} m² (${e.m2_progress}%)`);
       }
       const ct = c.cluster_total;
-      lines.push(`  TOTAL: ${fmt(ct.target_m2)} / ${fmt(ct.actual_m2)} m\u00B2 (${ct.m2_progress}%)`);
-      lines.push(`  GAP: ${fmt(ct.target_m2 - ct.actual_m2)} m\u00B2 | ${fmtEur(ct.target_revenue - ct.actual_revenue)}`);
+      lines.push(`  TOTAL: ${fmt(ct.target_m2)} / ${fmt(ct.actual_m2)} m² (${ct.m2_progress}%)`);
+      lines.push(`  GAP: ${fmt(ct.target_m2 - ct.actual_m2)} m² | ${fmtEur(ct.target_revenue - ct.actual_revenue)}`);
     }
     if ((data.standalone || []).length > 0) {
       lines.push("");
       lines.push("Standalone:");
       for (const e of data.standalone) {
-        lines.push(`  ${e.expo_name}: ${fmt(e.target_m2)} / ${fmt(e.actual_m2)} m\u00B2 (${e.m2_progress}%)`);
+        lines.push(`  ${e.expo_name}: ${fmt(e.target_m2)} / ${fmt(e.actual_m2)} m² (${e.m2_progress}%)`);
       }
     }
     return lines.join("\n");
@@ -287,12 +287,12 @@ export default function TargetsPage() {
       <thead>
         <tr>
           <th>Expo</th>
-          <th className="r">Target m\u00B2</th>
-          <th className="r">Actual m\u00B2</th>
-          <th>m\u00B2 %</th>
-          <th className="r">Target \u20AC</th>
-          <th className="r">Actual \u20AC</th>
-          <th>\u20AC %</th>
+          <th className="r">Target m²</th>
+          <th className="r">Actual m²</th>
+          <th>m² %</th>
+          <th className="r">Target €</th>
+          <th className="r">Actual €</th>
+          <th>€ %</th>
           <th className="r">Contracts</th>
           <th>Source</th>
           <th></th>
@@ -500,12 +500,12 @@ export default function TargetsPage() {
             {/* KPI Cards */}
             <div className="kpi-row">
               <div className="kpi-card">
-                <div className="kpi-label">Target m\u00B2</div>
+                <div className="kpi-label">Target m²</div>
                 <div className="kpi-val">{fmt(s.total_target_m2)}</div>
                 <div className="kpi-sub">across {s.expo_count} expos</div>
               </div>
               <div className="kpi-card">
-                <div className="kpi-label">Actual m\u00B2</div>
+                <div className="kpi-label">Actual m²</div>
                 <div className="kpi-val" style={{ color: pctColor(s.m2_progress) }}>{fmt(s.total_actual_m2)}</div>
                 <ProgressBar pct={s.m2_progress} height={8} />
                 <div className="kpi-sub" style={{ color: pctColor(s.m2_progress) }}>{s.m2_progress}% of target</div>
@@ -524,8 +524,8 @@ export default function TargetsPage() {
 
             {/* Gauge Charts */}
             <div className="gauge-row">
-              <GaugeChart actual={s.total_actual_m2} target={s.total_target_m2} label="m\u00B2 Progress" unit="m\u00B2" />
-              <GaugeChart actual={s.total_actual_revenue} target={s.total_target_revenue} label="Revenue Progress" unit="\u20AC" />
+              <GaugeChart actual={s.total_actual_m2} target={s.total_target_m2} label="Area Progress" isArea />
+              <GaugeChart actual={s.total_actual_revenue} target={s.total_target_revenue} label="Revenue Progress" />
             </div>
 
             {/* Cluster grouped tables */}
@@ -535,11 +535,11 @@ export default function TargetsPage() {
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 12, fontFamily: "var(--font-mono)", transition: "transform 0.2s", display: "inline-block",
-                      transform: collapsed[cluster.cluster_id] ? "rotate(0deg)" : "rotate(90deg)" }}>{"\u25B6"}</span>
+                      transform: collapsed[cluster.cluster_id] ? "rotate(0deg)" : "rotate(90deg)" }}>{"▶"}</span>
                     <span className="cluster-name">{cluster.cluster_name} ({cluster.expos.length} expos)</span>
                   </div>
                   <div className="cluster-summary">
-                    {fmt(cluster.cluster_total.target_m2)} / {fmt(cluster.cluster_total.actual_m2)} m\u00B2
+                    {fmt(cluster.cluster_total.target_m2)} / {fmt(cluster.cluster_total.actual_m2)} m²
                     ({cluster.cluster_total.m2_progress}%)
                     {" | "}
                     {fmtK(cluster.cluster_total.target_revenue)} / {fmtK(cluster.cluster_total.actual_revenue)}
@@ -604,7 +604,7 @@ export default function TargetsPage() {
                   <div style={{ fontSize: 13 }}>
                     <strong>{editPrev.name}</strong>
                     <div style={{ color: "var(--text-secondary)", marginTop: 4 }}>
-                      Actual: {fmt(editPrev.actual_m2)} m\u00B2 / {fmtEur(editPrev.actual_revenue)} / {editPrev.contracts} contracts
+                      Actual: {fmt(editPrev.actual_m2)} m² / {fmtEur(editPrev.actual_revenue)} / {editPrev.contracts} contracts
                     </div>
                   </div>
                 </div>
@@ -633,7 +633,7 @@ export default function TargetsPage() {
                   </div>
                   {editPreview && (
                     <div className="modal-preview">
-                      Preview: {fmt(editPreview.m2)} m\u00B2 / {fmtEur(editPreview.rev)}
+                      Preview: {fmt(editPreview.m2)} m² / {fmtEur(editPreview.rev)}
                     </div>
                   )}
                   {!editPrev && (
@@ -646,12 +646,12 @@ export default function TargetsPage() {
                 <div className="modal-section">
                   <div className="modal-row">
                     <div>
-                      <div className="modal-label">Target m\u00B2</div>
+                      <div className="modal-label">Target m²</div>
                       <input className="input" type="number" value={editM2}
                         onChange={e => setEditM2(e.target.value)} placeholder="0" />
                     </div>
                     <div>
-                      <div className="modal-label">Target Revenue (\u20AC)</div>
+                      <div className="modal-label">Target Revenue (€)</div>
                       <input className="input" type="number" value={editRev}
                         onChange={e => setEditRev(e.target.value)} placeholder="0" />
                     </div>
