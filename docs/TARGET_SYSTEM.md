@@ -343,3 +343,107 @@ Push mesajlara hedef ekleme:
 4. **ELAN EXPO hariç:** Hedef hesaplamada internal agent hariç
 5. **Edition primary:** Default edition bazlı, fiscal toggle ile geçiş
 6. **Historical:** Geçmiş yıllar da görülebilir (target vs actual comparison)
+
+---
+
+## 11. USER/TEAM OPERATIONAL TARGETS (ChatGPT önerisi)
+
+Expo hedeflerinin yanı sıra kullanıcı/team bazlı operasyonel hedefler:
+
+### user_targets tablosu
+
+```sql
+CREATE TABLE IF NOT EXISTS user_targets (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  target_type VARCHAR(50),       -- contracts, revenue, collections, sqm, no_payment_limit, deposit_rate
+  scope VARCHAR(10),             -- own, team, all
+  period_type VARCHAR(20),       -- daily, weekly, monthly, expo_cycle
+  target_value NUMERIC(14,2),
+  expo_id INTEGER,               -- NULL = genel, set = fuar bazlı
+  starts_at DATE,
+  ends_at DATE,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+Örnekler:
+- Elif: weekly contracts target = 5, scope = own
+- Elif: monthly collections target = €40.000, scope = team
+- CEO: no_payment_limit = 20, scope = all (20'yi geçerse uyar)
+- CEO: outstanding_risk = €500.000, scope = all (threshold)
+
+---
+
+## 12. TARGET vs THRESHOLD AYRIMI
+
+İkisi farklı kavram:
+
+**Target (Hedef):** Ulaşılmak istenen değer
+- "Bu hafta 5 sözleşme yap"
+- "Bu ay €40.000 tahsilat"
+- "SIEMA 2026 hedef: 2.000 m²"
+
+**Threshold (Eşik/Alarm):** Aşılmaması gereken limit
+- "No-payment firma sayısı 20'yi geçerse uyar"
+- "Outstanding €500K'yı geçerse alarm"
+- "Deposit rate %30'un altına düşerse uyar"
+
+user_targets tablosunda target_type ile ayrılır:
+- target_type: 'contracts_weekly' → TARGET
+- target_type: 'no_payment_limit' → THRESHOLD
+- target_type: 'outstanding_risk' → THRESHOLD
+
+---
+
+## 13. PUSH + TARGET ENTEGRASYONU
+
+Push mesajlar raw veri + target karşılaştırmasıyla üretilir:
+
+```javascript
+const data = await gatherPushData(user, messageType, scope);
+const targets = await gatherTargets(user, period);
+const insights = compareDataToTargets(data, targets);
+const message = formatPushMessage(user, messageType, data, targets, insights);
+```
+
+Mesaj örnekleri:
+
+Morning Brief (target bağlı):
+```
+☀️ Good morning
+
+📊 Status Report — March 23
+
+This week: 3/5 contracts target (60%)
+Collections: €8,500 / €20,000 target (42%)
+⚠️ Pace is low — need €4,000 today to stay on track
+
+No-payment: 25 companies (limit: 20) ⚠️ OVER THRESHOLD
+Outstanding: €777,941
+
+📊 https://eliza.elanfairs.com/targets
+```
+
+Daily Wrap (target bağlı):
+```
+🌙 End of Day
+
+Today: 1 contract (€9,380), 2 payments (€6,421)
+Weekly target: 4/5 contracts — 1 more to go
+Collections: €14,921 / €20,000 — 75% ✓
+
+📊 https://eliza.elanfairs.com/targets
+```
+
+Weekly Report (target bağlı):
+```
+📊 Weekly Report — 17-21 March
+
+Contracts: 6/8 target (75%)
+Collections: €48,137 / €50,000 target (96%) ✓
+Strongest: SIEMA — 5 new contracts
+Weakest: No-payment follow-up — 25 firms (limit 20) ⚠️
+```
+
