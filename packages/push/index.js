@@ -7,6 +7,8 @@
  *   - daily_wrap     (16:00 daily)   — end-of-day summary + tomorrow preview
  *   - weekly_report  (08:00 Monday)  — week overview
  *   - weekly_close   (16:00 Friday)  — week close + next week preview
+ *
+ * Multi-language: TR/EN/FR based on users.language field.
  */
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
@@ -24,13 +26,79 @@ const DEFAULT_TIMES = {
 
 const DASH = 'https://eliza.elanfairs.com';
 
-function fmtEur(val) {
+// ═══ Language helpers ═══
+
+function normalizeLang(raw) {
+  if (!raw) return 'en';
+  const l = raw.toLowerCase().substring(0, 2);
+  if (l === 'tr' || l === 'tu') return 'tr'; // "Turkce" → "tu" → tr
+  if (l === 'fr') return 'fr';
+  return 'en'; // "English", "en", anything else → en
+}
+
+const DATE_LOCALES = { tr: 'tr-TR', en: 'en-US', fr: 'fr-FR' };
+
+function fmtDate(date, lang, opts) {
+  return date.toLocaleDateString(DATE_LOCALES[lang] || 'en-US', opts);
+}
+
+function fmtEur(val, lang) {
+  if (lang === 'fr') {
+    return Number(val).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €';
+  }
   return '€' + Number(val).toLocaleString('de-DE', { maximumFractionDigits: 0 });
 }
 
 function fmtNum(val) {
   return Number(val).toLocaleString('de-DE', { maximumFractionDigits: 0 });
 }
+
+// ═══ i18n Labels ═══
+
+const L = {
+  morning_greeting: { tr: '☀️ Günaydın', en: '☀️ Good morning', fr: '☀️ Bonjour' },
+  status_report: { tr: 'Durum Raporu', en: 'Status Report', fr: 'Rapport de statut' },
+  yesterday: { tr: 'Dün', en: 'Yesterday', fr: 'Hier' },
+  new_contracts: { tr: 'yeni sözleşme', en: 'new contract(s)', fr: 'nouveau(x) contrat(s)' },
+  no_new_contracts: { tr: 'Yeni sözleşme yok', en: 'No new contracts', fr: 'Pas de nouveaux contrats' },
+  payments_received: { tr: 'ödeme geldi', en: 'payment(s) received', fr: 'paiement(s) reçu(s)' },
+  attention: { tr: 'Dikkat', en: 'Attention', fr: 'Attention' },
+  no_payment_firms: { tr: 'firma hiç ödeme yapmamış', en: 'firm(s) with no payment', fr: 'entreprise(s) sans paiement' },
+  at_risk: { tr: 'At-risk alacak', en: 'At-risk receivable', fr: 'Créance à risque' },
+  deposit_rate: { tr: 'Deposit rate', en: 'Deposit rate', fr: 'Taux de dépôt' },
+  upcoming_expos: { tr: 'Yaklaşan fuarlar', en: 'Upcoming expos', fr: 'Salons à venir' },
+  days: { tr: 'gün', en: 'days', fr: 'jours' },
+  expected_this_week: { tr: 'Bu hafta beklenen tahsilat', en: 'Expected collections this week', fr: 'Encaissements attendus cette semaine' },
+  midday_report: { tr: '🕐 Öğle Raporu', en: '🕐 Midday Report', fr: '🕐 Rapport de mi-journée' },
+  today: { tr: 'Bugün', en: 'Today', fr: "Aujourd'hui" },
+  contracts: { tr: 'sözleşme', en: 'contract(s)', fr: 'contrat(s)' },
+  no_contracts: { tr: 'sözleşme yok', en: 'no contracts', fr: 'pas de contrats' },
+  payments: { tr: 'ödeme', en: 'payment(s)', fr: 'paiement(s)' },
+  this_week: { tr: 'Bu hafta', en: 'This week', fr: 'Cette semaine' },
+  outstanding: { tr: 'Outstanding', en: 'Outstanding', fr: 'Encours' },
+  daily_wrap_title: { tr: '🌙 Gün Sonu', en: '🌙 End of Day', fr: '🌙 Fin de journée' },
+  this_week_total: { tr: 'Bu hafta toplam', en: 'This week total', fr: 'Total cette semaine' },
+  tomorrow_attention: { tr: 'Yarın dikkat', en: 'Tomorrow attention', fr: 'Attention demain' },
+  expected_payment: { tr: 'Beklenen ödeme', en: 'Expected payment', fr: 'Paiement attendu' },
+  firms: { tr: 'firma', en: 'firm(s)', fr: 'entreprise(s)' },
+  nearest_expo: { tr: 'En yakın fuar', en: 'Nearest expo', fr: 'Prochain salon' },
+  weekly_report_title: { tr: '📋 ELIZA Haftalık Rapor', en: '📋 ELIZA Weekly Report', fr: '📋 ELIZA Rapport Hebdomadaire' },
+  last_week: { tr: 'Geçen hafta', en: 'Last week', fr: 'Semaine dernière' },
+  collection: { tr: 'Tahsilat', en: 'Collections', fr: 'Encaissements' },
+  transactions: { tr: 'işlem', en: 'transaction(s)', fr: 'opération(s)' },
+  top_agents: { tr: 'En iyi agentlar', en: 'Top agents', fr: 'Meilleurs agents' },
+  expected_collections_week: { tr: 'Bu hafta beklenen tahsilat', en: 'Expected collections this week', fr: 'Encaissements attendus cette semaine' },
+  weekly_close_title: { tr: '🏁 ELIZA Hafta Kapanışı', en: '🏁 ELIZA Week Close', fr: '🏁 ELIZA Clôture Hebdomadaire' },
+  next_week: { tr: 'Gelecek hafta', en: 'Next week', fr: 'Semaine prochaine' },
+  expected_collection: { tr: 'Beklenen tahsilat', en: 'Expected collections', fr: 'Encaissements attendus' },
+  good_weekend: { tr: 'İyi hafta sonları!', en: 'Have a great weekend!', fr: 'Bon week-end !' },
+};
+
+function t(key, lang) {
+  return L[key]?.[lang] || L[key]?.en || key;
+}
+
+// ═══ Core helpers ═══
 
 /**
  * Check if a push was already sent today for this user+type.
@@ -70,21 +138,19 @@ function buildScopeFilter(user, paramOffset = 1) {
   return { where: '', params: [], paramOffset };
 }
 
-// ═══ VALID_STATUSES: use contracts table directly for broader coverage ═══
 const VALID_STATUSES = `('Valid', 'Transferred In', 'Transferred Out')`;
 
-/**
- * Generate morning brief content.
- */
+// ═══ Generators ═══
+
 async function generateMorningBrief(user) {
+  const lang = normalizeLang(user.language);
   const scope = buildScopeFilter(user);
   const today = new Date();
-  const dateStr = today.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dateStr = fmtDate(today, lang, { day: 'numeric', month: 'long', year: 'numeric' });
 
   // Yesterday's contracts
   const yesterdayResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
+    `SELECT COUNT(*) AS contracts,
       COALESCE(SUM(c.m2), 0) AS total_m2,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
     FROM contracts c
@@ -94,7 +160,7 @@ async function generateMorningBrief(user) {
   );
   const yday = yesterdayResult.rows[0];
 
-  // Yesterday's top contracts (for detail)
+  // Yesterday's top contracts
   const ydayDetails = await query(
     `SELECT c.company_name, e.name AS expo_name, c.revenue_eur
     FROM contracts c
@@ -115,7 +181,7 @@ async function generateMorningBrief(user) {
   `);
   const yp = ydayPay.rows[0] || { count: 0, total: 0 };
 
-  // Outstanding balances summary
+  // Outstanding balances
   const outResult = await query(`
     SELECT
       COUNT(*) AS open_count,
@@ -148,8 +214,7 @@ async function generateMorningBrief(user) {
 
   // This week expected payments
   const expectedResult = await query(`
-    SELECT
-      COUNT(*) AS count,
+    SELECT COUNT(*) AS count,
       COALESCE(ROUND(SUM(planned_amount_eur)::numeric, 0), 0) AS total
     FROM contract_payment_schedule
     WHERE due_date >= date_trunc('week', CURRENT_DATE)
@@ -159,50 +224,50 @@ async function generateMorningBrief(user) {
 
   // Build message
   const lines = [];
-  lines.push(`☀️ Günaydın`);
-  lines.push(`📊 ${dateStr} — Durum Raporu`);
+  lines.push(t('morning_greeting', lang));
+  lines.push(`📊 ${dateStr} — ${t('status_report', lang)}`);
 
   // Yesterday
   lines.push('');
-  lines.push('Dün:');
+  lines.push(`${t('yesterday', lang)}:`);
   const yc = Number(yday.contracts);
   if (yc > 0) {
-    lines.push(`  ${yc} yeni sözleşme: ${fmtEur(yday.revenue_eur)}`);
+    lines.push(`  ${yc} ${t('new_contracts', lang)}: ${fmtEur(yday.revenue_eur, lang)}`);
     for (const d of ydayDetails.rows) {
       const expo = d.expo_name ? ` (${d.expo_name})` : '';
-      lines.push(`  → ${d.company_name}${expo} ${fmtEur(d.revenue_eur)}`);
+      lines.push(`  → ${d.company_name}${expo} ${fmtEur(d.revenue_eur, lang)}`);
     }
   } else {
-    lines.push('  Yeni sözleşme yok');
+    lines.push(`  ${t('no_new_contracts', lang)}`);
   }
   if (Number(yp.total) > 0) {
-    lines.push(`  ${yp.count} ödeme geldi: ${fmtEur(yp.total)}`);
+    lines.push(`  ${yp.count} ${t('payments_received', lang)}: ${fmtEur(yp.total, lang)}`);
   }
 
   // Finance attention
   lines.push('');
-  lines.push('Dikkat:');
+  lines.push(`${t('attention', lang)}:`);
   if (Number(out.no_payment_count) > 0) {
-    lines.push(`  ${out.no_payment_count} firma hiç ödeme yapmamış`);
+    lines.push(`  ${out.no_payment_count} ${t('no_payment_firms', lang)}`);
   }
   if (Number(out.at_risk_amount) > 0) {
-    lines.push(`  At-risk alacak: ${fmtEur(out.at_risk_amount)}`);
+    lines.push(`  ${t('at_risk', lang)}: ${fmtEur(out.at_risk_amount, lang)}`);
   }
-  lines.push(`  Deposit rate: %${depositRate}`);
+  lines.push(`  ${t('deposit_rate', lang)}: %${depositRate}`);
 
   // Upcoming expos
   if (expoResult.rows.length > 0) {
     lines.push('');
-    lines.push('Yaklaşan fuarlar:');
+    lines.push(`${t('upcoming_expos', lang)}:`);
     for (const expo of expoResult.rows) {
-      lines.push(`  ${expo.name} — ${expo.days_left} gün`);
+      lines.push(`  ${expo.name} — ${expo.days_left} ${t('days', lang)}`);
     }
   }
 
   // Expected collections this week
   if (Number(expected.total) > 0) {
     lines.push('');
-    lines.push(`Bu hafta beklenen tahsilat: ${fmtEur(expected.total)}`);
+    lines.push(`${t('expected_this_week', lang)}: ${fmtEur(expected.total, lang)}`);
   }
 
   lines.push(`📊 ${DASH}/finance`);
@@ -210,18 +275,15 @@ async function generateMorningBrief(user) {
   return lines.join('\n');
 }
 
-/**
- * Generate midday pulse content.
- */
 async function generateMiddayPulse(user) {
+  const lang = normalizeLang(user.language);
   const scope = buildScopeFilter(user);
   const today = new Date();
-  const dateStr = today.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+  const dateStr = fmtDate(today, lang, { day: 'numeric', month: 'long' });
 
   // Today's contracts
   const todayResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
+    `SELECT COUNT(*) AS contracts,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
     FROM contracts c
     WHERE c.contract_date::date = CURRENT_DATE
@@ -239,10 +301,9 @@ async function generateMiddayPulse(user) {
   `);
   const pt = payToday.rows[0] || { count: 0, total: 0 };
 
-  // This week's contracts (Mon-Sun)
+  // This week's contracts
   const weekResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
+    `SELECT COUNT(*) AS contracts,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
     FROM contracts c
     WHERE c.contract_date::date >= date_trunc('week', CURRENT_DATE)
@@ -270,39 +331,36 @@ async function generateMiddayPulse(user) {
   const outstanding = outResult.rows[0]?.total || 0;
 
   const lines = [];
-  lines.push(`🕐 Öğle Raporu — ${dateStr}`);
+  lines.push(`${t('midday_report', lang)} — ${dateStr}`);
 
   // Today
   const tc = Number(td.contracts);
   const todayParts = [];
-  todayParts.push(tc > 0 ? `${tc} sözleşme (${fmtEur(td.revenue_eur)})` : 'sözleşme yok');
-  if (Number(pt.total) > 0) todayParts.push(`${pt.count} ödeme (${fmtEur(pt.total)})`);
-  lines.push(`Bugün: ${todayParts.join(', ')}`);
+  todayParts.push(tc > 0 ? `${tc} ${t('contracts', lang)} (${fmtEur(td.revenue_eur, lang)})` : t('no_contracts', lang));
+  if (Number(pt.total) > 0) todayParts.push(`${pt.count} ${t('payments', lang)} (${fmtEur(pt.total, lang)})`);
+  lines.push(`${t('today', lang)}: ${todayParts.join(', ')}`);
 
   // This week
   const weekParts = [];
-  weekParts.push(`${Number(wk.contracts)} sözleşme (${fmtEur(wk.revenue_eur)})`);
-  if (Number(pw.total) > 0) weekParts.push(`${pw.count} ödeme (${fmtEur(pw.total)})`);
-  lines.push(`Bu hafta: ${weekParts.join(', ')}`);
+  weekParts.push(`${Number(wk.contracts)} ${t('contracts', lang)} (${fmtEur(wk.revenue_eur, lang)})`);
+  if (Number(pw.total) > 0) weekParts.push(`${pw.count} ${t('payments', lang)} (${fmtEur(pw.total, lang)})`);
+  lines.push(`${t('this_week', lang)}: ${weekParts.join(', ')}`);
 
-  lines.push(`Outstanding: ${fmtEur(outstanding)}`);
+  lines.push(`${t('outstanding', lang)}: ${fmtEur(outstanding, lang)}`);
   lines.push(`📊 ${DASH}/sales`);
 
   return lines.join('\n');
 }
 
-/**
- * Generate daily wrap content.
- */
 async function generateDailyWrap(user) {
+  const lang = normalizeLang(user.language);
   const scope = buildScopeFilter(user);
   const today = new Date();
-  const dateStr = today.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+  const dateStr = fmtDate(today, lang, { day: 'numeric', month: 'long' });
 
   // Today's contracts
   const todayResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
+    `SELECT COUNT(*) AS contracts,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
     FROM contracts c
     WHERE c.contract_date::date = CURRENT_DATE
@@ -322,8 +380,7 @@ async function generateDailyWrap(user) {
 
   // This week totals
   const weekResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
+    `SELECT COUNT(*) AS contracts,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
     FROM contracts c
     WHERE c.contract_date::date >= date_trunc('week', CURRENT_DATE)
@@ -363,32 +420,32 @@ async function generateDailyWrap(user) {
   `);
 
   const lines = [];
-  lines.push(`🌙 Gün Sonu — ${dateStr}`);
+  lines.push(`${t('daily_wrap_title', lang)} — ${dateStr}`);
 
   // Today
   const todayParts = [];
   const tc = Number(td.contracts);
-  todayParts.push(tc > 0 ? `${tc} sözleşme (${fmtEur(td.revenue_eur)})` : 'sözleşme yok');
-  if (Number(pt.total) > 0) todayParts.push(`${pt.count} ödeme (${fmtEur(pt.total)})`);
-  lines.push(`Bugün: ${todayParts.join(', ')}`);
+  todayParts.push(tc > 0 ? `${tc} ${t('contracts', lang)} (${fmtEur(td.revenue_eur, lang)})` : t('no_contracts', lang));
+  if (Number(pt.total) > 0) todayParts.push(`${pt.count} ${t('payments', lang)} (${fmtEur(pt.total, lang)})`);
+  lines.push(`${t('today', lang)}: ${todayParts.join(', ')}`);
 
   // Week
   const weekParts = [];
-  weekParts.push(`${Number(wk.contracts)} sözleşme (${fmtEur(wk.revenue_eur)})`);
-  if (Number(pw.total) > 0) weekParts.push(`${pw.count} ödeme (${fmtEur(pw.total)})`);
-  lines.push(`Bu hafta toplam: ${weekParts.join(', ')}`);
+  weekParts.push(`${Number(wk.contracts)} ${t('contracts', lang)} (${fmtEur(wk.revenue_eur, lang)})`);
+  if (Number(pw.total) > 0) weekParts.push(`${pw.count} ${t('payments', lang)} (${fmtEur(pw.total, lang)})`);
+  lines.push(`${t('this_week_total', lang)}: ${weekParts.join(', ')}`);
 
   // Tomorrow attention
   const hasAttention = Number(tp.total) > 0 || nearestExpo.rows.length > 0;
   if (hasAttention) {
     lines.push('');
-    lines.push('Yarın dikkat:');
+    lines.push(`${t('tomorrow_attention', lang)}:`);
     if (Number(tp.total) > 0) {
-      lines.push(`  Beklenen ödeme: ${tp.firms} firma, ${fmtEur(tp.total)}`);
+      lines.push(`  ${t('expected_payment', lang)}: ${tp.firms} ${t('firms', lang)}, ${fmtEur(tp.total, lang)}`);
     }
     if (nearestExpo.rows.length > 0) {
       const ne = nearestExpo.rows[0];
-      lines.push(`  En yakın fuar: ${ne.name} — ${ne.days_left} gün`);
+      lines.push(`  ${t('nearest_expo', lang)}: ${ne.name} — ${ne.days_left} ${t('days', lang)}`);
     }
   }
 
@@ -397,17 +454,13 @@ async function generateDailyWrap(user) {
   return lines.join('\n');
 }
 
-/**
- * Generate weekly report content.
- * Monday morning — previous week overview.
- */
 async function generateWeeklyReport(user) {
+  const lang = normalizeLang(user.language);
   const scope = buildScopeFilter(user);
 
   // Last week stats
   const weekResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
+    `SELECT COUNT(*) AS contracts,
       COALESCE(SUM(c.m2), 0) AS total_m2,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
     FROM contracts c
@@ -465,33 +518,33 @@ async function generateWeeklyReport(user) {
   const expected = expectedResult.rows[0] || { count: 0, total: 0 };
 
   const lines = [];
-  lines.push('📋 ELIZA Haftalık Rapor');
+  lines.push(t('weekly_report_title', lang));
   lines.push('');
 
-  lines.push(`Geçen hafta: ${fmtNum(week.contracts)} sözleşme / ${fmtNum(week.total_m2)} m² / ${fmtEur(week.revenue_eur)}`);
+  lines.push(`${t('last_week', lang)}: ${fmtNum(week.contracts)} ${t('contracts', lang)} / ${fmtNum(week.total_m2)} m² / ${fmtEur(week.revenue_eur, lang)}`);
   if (Number(pt.total) > 0) {
-    lines.push(`Tahsilat: ${pt.count} işlem / ${fmtEur(pt.total)}`);
+    lines.push(`${t('collection', lang)}: ${pt.count} ${t('transactions', lang)} / ${fmtEur(pt.total, lang)}`);
   }
 
   if (agentsResult.rows.length > 0) {
     lines.push('');
-    lines.push('En iyi agentlar:');
+    lines.push(`${t('top_agents', lang)}:`);
     for (const a of agentsResult.rows) {
-      lines.push(`  ${a.sales_agent} — ${a.cnt} sözleşme / ${fmtEur(a.rev)}`);
+      lines.push(`  ${a.sales_agent} — ${a.cnt} ${t('contracts', lang)} / ${fmtEur(a.rev, lang)}`);
     }
   }
 
   if (expoResult.rows.length > 0) {
     lines.push('');
-    lines.push('Yaklaşan fuarlar:');
+    lines.push(`${t('upcoming_expos', lang)}:`);
     for (const expo of expoResult.rows) {
-      lines.push(`  ${expo.name} — ${expo.days_left} gün`);
+      lines.push(`  ${expo.name} — ${expo.days_left} ${t('days', lang)}`);
     }
   }
 
   if (Number(expected.total) > 0) {
     lines.push('');
-    lines.push(`Bu hafta beklenen tahsilat: ${fmtEur(expected.total)}`);
+    lines.push(`${t('expected_collections_week', lang)}: ${fmtEur(expected.total, lang)}`);
   }
 
   lines.push(`📊 ${DASH}/sales`);
@@ -499,17 +552,13 @@ async function generateWeeklyReport(user) {
   return lines.join('\n');
 }
 
-/**
- * Generate weekly close content.
- * Friday afternoon — week close + next week preview.
- */
 async function generateWeeklyClose(user) {
+  const lang = normalizeLang(user.language);
   const scope = buildScopeFilter(user);
 
   // This week stats
   const weekResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
+    `SELECT COUNT(*) AS contracts,
       COALESCE(SUM(c.m2), 0) AS total_m2,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
     FROM contracts c
@@ -532,8 +581,7 @@ async function generateWeeklyClose(user) {
 
   // Year-to-date
   const ytdResult = await query(
-    `SELECT
-      COUNT(*) AS contracts,
+    `SELECT COUNT(*) AS contracts,
       COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS revenue_eur
     FROM contracts c
     WHERE EXTRACT(YEAR FROM c.contract_date) = EXTRACT(YEAR FROM CURRENT_DATE)
@@ -563,36 +611,35 @@ async function generateWeeklyClose(user) {
   const ne = nextExpected.rows[0] || { count: 0, total: 0 };
 
   const lines = [];
-  lines.push('🏁 ELIZA Hafta Kapanışı');
+  lines.push(t('weekly_close_title', lang));
   lines.push('');
 
-  lines.push(`Bu hafta: ${fmtNum(week.contracts)} sözleşme / ${fmtNum(week.total_m2)} m² / ${fmtEur(week.revenue_eur)}`);
+  lines.push(`${t('this_week', lang)}: ${fmtNum(week.contracts)} ${t('contracts', lang)} / ${fmtNum(week.total_m2)} m² / ${fmtEur(week.revenue_eur, lang)}`);
   if (Number(pt.total) > 0) {
-    lines.push(`Tahsilat: ${pt.count} işlem / ${fmtEur(pt.total)}`);
+    lines.push(`${t('collection', lang)}: ${pt.count} ${t('transactions', lang)} / ${fmtEur(pt.total, lang)}`);
   }
-  lines.push(`YTD: ${fmtNum(ytd.contracts)} sözleşme / ${fmtEur(ytd.revenue_eur)}`);
+  lines.push(`YTD: ${fmtNum(ytd.contracts)} ${t('contracts', lang)} / ${fmtEur(ytd.revenue_eur, lang)}`);
 
   if (nextWeekExpos.rows.length > 0 || Number(ne.total) > 0) {
     lines.push('');
-    lines.push('Gelecek hafta:');
+    lines.push(`${t('next_week', lang)}:`);
     for (const expo of nextWeekExpos.rows) {
-      lines.push(`  ${expo.name} — ${expo.days_left} gün`);
+      lines.push(`  ${expo.name} — ${expo.days_left} ${t('days', lang)}`);
     }
     if (Number(ne.total) > 0) {
-      lines.push(`  Beklenen tahsilat: ${fmtEur(ne.total)}`);
+      lines.push(`  ${t('expected_collection', lang)}: ${fmtEur(ne.total, lang)}`);
     }
   }
 
   lines.push('');
-  lines.push('İyi hafta sonları!');
+  lines.push(t('good_weekend', lang));
   lines.push(`📊 ${DASH}/finance`);
 
   return lines.join('\n');
 }
 
-/**
- * Generate push message content by type.
- */
+// ═══ Dispatch + Send + Process ═══
+
 async function generatePushMessage(pushType, user) {
   switch (pushType) {
     case 'morning_brief': return generateMorningBrief(user);
@@ -604,9 +651,6 @@ async function generatePushMessage(pushType, user) {
   }
 }
 
-/**
- * Send a push message to a user via WhatsApp (Twilio).
- */
 async function sendPushMessage(user, pushType, messageText) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -655,16 +699,13 @@ async function sendPushMessage(user, pushType, messageText) {
   return { sent: true, via: sentVia };
 }
 
-/**
- * Process a single push type for all eligible users.
- */
 async function processPushType(pushType) {
   const now = new Date();
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   const usersResult = await query(`
     SELECT u.id, u.name, u.whatsapp_phone, u.role, u.push_settings,
-           u.sales_agent_name, u.sales_group,
+           u.sales_agent_name, u.sales_group, u.language,
            up.data_scope
     FROM users u
     LEFT JOIN user_permissions up ON up.user_id = u.id
@@ -702,7 +743,7 @@ async function processPushType(pushType) {
       const messageText = await generatePushMessage(pushType, user);
       const result = await sendPushMessage(user, pushType, messageText);
       if (result.sent) sent++;
-      console.log(`[push] ${pushType} → ${user.name}: ${result.via}`);
+      console.log(`[push] ${pushType} → ${user.name} (${normalizeLang(user.language)}): ${result.via}`);
     } catch (err) {
       console.error(`[push] Error generating ${pushType} for ${user.name}: ${err.message}`);
     }
@@ -711,13 +752,10 @@ async function processPushType(pushType) {
   return { pushType, sent, skipped, total: usersResult.rows.length };
 }
 
-/**
- * Test: generate and optionally send a push message for a specific user.
- */
 async function testPush(userId, pushType, send = false) {
   const userResult = await query(`
     SELECT u.id, u.name, u.whatsapp_phone, u.role, u.push_settings,
-           u.sales_agent_name, u.sales_group,
+           u.sales_agent_name, u.sales_group, u.language,
            up.data_scope
     FROM users u
     LEFT JOIN user_permissions up ON up.user_id = u.id
@@ -731,10 +769,10 @@ async function testPush(userId, pushType, send = false) {
 
   if (send) {
     const result = await sendPushMessage(user, pushType, messageText);
-    return { user: user.name, pushType, messageText, ...result };
+    return { user: user.name, pushType, language: normalizeLang(user.language), messageText, ...result };
   }
 
-  return { user: user.name, pushType, messageText, sent: false, via: 'preview' };
+  return { user: user.name, pushType, language: normalizeLang(user.language), messageText, sent: false, via: 'preview' };
 }
 
 module.exports = {
@@ -745,4 +783,5 @@ module.exports = {
   processPushType,
   testPush,
   wasAlreadySent,
+  normalizeLang,
 };
