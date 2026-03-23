@@ -64,4 +64,13 @@ app.listen(PORT, () => {
   } else {
     console.log('Zoho sync scheduler skipped (no credentials)');
   }
+
+  // Start push message scheduler
+  try {
+    const { startPushScheduler } = require('../../../packages/push/scheduler');
+    startPushScheduler();
+    console.log('Push message scheduler started');
+  } catch (err) {
+    console.error('Failed to start push scheduler:', err.message);
+  }
 });

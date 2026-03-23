@@ -1,0 +1,6 @@
+{
+  "name": "@eliza/push",
+  "version": "1.0.0",
+  "description": "ELIZA Push Messages — scheduled WhatsApp notifications",
+  "main": "index.js"
+}

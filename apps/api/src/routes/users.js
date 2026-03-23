@@ -40,7 +40,7 @@ router.get('/config', (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const result = await query(`
-      SELECT u.*, up.data_scope, up.visible_years,
+      SELECT u.*, u.push_settings, up.data_scope, up.visible_years,
              up.can_see_expenses, up.can_take_notes,
              up.can_use_message_generator, up.can_see_financials
       FROM users u
@@ -57,7 +57,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const result = await query(`
-      SELECT u.*, up.data_scope, up.visible_years,
+      SELECT u.*, u.push_settings, up.data_scope, up.visible_years,
              up.can_see_expenses, up.can_take_notes,
              up.can_use_message_generator, up.can_see_financials
       FROM users u
@@ -117,7 +117,7 @@ router.post('/', async (req, res) => {
 
     // Return full user with permissions
     const full = await query(`
-      SELECT u.*, up.data_scope, up.visible_years,
+      SELECT u.*, u.push_settings, up.data_scope, up.visible_years,
              up.can_see_expenses, up.can_take_notes,
              up.can_use_message_generator, up.can_see_financials
       FROM users u
@@ -142,7 +142,7 @@ router.put('/:id', async (req, res) => {
       sales_agent_name, is_manager, language, is_active, nicknames,
       data_scope, visible_years,
       can_see_expenses, can_take_notes, can_use_message_generator, can_see_financials,
-      password_hash, dashboard_permissions,
+      password_hash, dashboard_permissions, push_settings,
     } = req.body;
 
     // Business rule: CEO always gets 'all' scope
@@ -165,9 +165,10 @@ router.put('/:id', async (req, res) => {
         is_active = COALESCE($10, is_active),
         nicknames = $11,
         password_hash = COALESCE($13, password_hash),
-        dashboard_permissions = $14
+        dashboard_permissions = $14,
+        push_settings = COALESCE($15, push_settings)
       WHERE id = $12
-    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager, language, is_active, nicknames || null, req.params.id, password_hash || null, JSON.stringify(perms)]);
+    `, [name, email || null, whatsapp_phone || null, role, office || null, sales_group || null, sales_agent_name || null, is_manager, language, is_active, nicknames || null, req.params.id, password_hash || null, JSON.stringify(perms), push_settings ? JSON.stringify(push_settings) : null]);
 
     await query(`
       UPDATE user_permissions SET
@@ -182,7 +183,7 @@ router.put('/:id', async (req, res) => {
 
     // Return updated user
     const full = await query(`
-      SELECT u.*, up.data_scope, up.visible_years,
+      SELECT u.*, u.push_settings, up.data_scope, up.visible_years,
              up.can_see_expenses, up.can_take_notes,
              up.can_use_message_generator, up.can_see_financials
       FROM users u

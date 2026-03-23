@@ -140,4 +140,65 @@ router.post('/sync-now', async (req, res) => {
   }
 });
 
+// POST /api/system/test-push — Test push message generation (and optionally send)
+router.post('/test-push', async (req, res) => {
+  try {
+    const userId = req.query.user_id;
+    const pushType = req.query.type || 'morning_brief';
+    const send = req.query.send === 'true';
+
+    if (!userId) {
+      return res.status(400).json({ error: 'user_id query parameter required' });
+    }
+
+    const { testPush } = require('../../../../packages/push/index.js');
+    const result = await testPush(parseInt(userId), pushType, send);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/system/push-status — Push message log summary
+router.get('/push-status', async (req, res) => {
+  try {
+    // Recent push logs
+    const logsResult = await query(`
+      SELECT pl.id, pl.push_type, pl.sent_via, pl.status, pl.error_message, pl.created_at,
+             u.name AS user_name
+      FROM push_log pl
+      JOIN users u ON u.id = pl.user_id
+      ORDER BY pl.created_at DESC
+      LIMIT 50
+    `);
+
+    // Today's summary
+    const todayResult = await query(`
+      SELECT push_type, COUNT(*) AS count,
+        COUNT(*) FILTER (WHERE status = 'sent') AS sent,
+        COUNT(*) FILTER (WHERE status = 'error') AS errors
+      FROM push_log
+      WHERE created_at >= CURRENT_DATE
+      GROUP BY push_type
+    `);
+
+    // Users with push enabled
+    const usersResult = await query(`
+      SELECT u.id, u.name, u.push_settings
+      FROM users u
+      WHERE u.is_active = true
+        AND u.push_settings IS NOT NULL
+        AND u.push_settings != '{}'::jsonb
+    `);
+
+    res.json({
+      logs: logsResult.rows,
+      today: todayResult.rows,
+      users: usersResult.rows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

@@ -123,7 +123,23 @@ router.post('/migrate', async (req, res) => {
     await query(`ALTER TABLE contract_payments ADD COLUMN IF NOT EXISTS amount_local DECIMAL(12,2)`);
     await query(`ALTER TABLE contract_payments ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'EUR'`);
 
-    res.json({ success: true, message: 'Migrations 011 + 013 + 014 + 016 applied' });
+    // Migration 017: push messages
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS push_settings JSONB DEFAULT '{}'`);
+    await query(`UPDATE users SET push_settings = '{"morning_brief":{"enabled":true,"time":"08:00"},"midday_pulse":{"enabled":true,"time":"13:00"},"daily_wrap":{"enabled":true,"time":"16:00"},"weekly_report":{"enabled":true,"time":"08:00"},"weekly_close":{"enabled":true,"time":"16:00"},"scope":"all"}'::jsonb WHERE role = 'ceo' AND (push_settings IS NULL OR push_settings = '{}'::jsonb)`);
+    await query(`CREATE TABLE IF NOT EXISTS push_log (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      push_type TEXT NOT NULL,
+      message_text TEXT,
+      sent_via TEXT DEFAULT 'log',
+      status TEXT DEFAULT 'sent',
+      error_message TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_push_log_user_id ON push_log(user_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS idx_push_log_type_date ON push_log(push_type, created_at)`);
+
+    res.json({ success: true, message: 'Migrations 011 + 013 + 014 + 016 + 017 applied' });
   } catch (err) {
     console.error('Migration error:', err);
     res.status(500).json({ error: err.message });
