@@ -18,6 +18,20 @@ const CITY_COUNTRY = {
 };
 
 /**
+ * City alias map — normalize different spellings of the same city.
+ */
+const CITY_ALIASES = {
+  'algiers': 'alger',
+  'alger': 'alger',
+};
+
+function normalizeCity(city) {
+  if (!city) return '';
+  const lower = city.toLowerCase().trim();
+  return CITY_ALIASES[lower] || lower;
+}
+
+/**
  * Country keywords found in expo names (fallback when both city and country are NULL).
  */
 const NAME_COUNTRY_KEYWORDS = [
@@ -128,7 +142,13 @@ async function detectClusters(year) {
       const prevDate = new Date(current[current.length - 1].start_date);
       const thisDate = new Date(expos[i].start_date);
       const daysDiff = (thisDate - prevDate) / (1000 * 60 * 60 * 24);
-      if (daysDiff <= CLUSTER_PROXIMITY_DAYS) {
+
+      // Same city check: if both have city, must match (normalized)
+      const prevCity = normalizeCity(current[current.length - 1].city);
+      const thisCity = normalizeCity(expos[i].city);
+      const sameCity = !prevCity || !thisCity || prevCity === thisCity;
+
+      if (daysDiff <= CLUSTER_PROXIMITY_DAYS && sameCity) {
         current.push(expos[i]);
       } else {
         groups.push(current);

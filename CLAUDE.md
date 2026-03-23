@@ -298,12 +298,13 @@ Completed (cont. 6):
   - Migration 019: expo_targets (target_m2, target_revenue, source, auto_base_expo_id, auto_percentage) + expo_clusters (name UNIQUE, city, country, dates) + expos.cluster_id FK
   - packages/targets/index.js: calculateAutoTarget (prev edition × growth%), detectClusters (proximity-based), createOrUpdateClusters, seedAutoTargets, getPreviousEdition
   - Auto target: strips year from expo name → finds previous edition → applies percentage (default +15%, supports negative)
-  - Cluster detection: proximity-based connected-components (JS-based)
+  - Cluster detection: proximity-based connected-components (JS-based), same-country + same-city requirement
     - inferCountry(city, country, name): country field → CITY_COUNTRY map (lagos→Nigeria, algiers→Algeria, casablanca→Morocco) → NAME_COUNTRY_KEYWORDS from expo name
-    - CLUSTER_PROXIMITY_DAYS = 45: consecutive expos in same country within 45 days → same cluster (increased from 35 to capture Coren→Nigeria Aug at 43d gap)
-    - Connected-components: chains expos A→B→C if each pair is within proximity window
-    - Handles NULL country, inconsistent city spellings (Alger vs Algiers)
-    - 2026 result: 7 clusters + 1 standalone (SIEMA — 83d gap from nearest Morocco expo)
+    - CITY_ALIASES: normalizeCity() for spelling variants (algiers→alger)
+    - CLUSTER_PROXIMITY_DAYS = 45: consecutive expos in same country within 45 days → same cluster
+    - Same-city check: if both expos have city, must match (normalized). NULL city = tolerant (chains). Different city = chain breaks (Abuja ≠ Lagos)
+    - Connected-components: chains expos A→B→C if each pair is within proximity window AND same city
+    - 2026 result: 7 clusters + 2 standalone (SIEMA — 83d gap, Coren — different city Abuja vs Lagos)
   - API: apps/api/src/routes/targets.js
     - GET /api/targets?year=2026&mode=edition|fiscal → summary + clusters (with totals) + standalone expos
     - PUT /api/targets/:expo_id → { method: "manual"|"auto", target_m2, target_revenue, percentage, notes }
@@ -313,7 +314,7 @@ Completed (cont. 6):
   - Dashboard: /targets — Target Tracker page
     - Edition/Fiscal mode toggle, year selector (2024/2025/2026)
     - 4 KPI cards: Target m², Actual m², Target Revenue, Actual Revenue (with progress bars)
-    - SVG 270° donut arc gauge charts (140px, strokeWidth 12): Area Progress (m²) + Revenue Progress (€) with animated progress, subtle glow filter, remaining in compact format (fmtK), bg arc opacity 0.3
+    - ProgressRing component: compact ring (72px SVG) + side metrics layout. m² ring orange (#E67E22), revenue ring green (#2ECC71), >80% both green. Replaces old 270° donut arc GaugeChart.
     - Cluster-grouped collapsible tables with expand/collapse chevron animation (7 clusters for 2026)
     - ClusterSummaryBar component: summary bars below tables (not table rows) with m²/revenue/progress/contracts + gap indicator
     - Standalone expos: SIEMA sorted to top with gold accent border-left highlight (expo-row-highlight class)

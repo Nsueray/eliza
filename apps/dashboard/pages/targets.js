@@ -29,74 +29,74 @@ function sourceLabel(source, pct) {
   return "none";
 }
 
-/* ─── Gauge Chart (270° donut arc) ─── */
-function GaugeChart({ actual, target, label, isArea }) {
-  const progress = target > 0 ? Math.min(actual / target, 1.2) : 0;
-  const displayProgress = Math.min(progress, 1);
-  const percentage = Math.round(progress * 100);
+/* ─── Progress Ring (compact ring + metrics) ─── */
+function ProgressRing({ actual, target, label, isArea }) {
+  const progress = target > 0 ? Math.min(actual / target, 1) : 0;
+  const percentage = target > 0 ? Math.round((actual / target) * 100) : 0;
   const remaining = Math.max(target - actual, 0);
 
-  const color = percentage >= 100 ? '#2ECC71'
-    : percentage >= 80 ? '#2ECC71'
-    : percentage >= 50 ? '#E67E22'
-    : '#E74C3C';
+  const ringColor = percentage >= 80 ? '#2ECC71' : percentage >= 50 ? '#E67E22' : '#E74C3C';
 
-  const size = 140;
-  const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
+  const radius = 32;
   const circumference = 2 * Math.PI * radius;
-  const arcLength = circumference * 0.75;
-  const dashOffset = arcLength * (1 - displayProgress);
-  const rotation = 135;
+  const dashOffset = circumference * (1 - progress);
 
-  const actualLabel = isArea ? `${fmt(actual)}` : fmtK(actual).replace('€', '');
+  const actualLabel = isArea ? fmt(actual) : fmtK(actual).replace('€', '');
+  const targetLabel = isArea ? `${fmt(target)} m²` : fmtK(target);
+  const remainLabel = isArea ? `${fmt(remaining)} m²` : fmtEur(remaining);
   const unit = isArea ? 'm²' : '€';
-  const tgtLabel = isArea ? `${fmt(target)} m²` : fmtK(target);
-  const remLabel = isArea ? `${fmt(remaining)} m²` : fmtK(remaining);
 
   return (
-    <div className="gauge-item">
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}
-        style={{ overflow: 'visible' }}>
-        <defs>
-          <filter id={`glow-${isArea ? 'area' : 'rev'}`}>
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <circle cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke="var(--surface-2)" strokeWidth={strokeWidth}
-          strokeDasharray={`${arcLength} ${circumference}`}
-          strokeLinecap="round"
-          transform={`rotate(${rotation} ${size / 2} ${size / 2})`}
-          style={{ opacity: 0.3 }} />
-        <circle cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke={color} strokeWidth={strokeWidth}
-          strokeDasharray={`${arcLength} ${circumference}`}
-          strokeDashoffset={dashOffset}
-          strokeLinecap="round"
-          transform={`rotate(${rotation} ${size / 2} ${size / 2})`}
-          filter={`url(#glow-${isArea ? 'area' : 'rev'})`}
-          style={{ transition: 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
-        <text x={size / 2} y={size / 2 - 10} textAnchor="middle"
-          fill={color} fontSize="22" fontFamily="DM Mono, monospace" fontWeight="700">
-          {actualLabel}
-        </text>
-        <text x={size / 2} y={size / 2 + 6} textAnchor="middle"
-          fill={color} fontSize="11" fontFamily="DM Mono, monospace" fontWeight="500"
-          style={{ opacity: 0.8 }}>
-          {unit}
-        </text>
-        <text x={size / 2} y={size / 2 + 22} textAnchor="middle"
-          fill="var(--text-secondary)" fontSize="11" fontFamily="DM Mono, monospace">
+    <div style={{
+      flex: 1, minWidth: 280,
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 'var(--radius)', padding: '20px 24px',
+      display: 'flex', alignItems: 'center', gap: 20,
+      boxShadow: 'var(--card-shadow)',
+    }}>
+      <svg viewBox="0 0 80 80" width="72" height="72" style={{ flexShrink: 0 }}>
+        <circle cx="40" cy="40" r={radius}
+          fill="none" stroke="var(--border)" strokeWidth="7" opacity="0.4" />
+        <circle cx="40" cy="40" r={radius}
+          fill="none" stroke={ringColor} strokeWidth="7" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={dashOffset}
+          transform="rotate(-90 40 40)"
+          style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
+        <text x="40" y="37" textAnchor="middle" dominantBaseline="central"
+          fontFamily="DM Mono, monospace" fontSize="15" fontWeight="700" fill={ringColor}>
           {percentage}%
         </text>
+        <text x="40" y="52" textAnchor="middle"
+          fontFamily="DM Mono, monospace" fontSize="8" fill="var(--text-secondary)">
+          {unit}
+        </text>
       </svg>
-      <div className="gauge-info">
-        {remaining > 0 ? `${remLabel} remaining` : 'Target reached'}
+      <div>
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)',
+          letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 6
+        }}>
+          {label}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700,
+            color: 'var(--text-primary)'
+          }}>
+            {isArea ? actualLabel : `€${actualLabel}`}
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)'
+          }}>
+            / {targetLabel}
+          </span>
+        </div>
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4
+        }}>
+          {remaining > 0 ? `${remainLabel} remaining` : 'Target reached'}
+        </div>
       </div>
-      <div className="gauge-sub">of {tgtLabel}</div>
-      <div className="gauge-label">{label}</div>
     </div>
   );
 }
@@ -450,16 +450,6 @@ export default function TargetsPage() {
           letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
         .kpi-val { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--text-primary); }
         .kpi-sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-        .gauge-row { display: flex; gap: 32px; margin-bottom: 24px; justify-content: center;
-          align-items: center; background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--card-shadow); }
-        .gauge-item { text-align: center; flex: 1; min-width: 160px; max-width: 220px; }
-        .gauge-info { margin-top: 2px; font-family: var(--font-mono); font-size: 10px;
-          color: var(--text-secondary); letter-spacing: 0.5px; }
-        .gauge-sub { margin-top: 2px; font-family: var(--font-mono); font-size: 10px;
-          color: var(--text-secondary); opacity: 0.6; }
-        .gauge-label { margin-top: 6px; font-family: var(--font-mono); font-size: 9px;
-          letter-spacing: 2px; text-transform: uppercase; color: var(--text-secondary); opacity: 0.5; }
         .expo-row-highlight td { border-left: 3px solid var(--accent) !important; }
         .expo-row-highlight td:first-child { padding-left: 12px; }
         .summary-bar { background: var(--surface); border: 1px solid var(--border);
@@ -513,7 +503,6 @@ export default function TargetsPage() {
           border: 1px solid var(--border); border-radius: var(--radius); margin: 40px 0; }
         @media (max-width: 768px) {
           .kpi-row { grid-template-columns: repeat(2, 1fr); }
-          .gauge-row { flex-direction: column; align-items: center; gap: 24px; }
           .target-control { gap: 8px; }
           .cluster-hdr { flex-direction: column; align-items: flex-start; gap: 4px; }
           .summary-bar-main { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -597,10 +586,10 @@ export default function TargetsPage() {
               </div>
             </div>
 
-            {/* Gauge Charts */}
-            <div className="gauge-row">
-              <GaugeChart actual={s.total_actual_m2} target={s.total_target_m2} label="Area Progress" isArea />
-              <GaugeChart actual={s.total_actual_revenue} target={s.total_target_revenue} label="Revenue Progress" />
+            {/* Progress Rings */}
+            <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+              <ProgressRing actual={s.total_actual_m2} target={s.total_target_m2} label="Area progress" isArea />
+              <ProgressRing actual={s.total_actual_revenue} target={s.total_target_revenue} label="Revenue progress" />
             </div>
 
             {/* Cluster grouped tables */}
