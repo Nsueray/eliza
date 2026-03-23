@@ -2,9 +2,27 @@
  * ELIZA Target System
  *
  * Auto target: previous edition actual × (1 + percentage/100)
- * Clusters: same city + same week = grouped expos
+ * Clusters: same country + same month = grouped expos
  */
 const { query } = require('../db/index.js');
+
+/**
+ * Known city→country mapping for expos with NULL country field.
+ */
+const CITY_COUNTRY = {
+  lagos: 'Nigeria', abuja: 'Nigeria',
+  casablanca: 'Morocco',
+  alger: 'Algeria', algiers: 'Algeria',
+  accra: 'Ghana',
+  nairobi: 'Kenya',
+};
+
+/**
+ * Country keywords found in expo names (fallback when both city and country are NULL).
+ */
+const NAME_COUNTRY_KEYWORDS = [
+  'Nigeria', 'Morocco', 'Kenya', 'Algeria', 'Ghana', 'China',
+];
 
 /**
  * Calculate auto target from previous edition.
@@ -55,26 +73,66 @@ async function calculateAutoTarget(expoId, percentage = 15) {
 }
 
 /**
- * Detect clusters: expos in the same city + same week.
+ * Infer country from city or expo name when country column is NULL.
+ */
+function inferCountry(city, country, name) {
+  if (country) return country;
+  if (city) {
+    const match = CITY_COUNTRY[city.toLowerCase().trim()];
+    if (match) return match;
+  }
+  if (name) {
+    for (const kw of NAME_COUNTRY_KEYWORDS) {
+      if (name.toLowerCase().includes(kw.toLowerCase())) return kw;
+    }
+  }
+  return null;
+}
+
+/**
+ * Detect clusters: expos in the same country + same month.
+ * Country is inferred from city/name when NULL.
  */
 async function detectClusters(year) {
+  // Fetch all expos for the year
   const result = await query(`
-    SELECT city, country,
-      DATE_TRUNC('week', start_date)::date AS week_start,
-      MIN(start_date)::date AS cluster_start,
-      MAX(COALESCE(end_date, start_date))::date AS cluster_end,
-      ARRAY_AGG(id ORDER BY name) AS expo_ids,
-      ARRAY_AGG(name ORDER BY name) AS expo_names,
-      COUNT(*) AS expo_count
+    SELECT id, name, city, country, start_date::date AS start_date,
+           COALESCE(end_date, start_date)::date AS end_date
     FROM expos
     WHERE EXTRACT(YEAR FROM start_date) = $1
-      AND city IS NOT NULL AND city != ''
-    GROUP BY city, country, DATE_TRUNC('week', start_date)
-    HAVING COUNT(*) > 1
-    ORDER BY MIN(start_date)
+    ORDER BY start_date, name
   `, [year]);
 
-  return result.rows;
+  // Group by inferred_country + month
+  const groups = {};
+  for (const e of result.rows) {
+    const inferredCountry = inferCountry(e.city, e.country, e.name);
+    if (!inferredCountry) continue;
+    const month = new Date(e.start_date).getMonth(); // 0-based
+    const key = `${inferredCountry}_${month}`;
+    if (!groups[key]) groups[key] = { country: inferredCountry, month, expos: [] };
+    groups[key].expos.push(e);
+  }
+
+  // Only keep groups with 2+ expos
+  const clusters = [];
+  for (const g of Object.values(groups)) {
+    if (g.expos.length < 2) continue;
+    const starts = g.expos.map(e => new Date(e.start_date));
+    const ends = g.expos.map(e => new Date(e.end_date));
+    clusters.push({
+      country: g.country,
+      city: g.expos[0].city, // representative city
+      cluster_start: new Date(Math.min(...starts)).toISOString().slice(0, 10),
+      cluster_end: new Date(Math.max(...ends)).toISOString().slice(0, 10),
+      expo_ids: g.expos.map(e => e.id),
+      expo_names: g.expos.map(e => e.name),
+      expo_count: g.expos.length,
+    });
+  }
+
+  clusters.sort((a, b) => a.cluster_start.localeCompare(b.cluster_start));
+  return clusters;
 }
 
 /**
@@ -84,15 +142,23 @@ async function createOrUpdateClusters(year) {
   const clusters = await detectClusters(year);
   const created = [];
 
+  // Clear old cluster assignments for the year first
+  await query(`
+    UPDATE expos SET cluster_id = NULL
+    WHERE EXTRACT(YEAR FROM start_date) = $1
+  `, [year]);
+
   for (const c of clusters) {
     const monthName = new Date(c.cluster_start).toLocaleString('en-US', { month: 'long' });
-    const clusterName = `${c.city} ${monthName} ${year}`;
+    const clusterName = `${c.country} ${monthName} ${year}`;
 
     // Upsert cluster
     const upsertResult = await query(`
       INSERT INTO expo_clusters (name, city, country, start_date, end_date)
       VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT (name) DO UPDATE SET
+        city = EXCLUDED.city,
+        country = EXCLUDED.country,
         start_date = EXCLUDED.start_date,
         end_date = EXCLUDED.end_date
       RETURNING id

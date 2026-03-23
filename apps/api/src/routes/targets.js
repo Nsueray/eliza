@@ -130,6 +130,7 @@ router.get('/', async (req, res) => {
         actual_m2: c.expos.reduce((s, e) => s + e.actual_m2, 0),
         target_revenue: c.expos.reduce((s, e) => s + e.target_revenue, 0),
         actual_revenue: c.expos.reduce((s, e) => s + e.actual_revenue, 0),
+        contracts: c.expos.reduce((s, e) => s + e.contracts, 0),
       };
       totals.m2_progress = totals.target_m2 > 0 ? Math.round((totals.actual_m2 / totals.target_m2) * 1000) / 10 : 0;
       totals.revenue_progress = totals.target_revenue > 0 ? Math.round((totals.actual_revenue / totals.target_revenue) * 1000) / 10 : 0;
