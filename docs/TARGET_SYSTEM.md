@@ -239,23 +239,25 @@ Pattern: expo adından yılı çıkar, ILIKE ile eşleştir.
 
 ## 5. CLUSTER AUTO-DETECTION
 
-```sql
--- Aynı start_date (±3 gün) + aynı city olan fuarları grupla
-SELECT 
-  city, country, 
-  MIN(start_date) AS cluster_start,
-  MAX(end_date) AS cluster_end,
-  ARRAY_AGG(id ORDER BY name) AS expo_ids,
-  ARRAY_AGG(name ORDER BY name) AS expo_names
-FROM expos
-WHERE start_date >= CURRENT_DATE
-GROUP BY city, country, 
-  DATE_TRUNC('week', start_date)  -- aynı hafta = aynı cluster
-HAVING COUNT(*) > 1
-ORDER BY MIN(start_date);
+**V2 (current):** JavaScript-based grouping by inferred country + month.
+
+```javascript
+// 1. Fetch all expos for the year
+// 2. inferCountry(city, country, name) resolves NULL country:
+//    - country field if present
+//    - CITY_COUNTRY map: lagos→Nigeria, algiers/alger→Algeria, casablanca→Morocco, etc.
+//    - NAME_COUNTRY_KEYWORDS: search expo name for country keywords
+// 3. Group by inferred_country + month (0-based)
+// 4. Keep groups with 2+ expos
+// 5. Calculate cluster_start (min) and cluster_end (max) dates
 ```
 
-Cluster isimlendirme: "{City} {Month} {Year}" → "Casablanca July 2026"
+Cluster isimlendirme: "{Country} {Month} {Year}" → "Morocco July 2026"
+
+**Neden city+week yerine country+month:**
+- Bazı fuarların country alanı NULL (Zoho'dan gelmemiş)
+- Aynı şehirde farklı yazımlar var (Alger vs Algiers)
+- Aynı ülkede aynı ayda olan fuarlar business olarak cluster
 
 ---
 
@@ -313,23 +315,30 @@ Push mesajlara hedef ekleme:
 
 ## 9. SPRINT PLAN
 
-### Sprint 1: Data + API
-- [ ] Migration 019: expo_targets, expo_clusters, expos.cluster_id
-- [ ] Auto target calculation
-- [ ] Cluster auto-detection
-- [ ] API endpoints (5)
-- [ ] Seed auto targets for 2026
+### Sprint 1: Data + API — DONE
+- [x] Migration 019: expo_targets, expo_clusters, expos.cluster_id
+- [x] Auto target calculation (prev edition × growth%)
+- [x] Cluster auto-detection (country+month grouping with inferCountry)
+- [x] API endpoints (5): GET targets, PUT target, POST seed, GET clusters, GET previous
+- [x] Seed auto targets for 2026
 
-### Sprint 2: Dashboard
-- [ ] /targets sayfası
-- [ ] KPI cards
-- [ ] Cluster grouped table
-- [ ] Inline edit (auto/manual)
-- [ ] Year selector + Edition/Fiscal toggle
-- [ ] Export (Copy/CSV/Excel)
-- [ ] Expo click → detail
+### Sprint 2: Dashboard — DONE
+- [x] /targets sayfası
+- [x] KPI cards (Target m², Actual m², Target Revenue, Actual Revenue)
+- [x] SVG semi-circle gauge charts (Area Progress m² + Revenue Progress €)
+- [x] Cluster grouped collapsible table with expand/collapse chevron animation
+- [x] Cluster total rows (bold) + GAP rows (remaining to target)
+- [x] Company grand total at bottom with remaining
+- [x] Edit modal (auto/manual) with previous edition info
+- [x] Year selector + Edition/Fiscal toggle
+- [x] Export (Copy Summary/Excel All)
+- [x] Expo click → detail
+- [x] Seed Auto Targets button with confirm modal
+- [x] No-targets banner with generate button
+- [x] Dashboard permissions: "targets" module
+- [x] Nav: "Targets" after "Finance"
 
-### Sprint 3: WhatsApp + Push
+### Sprint 3: WhatsApp + Push — PENDING
 - [ ] target_progress intent
 - [ ] Push mesajlara hedef progress ekleme
 
@@ -339,7 +348,7 @@ Push mesajlara hedef ekleme:
 
 1. **Auto default:** Hedef girilmemişse önceki edition +%15
 2. **Manual override:** CEO istediği zaman rakam veya yüzde girebilir
-3. **Cluster:** Aynı hafta + aynı şehir = otomatik cluster
+3. **Cluster:** Aynı ülke + aynı ay = otomatik cluster (inferCountry ile NULL country çözülür)
 4. **ELAN EXPO hariç:** Hedef hesaplamada internal agent hariç
 5. **Edition primary:** Default edition bazlı, fiscal toggle ile geçiş
 6. **Historical:** Geçmiş yıllar da görülebilir (target vs actual comparison)

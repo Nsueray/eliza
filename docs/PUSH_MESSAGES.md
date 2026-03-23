@@ -456,28 +456,35 @@ Dashboard'da /admin/system'e "Push History" bölümü eklenebilir.
 
 ## 8. SPRINT PLANI
 
-### Sprint 1: Infrastructure
-- [ ] Migration: push_settings JSONB on users, push_log table
-- [ ] Admin UI: Push Notifications bölümü user edit'te
-- [ ] Default settings by role (CEO/Manager/Agent)
-- [ ] Scheduler (node-cron, her dakika kontrol)
+### Sprint 1: Infrastructure — DONE
+- [x] Migration 017: push_settings JSONB on users, push_log table
+- [x] Admin UI: PushSettings component in /admin/users/[id] with test preview
+- [x] Default settings by role (CEO/Manager/Agent)
+- [x] Scheduler (node-cron, every 5 minutes, per-user timezone)
 
-### Sprint 2: Morning Brief
-- [ ] gatherPushData — morning_brief
-- [ ] Template: TR/EN/FR
-- [ ] Scope filtering (own/team/all)
-- [ ] Twilio gönderim
-- [ ] Test: CEO sabah mesajı
+### Sprint 2: Morning Brief — DONE
+- [x] gatherPushData — morning_brief
+- [x] Template: TR/EN/FR (multi-language based on users.language)
+- [x] Scope filtering (own/team/all)
+- [x] Twilio gönderim (double-prefix protection)
+- [x] Test: CEO sabah mesajı
 
-### Sprint 3: Midday + Daily Wrap
-- [ ] gatherPushData — midday_pulse, daily_wrap
-- [ ] Templates
-- [ ] Test
+### Sprint 3: Midday + Daily Wrap — DONE
+- [x] gatherPushData — midday_pulse, daily_wrap
+- [x] Templates (TR/EN/FR)
+- [x] Test
 
-### Sprint 4: Weekly Report + Close
-- [ ] gatherPushData — weekly_report, weekly_close
-- [ ] Pazartesi/Cuma özel logic
-- [ ] Test
+### Sprint 4: Weekly Report + Close — DONE
+- [x] gatherPushData — weekly_report, weekly_close
+- [x] Pazartesi/Cuma özel logic
+- [x] Test
+
+### Additional: Multi-language + Per-user Timezone — DONE
+- [x] Migration 018: user_country VARCHAR(50), timezone VARCHAR(50) on users
+- [x] COUNTRY_TIMEZONES: 16 countries (Turkey, Nigeria, Morocco, Kenya, Algeria, Ghana, China, France, Germany, UK, UAE, India, Italy, Spain, Portugal, USA)
+- [x] getUserLocalTime() converts to user's local time for scheduling
+- [x] Weekend/weekday checks use user's local timezone
+- [x] normalizeLang(): "Turkce"→tr, null→en default
 
 ---
 

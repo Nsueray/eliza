@@ -60,14 +60,8 @@
 ### Quality & Monitoring
 - Message Logging (message_logs table, token tracking, duration, intent/model split)
 - Log enrichment (rewritten_question column, migration 008)
-- Benchmark: 86% PASS (43/50, 1 FAIL, 6 WARN)
-- 35 known issues tracked and fixed (docs/KNOWN_ISSUES.md)
-
-## Production URLs
-- Dashboard: https://eliza.elanfairs.com
-- API: https://eliza-api-8tkr.onrender.com
-- Bot: https://eliza-bot-r1vx.onrender.com
-- WhatsApp: Twilio sandbox
+- Benchmark: 92% PASS (46/50, 0 FAIL, 4 WARN)
+- 31+ known issues tracked and fixed (docs/KNOWN_ISSUES.md)
 
 ### Finance Module — Collections Cockpit
 - Payment Sync (Balance1, Total_Payment, Received_Payment subform, Currency + Exchange_Rate)
@@ -104,6 +98,30 @@
 - Turkish "bu hafta" time parsing
 - Company name extraction for debt queries
 
+### Push Messages System
+- packages/push: 5 message types (morning_brief, midday_pulse, daily_wrap, weekly_report, weekly_close)
+- Scheduler: node-cron every 5 minutes, per-user timezone scheduling
+- Migration 017: push_settings JSONB on users, push_log table
+- Per-user settings: enable/disable per type, custom time, data scope (all/team/own)
+- Multi-language: TR/EN/FR based on users.language
+- Dedup via push_log, Twilio WhatsApp send
+- Admin UI: PushSettings component in /admin/users/[id] with test preview
+- API: GET /api/system/test-push, GET /api/system/push-status
+
+### User Country + Timezone
+- Migration 018: user_country, timezone on users
+- COUNTRY_TIMEZONES: 16 countries mapped
+- Push scheduler uses per-user timezone: getUserLocalTime()
+
+### Target System (Hedef Belirleme)
+- Migration 019: expo_targets + expo_clusters + expos.cluster_id
+- packages/targets: calculateAutoTarget, detectClusters (country+month), createOrUpdateClusters, seedAutoTargets
+- Country inference: inferCountry(city, country, name) handles NULL country and inconsistent city spellings
+- Dashboard /targets: KPI cards, SVG gauge charts, collapsible cluster tables, edit modal (auto/manual), seed button
+- API: 5 endpoints (GET targets, PUT target, POST seed, GET clusters, GET previous)
+- Dashboard permissions: "targets" module
+- Nav: "Targets" after "Finance"
+
 ## Production URLs
 - Dashboard: https://eliza.elanfairs.com
 - API: https://eliza-api-8tkr.onrender.com
@@ -115,11 +133,6 @@
 (none currently)
 
 ## Next Phases
-
-### Target System (Hedef Belirleme)
-- m² + revenue targets per edition and fiscal year
-- Target vs actual comparison on dashboard
-- WhatsApp target queries
 
 ### Phase 12c: CEO Notes with Semantic Recall
 - .note command + entity matching
@@ -147,6 +160,16 @@
 ### Phase 18: Organizational Memory (Future)
 - Exhibitor patterns, office history, CEO decisions
 - Full relationship tracking
+
+### Target V2: User/Team Operational Targets
+- user_targets table: contracts/revenue/collections/sqm targets per user
+- Target vs threshold distinction
+- Push messages with target progress integration
+
+### Finance V2: Enhanced Collections
+- Morning brief tahsilat integration
+- Automated payment reminders via WhatsApp
+- Collection performance tracking per agent
 
 ## Benchmark
 > node packages/ai/benchmark.js (target: >= 90% PASS)

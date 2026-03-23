@@ -39,6 +39,9 @@ packages/
     db
     zoho-sync
     ai
+    push
+    targets
+    messages
 docs/
     architecture
     foundation
@@ -54,6 +57,9 @@ Main components:
 - Database Layer → packages/db
 - Zoho Sync Engine → packages/zoho-sync
 - AI Layer → packages/ai
+- Push Messages → packages/push
+- Target System → packages/targets
+- Message Generator → packages/messages
 Technology stack:
 Backend: Node.js + Express  
 Database: PostgreSQL  
@@ -77,8 +83,8 @@ Example: Mega Clima Nigeria
 Edition  
 A specific yearly occurrence of an expo.  
 Example: Mega Clima Nigeria 2025
-Cluster  
-Group of expos held in the same city and period.
+Cluster
+Group of expos held in the same country and month (inferred from city/name when country NULL).
 Contract  
 Sales agreement stored in Zoho.
 AF Number  
@@ -101,15 +107,21 @@ Exclude from: m² totals, contract counts, exhibitor counts, agent rankings, com
 # 7. Database
 Primary database: PostgreSQL
 Key tables:
-- expos
+- expos (+ cluster_id FK to expo_clusters)
 - contracts (+ payment fields: balance_eur, paid_eur, due_date, payment_done, etc.)
-- contract_payments (received payments from Zoho Received_Payment subform)
-- contract_payment_schedule (planned payments from Date_Amount_Type + synthetic fallback)
+- contract_payments (received payments from Zoho Received_Payment subform, dual currency: amount_eur + amount_local)
+- contract_payment_schedule (synthetic fallback: 30% deposit + 70% pre-event)
 - exhibitors
 - expenses
 - sales_agents
+- expo_targets (target_m2, target_revenue, source auto/manual, auto_base_expo_id, auto_percentage)
+- expo_clusters (name UNIQUE, city, country, dates — auto-detected by country+month)
+- push_log (user_id, message_type, scope, sent_at, message_text, status)
+- users (+ push_settings JSONB, user_country, timezone, pending_clarification)
+- user_permissions (data_scope, visible_years, WhatsApp permissions)
 - alerts
 - whatsapp_messages
+- message_logs (token tracking, intent, model split)
 Full schema defined in:
 docs/architecture/ELIZA_SYSTEM_ARCHITECTURE.md
 All database access must go through:
@@ -284,9 +296,12 @@ Completed (cont. 6):
   - Weekend/weekday checks use user's local timezone
 - Target System
   - Migration 019: expo_targets (target_m2, target_revenue, source, auto_base_expo_id, auto_percentage) + expo_clusters (name UNIQUE, city, country, dates) + expos.cluster_id FK
-  - packages/targets/index.js: calculateAutoTarget (prev edition × growth%), detectClusters (same city+week), createOrUpdateClusters, seedAutoTargets, getPreviousEdition
+  - packages/targets/index.js: calculateAutoTarget (prev edition × growth%), detectClusters (same country+month), createOrUpdateClusters, seedAutoTargets, getPreviousEdition
   - Auto target: strips year from expo name → finds previous edition → applies percentage (default +15%, supports negative)
-  - Cluster detection: GROUP BY city + DATE_TRUNC('week', start_date) HAVING COUNT > 1
+  - Cluster detection: inferred_country + month grouping (JS-based, not SQL GROUP BY)
+    - inferCountry(city, country, name): country field → CITY_COUNTRY map (lagos→Nigeria, algiers→Algeria, casablanca→Morocco) → NAME_COUNTRY_KEYWORDS from expo name
+    - Groups by country+month, keeps groups with 2+ expos, names clusters as "{Country} {Month} {Year}"
+    - Handles NULL country, inconsistent city spellings (Alger vs Algiers)
   - API: apps/api/src/routes/targets.js
     - GET /api/targets?year=2026&mode=edition|fiscal → summary + clusters (with totals) + standalone expos
     - PUT /api/targets/:expo_id → { method: "manual"|"auto", target_m2, target_revenue, percentage, notes }
@@ -296,9 +311,11 @@ Completed (cont. 6):
   - Dashboard: /targets — Target Tracker page
     - Edition/Fiscal mode toggle, year selector (2024/2025/2026)
     - 4 KPI cards: Target m², Actual m², Target Revenue, Actual Revenue (with progress bars)
-    - Cluster-grouped collapsible tables (7 clusters for 2026)
+    - SVG semi-circle gauge charts: Area Progress (m²) + Revenue Progress (€) with remaining/target labels
+    - Cluster-grouped collapsible tables with expand/collapse chevron animation (7 clusters for 2026)
+    - Cluster total rows (bold) + GAP rows showing remaining m²/€ to target
     - Standalone expos section
-    - Company total row at bottom
+    - Company grand total row at bottom with remaining to target
     - Edit modal: Auto (percentage + preview) or Manual (direct m²/€ input), previous edition info
     - Seed Auto Targets button (confirm modal → POST /api/targets/seed)
     - No-targets banner with generate button on first visit
@@ -352,7 +369,7 @@ Access control implemented:
 
 Dashboard Permissions (granular module access):
 - Stored in: users.dashboard_permissions JSONB
-- Modules: war_room, expo_directory, expo_detail, sales, finance, logs, intelligence, system, users, settings
+- Modules: war_room, expo_directory, expo_detail, sales, finance, targets, logs, intelligence, system, users, settings
 - CEO: all true (forced, cannot be changed)
 - Manager default: war_room, expo_directory, expo_detail, sales, settings = true
 - Agent default: sales, settings = true
@@ -608,7 +625,7 @@ Auth System:
 - Remember me: 30 day token vs 24h default
 - CEO can set passwords via POST /api/auth/set-password
 - Migration: packages/db/migrations/011_user_auth.sql (password_hash, last_login, dashboard_permissions)
-- dashboard_permissions JSONB: { war_room, expo_directory, expo_detail, sales, finance, logs, intelligence, system, users, settings }
+- dashboard_permissions JSONB: { war_room, expo_directory, expo_detail, sales, finance, targets, logs, intelligence, system, users, settings }
 - Initial CEO password: eliza2026 (change in production)
 
 Expo Directory → Detail:

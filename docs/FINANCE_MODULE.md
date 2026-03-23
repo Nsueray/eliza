@@ -165,17 +165,18 @@ WHERE c.status IN ('Valid', 'Transferred In')
 Default görünüm: Edition (yaklaşan fuarlar)
 Toggle: EDITION | FISCAL (üstte)
 
-#### 3a. KPI Cards (7 kart)
+#### 3a. KPI Cards (8 kart — 2 rows x 4)
 
 | KPI | Hesaplama | Önem |
 |-----|-----------|------|
 | Contract Value | SUM(contract_total_eur) | Genel büyüklük |
 | Collected | SUM(paid_eur) | Toplam tahsilat |
 | Outstanding | SUM(balance_eur) | Toplam alacak |
-| Overdue | SUM(balance_eur) WHERE is_overdue | Gecikmiş |
+| **Paid This Month** | **SUM(contract_payments.amount_eur) this month** | **Aylık performans** |
 | Due Next 30 Days | SUM(planned_amount_eur) WHERE due_date 0-30 | Yaklaşan |
 | **Deposit Rate** | **paid_eur > 0 contracts / total open * 100** | **Tahsilat oranı** |
 | **At-Risk Receivable** | overdue + fuara <45 gün açık + no_payment kritik | **Aksiyon odaklı** |
+| No Payment | COUNT WHERE paid_eur = 0 | En yüksek risk |
 
 **Deposit Rate** = COUNT(paid_eur > 0) / COUNT(*) * 100 — renk kodu: yeşil >70%, turuncu 40-70%, kırmızı <40%
 
