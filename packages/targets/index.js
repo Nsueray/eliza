@@ -90,11 +90,14 @@ function inferCountry(city, country, name) {
 }
 
 /**
- * Detect clusters: expos in the same country + same month.
+ * Detect clusters using proximity-based grouping.
+ * Expos in the same country whose start_dates are within CLUSTER_PROXIMITY_DAYS
+ * of each other form a cluster (connected-components via sorted merge).
  * Country is inferred from city/name when NULL.
  */
+const CLUSTER_PROXIMITY_DAYS = 35; // ~1 month tolerance
+
 async function detectClusters(year) {
-  // Fetch all expos for the year
   const result = await query(`
     SELECT id, name, city, country, start_date::date AS start_date,
            COALESCE(end_date, start_date)::date AS end_date
@@ -103,32 +106,52 @@ async function detectClusters(year) {
     ORDER BY start_date, name
   `, [year]);
 
-  // Group by inferred_country + month
-  const groups = {};
+  // Group by inferred country
+  const byCountry = {};
   for (const e of result.rows) {
     const inferredCountry = inferCountry(e.city, e.country, e.name);
     if (!inferredCountry) continue;
-    const month = new Date(e.start_date).getMonth(); // 0-based
-    const key = `${inferredCountry}_${month}`;
-    if (!groups[key]) groups[key] = { country: inferredCountry, month, expos: [] };
-    groups[key].expos.push(e);
+    if (!byCountry[inferredCountry]) byCountry[inferredCountry] = [];
+    byCountry[inferredCountry].push(e);
   }
 
-  // Only keep groups with 2+ expos
+  // Within each country, merge consecutive expos within proximity window
   const clusters = [];
-  for (const g of Object.values(groups)) {
-    if (g.expos.length < 2) continue;
-    const starts = g.expos.map(e => new Date(e.start_date));
-    const ends = g.expos.map(e => new Date(e.end_date));
-    clusters.push({
-      country: g.country,
-      city: g.expos[0].city, // representative city
-      cluster_start: new Date(Math.min(...starts)).toISOString().slice(0, 10),
-      cluster_end: new Date(Math.max(...ends)).toISOString().slice(0, 10),
-      expo_ids: g.expos.map(e => e.id),
-      expo_names: g.expos.map(e => e.name),
-      expo_count: g.expos.length,
-    });
+  for (const [country, expos] of Object.entries(byCountry)) {
+    // Sort by start_date
+    expos.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+
+    // Connected-components: chain expos within CLUSTER_PROXIMITY_DAYS
+    const groups = [];
+    let current = [expos[0]];
+    for (let i = 1; i < expos.length; i++) {
+      const prevDate = new Date(current[current.length - 1].start_date);
+      const thisDate = new Date(expos[i].start_date);
+      const daysDiff = (thisDate - prevDate) / (1000 * 60 * 60 * 24);
+      if (daysDiff <= CLUSTER_PROXIMITY_DAYS) {
+        current.push(expos[i]);
+      } else {
+        groups.push(current);
+        current = [expos[i]];
+      }
+    }
+    groups.push(current);
+
+    // Only keep groups with 2+ expos
+    for (const g of groups) {
+      if (g.length < 2) continue;
+      const starts = g.map(e => new Date(e.start_date));
+      const ends = g.map(e => new Date(e.end_date));
+      clusters.push({
+        country,
+        city: g[0].city,
+        cluster_start: new Date(Math.min(...starts)).toISOString().slice(0, 10),
+        cluster_end: new Date(Math.max(...ends)).toISOString().slice(0, 10),
+        expo_ids: g.map(e => e.id),
+        expo_names: g.map(e => e.name),
+        expo_count: g.length,
+      });
+    }
   }
 
   clusters.sort((a, b) => a.cluster_start.localeCompare(b.cluster_start));

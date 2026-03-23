@@ -29,46 +29,67 @@ function sourceLabel(source, pct) {
   return "none";
 }
 
-/* ─── Gauge Chart (SVG semi-circle) ─── */
+/* ─── Gauge Chart (270° donut arc) ─── */
 function GaugeChart({ actual, target, label, isArea }) {
-  const progress = target > 0 ? Math.min(actual / target, 1) : 0;
+  const progress = target > 0 ? Math.min(actual / target, 1.2) : 0;
+  const displayProgress = Math.min(progress, 1);
   const percentage = Math.round(progress * 100);
   const remaining = Math.max(target - actual, 0);
 
-  const radius = 80;
-  const circumference = Math.PI * radius;
-  const dashOffset = circumference * (1 - progress);
+  const color = percentage >= 100 ? '#2ECC71'
+    : percentage >= 80 ? '#2ECC71'
+    : percentage >= 50 ? '#E67E22'
+    : '#E74C3C';
 
-  const color = percentage >= 80 ? '#2ECC71' : percentage >= 50 ? '#E67E22' : '#E74C3C';
+  const size = 180;
+  const strokeWidth = 14;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const arcLength = circumference * 0.75;
+  const dashOffset = arcLength * (1 - displayProgress);
+  const rotation = 135;
 
-  const actualLabel = isArea ? `${fmt(actual)} m²` : fmtK(actual);
+  const actualLabel = isArea ? `${fmt(actual)}` : fmtK(actual).replace('€', '');
+  const unit = isArea ? 'm²' : '€';
+  const tgtLabel = isArea ? `${fmt(target)} m²` : fmtK(target);
   const remLabel = isArea ? `${fmt(remaining)} m²` : fmtEur(remaining);
-  const tgtLabel = isArea ? `${fmt(target)} m²` : fmtEur(target);
 
   return (
-    <div style={{ textAlign: 'center', padding: '20px', flex: 1, minWidth: 280 }}>
-      <svg viewBox="0 0 200 120" width="280" height="170">
-        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--border)" strokeWidth="16" strokeLinecap="round" />
-        <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={color} strokeWidth="16" strokeLinecap="round"
-          strokeDasharray={circumference} strokeDashoffset={dashOffset}
-          style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-        <text x="100" y="58" textAnchor="middle" fill={color} fontSize="22" fontFamily="DM Mono, monospace" fontWeight="700">
+    <div className="gauge-item">
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}
+        style={{ overflow: 'visible' }}>
+        <circle cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke="var(--surface-2)" strokeWidth={strokeWidth}
+          strokeDasharray={`${arcLength} ${circumference}`}
+          strokeLinecap="round"
+          transform={`rotate(${rotation} ${size / 2} ${size / 2})`}
+          style={{ opacity: 0.6 }} />
+        <circle cx={size / 2} cy={size / 2} r={radius}
+          fill="none" stroke={color} strokeWidth={strokeWidth}
+          strokeDasharray={`${arcLength} ${circumference}`}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          transform={`rotate(${rotation} ${size / 2} ${size / 2})`}
+          style={{ transition: 'stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+        <text x={size / 2} y={size / 2 - 14} textAnchor="middle"
+          fill={color} fontSize="28" fontFamily="DM Mono, monospace" fontWeight="700">
           {actualLabel}
         </text>
-        <text x="100" y="78" textAnchor="middle" fill="var(--text-secondary)" fontSize="13" fontFamily="DM Mono, monospace">
+        <text x={size / 2} y={size / 2 + 6} textAnchor="middle"
+          fill={color} fontSize="13" fontFamily="DM Mono, monospace" fontWeight="500"
+          style={{ opacity: 0.8 }}>
+          {unit}
+        </text>
+        <text x={size / 2} y={size / 2 + 26} textAnchor="middle"
+          fill="var(--text-secondary)" fontSize="12" fontFamily="DM Mono, monospace">
           {percentage}%
         </text>
-        <text x="20" y="115" textAnchor="middle" fill="var(--text-secondary)" fontSize="10" fontFamily="DM Mono, monospace">0</text>
-        <text x="180" y="115" textAnchor="end" fill="var(--text-secondary)" fontSize="10" fontFamily="DM Mono, monospace">
-          {tgtLabel}
-        </text>
       </svg>
-      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '-5px', fontFamily: 'var(--font-mono)' }}>
-        Remaining: {remLabel}
+      <div className="gauge-info">
+        {remaining > 0 ? `${remLabel} remaining` : 'Target reached'}
       </div>
-      <div style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', marginTop: '6px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-        {label}
-      </div>
+      <div className="gauge-sub">of {tgtLabel}</div>
+      <div className="gauge-label">{label}</div>
     </div>
   );
 }
@@ -336,48 +357,57 @@ export default function TargetsPage() {
     );
   }
 
-  // Cluster/grand total row
-  function TotalRow({ label, totals, isGrand }) {
+  // Summary bar for cluster/standalone/grand totals (outside table)
+  function ClusterSummaryBar({ totals, label, isGrand }) {
     const gapM2 = Math.max(totals.target_m2 - totals.actual_m2, 0);
     const gapRev = Math.max(totals.target_revenue - totals.actual_revenue, 0);
-    const borderStyle = isGrand ? "2px solid var(--accent)" : "1px solid var(--border)";
-    const bg = isGrand ? "var(--surface-2)" : "rgba(200,169,122,0.04)";
+    const hasGap = gapM2 > 0 || gapRev > 0;
     return (
-      <>
-        <tr style={{ background: bg, fontWeight: 700 }}>
-          <td style={{ borderTop: borderStyle, paddingTop: 10 }}>{label}</td>
-          <td className="mono r" style={{ borderTop: borderStyle, paddingTop: 10 }}>{fmt(totals.target_m2)}</td>
-          <td className="mono r" style={{ borderTop: borderStyle, paddingTop: 10 }}>{fmt(totals.actual_m2)}</td>
-          <td style={{ borderTop: borderStyle, paddingTop: 10, minWidth: 80 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <ProgressBar pct={totals.m2_progress} height={8} />
-              <span className="mono" style={{ fontSize: 12, color: pctColor(totals.m2_progress), whiteSpace: "nowrap" }}>{totals.m2_progress}%</span>
+      <div className={`summary-bar${isGrand ? " summary-bar-grand" : ""}`}>
+        <div className="summary-bar-main">
+          <span className={`summary-bar-label${isGrand ? " summary-bar-label-accent" : ""}`}>{label}</span>
+          <div className="summary-bar-metrics">
+            <div className="summary-bar-metric">
+              <span className="summary-bar-metric-label">M²</span>
+              <div>
+                <span className="summary-bar-metric-val">{fmt(totals.actual_m2)}</span>
+                <span className="summary-bar-metric-sep">/</span>
+                <span className="summary-bar-metric-target">{fmt(totals.target_m2)}</span>
+              </div>
             </div>
-          </td>
-          <td className="mono r" style={{ borderTop: borderStyle, paddingTop: 10 }}>{fmtK(totals.target_revenue)}</td>
-          <td className="mono r" style={{ borderTop: borderStyle, paddingTop: 10 }}>{fmtK(totals.actual_revenue)}</td>
-          <td style={{ borderTop: borderStyle, paddingTop: 10, minWidth: 80 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <ProgressBar pct={totals.revenue_progress} height={8} />
-              <span className="mono" style={{ fontSize: 12, color: pctColor(totals.revenue_progress), whiteSpace: "nowrap" }}>{totals.revenue_progress}%</span>
+            <div className="summary-bar-progress">
+              <ProgressBar pct={totals.m2_progress} height={6} />
+              <span className="summary-bar-pct" style={{ color: pctColor(totals.m2_progress) }}>{totals.m2_progress}%</span>
             </div>
-          </td>
-          <td className="mono r" style={{ borderTop: borderStyle, paddingTop: 10 }}>{totals.contracts != null ? totals.contracts : ""}</td>
-          <td style={{ borderTop: borderStyle }}></td>
-          <td style={{ borderTop: borderStyle }}></td>
-        </tr>
-        {(gapM2 > 0 || gapRev > 0) && (
-          <tr style={{ background: bg }}>
-            <td style={{ fontSize: 11, color: "var(--text-secondary)", fontStyle: "italic", paddingTop: 0 }}>GAP</td>
-            <td></td>
-            <td className="mono r" style={{ fontSize: 11, color: "var(--danger)", paddingTop: 0 }}>{fmt(gapM2)}</td>
-            <td></td>
-            <td></td>
-            <td className="mono r" style={{ fontSize: 11, color: "var(--danger)", paddingTop: 0 }}>{fmtEur(gapRev)}</td>
-            <td colSpan={4} style={{ fontSize: 11, color: "var(--text-secondary)", paddingTop: 0 }}>remaining to target</td>
-          </tr>
+            <div className="summary-bar-metric">
+              <span className="summary-bar-metric-label">REVENUE</span>
+              <div>
+                <span className="summary-bar-metric-val">{fmtK(totals.actual_revenue)}</span>
+                <span className="summary-bar-metric-sep">/</span>
+                <span className="summary-bar-metric-target">{fmtK(totals.target_revenue)}</span>
+              </div>
+            </div>
+            <div className="summary-bar-progress">
+              <ProgressBar pct={totals.revenue_progress} height={6} />
+              <span className="summary-bar-pct" style={{ color: pctColor(totals.revenue_progress) }}>{totals.revenue_progress}%</span>
+            </div>
+            {totals.contracts != null && (
+              <div className="summary-bar-metric">
+                <span className="summary-bar-metric-label">CONTRACTS</span>
+                <div className="summary-bar-metric-val">{totals.contracts}</div>
+              </div>
+            )}
+          </div>
+        </div>
+        {hasGap && (
+          <div className="summary-bar-gap">
+            <span className="summary-bar-gap-label">Gap</span>
+            {gapM2 > 0 && <span className="summary-bar-gap-val">{fmt(gapM2)} m²</span>}
+            {gapRev > 0 && <span className="summary-bar-gap-val">{fmtEur(gapRev)}</span>}
+            <span className="summary-bar-gap-note">remaining to target</span>
+          </div>
         )}
-      </>
+      </div>
     );
   }
 
@@ -413,9 +443,42 @@ export default function TargetsPage() {
           letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
         .kpi-val { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--text-primary); }
         .kpi-sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-        .gauge-row { display: flex; gap: 16px; margin-bottom: 24px; justify-content: center;
-          background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-          padding: 16px; box-shadow: var(--card-shadow); }
+        .gauge-row { display: flex; gap: 40px; margin-bottom: 24px; justify-content: center;
+          align-items: center; background: var(--surface); border: 1px solid var(--border);
+          border-radius: var(--radius); padding: 32px 24px; box-shadow: var(--card-shadow); }
+        .gauge-item { text-align: center; flex: 1; min-width: 220; max-width: 280px; }
+        .gauge-info { margin-top: 4px; font-family: var(--font-mono); font-size: 11px;
+          color: var(--text-secondary); letter-spacing: 0.5px; }
+        .gauge-sub { margin-top: 2px; font-family: var(--font-mono); font-size: 10px;
+          color: var(--text-secondary); opacity: 0.6; }
+        .gauge-label { margin-top: 8px; font-family: var(--font-mono); font-size: 9px;
+          letter-spacing: 2px; text-transform: uppercase; color: var(--text-secondary); opacity: 0.5; }
+        .summary-bar { background: var(--surface); border: 1px solid var(--border);
+          border-radius: 0 0 var(--radius) var(--radius); padding: 14px 20px;
+          border-top: none; }
+        .summary-bar-grand { background: var(--surface-2); border: 1px solid var(--accent);
+          border-radius: var(--radius); margin-top: 24px; }
+        .summary-bar-main { display: flex; align-items: center; justify-content: space-between;
+          font-family: var(--font-mono); font-size: 12px; }
+        .summary-bar-label { font-weight: 700; font-size: 11px; letter-spacing: 1.5px;
+          text-transform: uppercase; color: var(--text-primary); min-width: 140px; }
+        .summary-bar-label-accent { color: var(--accent); }
+        .summary-bar-metrics { display: flex; gap: 32px; align-items: center; flex-wrap: wrap; }
+        .summary-bar-metric { text-align: right; min-width: 100px; }
+        .summary-bar-metric-label { color: var(--text-secondary); font-size: 9px; letter-spacing: 1px;
+          display: block; }
+        .summary-bar-metric-val { font-weight: 600; }
+        .summary-bar-metric-sep { color: var(--text-secondary); margin: 0 4px; }
+        .summary-bar-metric-target { color: var(--text-secondary); }
+        .summary-bar-progress { width: 80px; }
+        .summary-bar-pct { font-size: 10px; margin-top: 2px; display: block; text-align: center; }
+        .summary-bar-gap { display: flex; align-items: center; justify-content: flex-end;
+          margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+          font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+        .summary-bar-gap-label { margin-right: 12px; font-size: 9px; letter-spacing: 1px;
+          text-transform: uppercase; }
+        .summary-bar-gap-val { color: var(--danger); margin-right: 20px; }
+        .summary-bar-gap-note { margin-left: 8px; opacity: 0.6; }
         .cluster-hdr { display: flex; align-items: center; justify-content: space-between;
           padding: 12px 16px; cursor: pointer; user-select: none; border-radius: var(--radius);
           margin-bottom: 2px; transition: background 0.2s; }
@@ -441,9 +504,12 @@ export default function TargetsPage() {
           border: 1px solid var(--border); border-radius: var(--radius); margin: 40px 0; }
         @media (max-width: 768px) {
           .kpi-row { grid-template-columns: repeat(2, 1fr); }
-          .gauge-row { flex-direction: column; align-items: center; }
+          .gauge-row { flex-direction: column; align-items: center; gap: 24px; }
           .target-control { gap: 8px; }
           .cluster-hdr { flex-direction: column; align-items: flex-start; gap: 4px; }
+          .summary-bar-main { flex-direction: column; align-items: flex-start; gap: 8px; }
+          .summary-bar-metrics { gap: 16px; }
+          .summary-bar-gap { flex-wrap: wrap; justify-content: flex-start; }
         }
         @media (max-width: 480px) {
           .kpi-row { grid-template-columns: 1fr; }
@@ -548,14 +614,16 @@ export default function TargetsPage() {
                 </div>
 
                 {!collapsed[cluster.cluster_id] && (
-                  <div style={{ overflowX: "auto" }}>
-                    <table className="tbl" style={{ marginTop: 0 }}>
-                      <THead />
-                      <tbody>
-                        {cluster.expos.map(e => <ExpoRow key={e.expo_id} e={e} />)}
-                        <TotalRow label="CLUSTER TOTAL" totals={cluster.cluster_total} />
-                      </tbody>
-                    </table>
+                  <div>
+                    <div style={{ overflowX: "auto" }}>
+                      <table className="tbl" style={{ marginTop: 0 }}>
+                        <THead />
+                        <tbody>
+                          {cluster.expos.map(e => <ExpoRow key={e.expo_id} e={e} />)}
+                        </tbody>
+                      </table>
+                    </div>
+                    <ClusterSummaryBar totals={cluster.cluster_total} label="CLUSTER TOTAL" />
                   </div>
                 )}
               </div>
@@ -577,17 +645,23 @@ export default function TargetsPage() {
                     </tbody>
                   </table>
                 </div>
+                {data.standalone.length >= 2 && (() => {
+                  const st = {
+                    target_m2: data.standalone.reduce((s, e) => s + e.target_m2, 0),
+                    actual_m2: data.standalone.reduce((s, e) => s + e.actual_m2, 0),
+                    target_revenue: data.standalone.reduce((s, e) => s + e.target_revenue, 0),
+                    actual_revenue: data.standalone.reduce((s, e) => s + e.actual_revenue, 0),
+                    contracts: data.standalone.reduce((s, e) => s + e.contracts, 0),
+                  };
+                  st.m2_progress = st.target_m2 > 0 ? Math.round((st.actual_m2 / st.target_m2) * 1000) / 10 : 0;
+                  st.revenue_progress = st.target_revenue > 0 ? Math.round((st.actual_revenue / st.target_revenue) * 1000) / 10 : 0;
+                  return <ClusterSummaryBar totals={st} label="STANDALONE TOTAL" />;
+                })()}
               </div>
             )}
 
             {/* Company Grand Total */}
-            <div style={{ overflowX: "auto" }}>
-              <table className="tbl">
-                <tbody>
-                  <TotalRow label="COMPANY TOTAL" totals={grandTotals} isGrand />
-                </tbody>
-              </table>
-            </div>
+            <ClusterSummaryBar totals={grandTotals} label="COMPANY TOTAL" isGrand />
           </>
         )}
 

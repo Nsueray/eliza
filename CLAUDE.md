@@ -296,11 +296,12 @@ Completed (cont. 6):
   - Weekend/weekday checks use user's local timezone
 - Target System
   - Migration 019: expo_targets (target_m2, target_revenue, source, auto_base_expo_id, auto_percentage) + expo_clusters (name UNIQUE, city, country, dates) + expos.cluster_id FK
-  - packages/targets/index.js: calculateAutoTarget (prev edition × growth%), detectClusters (same country+month), createOrUpdateClusters, seedAutoTargets, getPreviousEdition
+  - packages/targets/index.js: calculateAutoTarget (prev edition × growth%), detectClusters (proximity-based), createOrUpdateClusters, seedAutoTargets, getPreviousEdition
   - Auto target: strips year from expo name → finds previous edition → applies percentage (default +15%, supports negative)
-  - Cluster detection: inferred_country + month grouping (JS-based, not SQL GROUP BY)
+  - Cluster detection: proximity-based connected-components (JS-based)
     - inferCountry(city, country, name): country field → CITY_COUNTRY map (lagos→Nigeria, algiers→Algeria, casablanca→Morocco) → NAME_COUNTRY_KEYWORDS from expo name
-    - Groups by country+month, keeps groups with 2+ expos, names clusters as "{Country} {Month} {Year}"
+    - CLUSTER_PROXIMITY_DAYS = 35: consecutive expos in same country within 35 days → same cluster
+    - Connected-components: chains expos A→B→C if each pair is within proximity window
     - Handles NULL country, inconsistent city spellings (Alger vs Algiers)
   - API: apps/api/src/routes/targets.js
     - GET /api/targets?year=2026&mode=edition|fiscal → summary + clusters (with totals) + standalone expos
@@ -311,11 +312,11 @@ Completed (cont. 6):
   - Dashboard: /targets — Target Tracker page
     - Edition/Fiscal mode toggle, year selector (2024/2025/2026)
     - 4 KPI cards: Target m², Actual m², Target Revenue, Actual Revenue (with progress bars)
-    - SVG semi-circle gauge charts: Area Progress (m²) + Revenue Progress (€) with remaining/target labels
+    - SVG 270° donut arc gauge charts: Area Progress (m²) + Revenue Progress (€) with animated progress, remaining/target labels
     - Cluster-grouped collapsible tables with expand/collapse chevron animation (7 clusters for 2026)
-    - Cluster total rows (bold) + GAP rows showing remaining m²/€ to target
-    - Standalone expos section
-    - Company grand total row at bottom with remaining to target
+    - ClusterSummaryBar component: summary bars below tables (not table rows) with m²/revenue/progress/contracts + gap indicator
+    - Standalone expos section with standalone total bar (when 2+ standalone)
+    - Company grand total bar with accent border
     - Edit modal: Auto (percentage + preview) or Manual (direct m²/€ input), previous edition info
     - Seed Auto Targets button (confirm modal → POST /api/targets/seed)
     - No-targets banner with generate button on first visit
