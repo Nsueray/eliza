@@ -154,6 +154,11 @@ function getDashboardLink(intent, entities) {
     return `${DASHBOARD_BASE}/sales`;
   }
 
+  // Target intents → Targets page
+  if (intent === 'target_progress') {
+    return `${DASHBOARD_BASE}/targets`;
+  }
+
   // Collection/finance intents → Finance page
   const COLLECTION_INTENTS = [
     'collection_summary', 'collection_no_payment', 'collection_expo',

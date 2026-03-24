@@ -237,7 +237,27 @@ async function generateMorningBrief(user) {
   const dep = depositResult.rows[0] || { with_payment: 0, total: 1 };
   const depositRate = dep.total > 0 ? ((Number(dep.with_payment) / Number(dep.total)) * 100).toFixed(1) : '0';
 
-  // Upcoming expos (top 3)
+  // Upcoming expos with target progress (120 days)
+  const targetResult = await query(`
+    SELECT e.name, e.start_date,
+      COALESCE(et.target_m2, 0) AS target_m2,
+      COALESCE(SUM(CASE WHEN c.sales_agent != 'ELAN EXPO' THEN c.m2 ELSE 0 END), 0) AS actual_m2,
+      COALESCE(et.target_revenue, 0) AS target_revenue,
+      COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS actual_revenue,
+      GREATEST(e.start_date::date - CURRENT_DATE, 0) AS days_left
+    FROM expos e
+    LEFT JOIN expo_targets et ON et.expo_id = e.id
+    LEFT JOIN edition_contracts c ON c.expo_id = e.id
+    WHERE e.start_date >= CURRENT_DATE
+      AND e.start_date <= CURRENT_DATE + INTERVAL '120 days'
+    GROUP BY e.id, e.name, e.start_date, et.target_m2, et.target_revenue
+    HAVING COALESCE(et.target_m2, 0) > 0
+      OR COALESCE(SUM(CASE WHEN c.sales_agent != 'ELAN EXPO' THEN c.m2 ELSE 0 END), 0) > 0
+    ORDER BY e.start_date ASC
+    LIMIT 5
+  `);
+
+  // Fallback: plain expo list if no target/sales data
   const expoResult = await query(`
     SELECT name, GREATEST(start_date::date - CURRENT_DATE, 0) AS days_left
     FROM expos
@@ -290,12 +310,28 @@ async function generateMorningBrief(user) {
   }
   lines.push(`  ${t('deposit_rate', lang)}: %${depositRate}`);
 
-  // Upcoming expos
-  if (expoResult.rows.length > 0) {
+  // Upcoming expos with target progress (prefer target data, fall back to plain list)
+  const upcomingExpos = targetResult.rows.length > 0 ? targetResult.rows : expoResult.rows;
+  if (upcomingExpos.length > 0) {
     lines.push('');
     lines.push(`${t('upcoming_expos', lang)}:`);
-    for (const expo of expoResult.rows) {
+    for (const expo of upcomingExpos) {
       lines.push(`  ${expo.name} — ${expo.days_left} ${t('days', lang)}`);
+      if (expo.target_m2 != null) {
+        const targetM2 = Number(expo.target_m2);
+        const actualM2 = Number(expo.actual_m2 || 0);
+        const targetRev = Number(expo.target_revenue || 0);
+        const actualRev = Number(expo.actual_revenue || 0);
+        if (targetM2 > 0) {
+          const pct = Math.round((actualM2 / targetM2) * 100);
+          const revStr = targetRev > 0
+            ? ` | ${fmtEur(actualRev, lang)} / ${fmtEur(targetRev, lang)}`
+            : '';
+          lines.push(`    ${fmtNum(actualM2)} / ${fmtNum(targetM2)} m² (%${pct})${revStr}`);
+        } else if (actualM2 > 0) {
+          lines.push(`    ${fmtNum(actualM2)} m²`);
+        }
+      }
     }
   }
 

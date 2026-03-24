@@ -1181,6 +1181,19 @@ ISSUE-032: price_per_m2 agent_name entity ignored — SQL had no agent WHERE fil
 ISSUE-033: Multi-year queries ("2025 ve 2026") returned only first year — extractEntities() used non-global regex, dropped second year
 ISSUE-034: Router keyword gaps — agent_performance/expo_progress/price_per_m2/expo_agent_breakdown patterns missing; expo_company_list + company_search rules added; EXPO_BRANDS 11→24, AGENT_NAMES 10→14
 
+Completed (cont. 7):
+- Push Target Integration + target_progress WhatsApp Intent
+  - packages/push/index.js: morning brief target progress eklendi
+    - 120 gün içindeki fuarlar: actual_m2 / target_m2 (%pct) | €actual / €target
+    - target_m2=0 → sadece actual_m2; targetResult boşsa plain expoResult'a fallback
+  - packages/ai/router.js: target_progress rule (expo_progress'ten önce, 8 keyword pattern)
+  - packages/ai/queryEngine.js: target_progress case handler
+    - hasExpo: tek expo detayı (m2_progress, revenue_progress % hesaplanmış)
+    - !hasExpo: year için tüm expo targets listesi (ORDER BY start_date)
+    - VALID_INTENTS + validIntents + EXPO_INTENTS_NEED_YEAR + NO_AGENT_FILTER_INTENTS'e eklendi
+    - INTENT_PROMPT: intent listesi + 5 örnek
+  - apps/whatsapp-bot/src/handler.js: getDashboardLink target_progress → /targets
+
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js
 

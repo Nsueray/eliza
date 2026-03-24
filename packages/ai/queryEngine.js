@@ -112,7 +112,7 @@ Database schema:
 
 Extract intent and entities from the question. Return ONLY valid JSON:
 {
-  "intent": "one of [expo_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown, expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance, payment_status, rebooking_rate, price_per_m2, country_count, exhibitors_by_country, top_agents, revenue_summary, expo_list, company_search, company_collection, collection_summary, collection_expo, collection_no_payment, days_to_event, general_stats]",
+  "intent": "one of [expo_progress, target_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown, expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance, payment_status, rebooking_rate, price_per_m2, country_count, exhibitors_by_country, top_agents, revenue_summary, expo_list, company_search, company_collection, collection_summary, collection_expo, collection_no_payment, days_to_event, general_stats]",
   "entities": {
     "expo_name": "string or null",
     "agent_name": "string or null",
@@ -161,6 +161,11 @@ Q: how many days until Mega Clima → {"intent":"days_to_event","entities":{"exp
 Q: combien de jours avant SIEMA → {"intent":"days_to_event","entities":{"expo_name":"SIEMA"}}
 Q: en yakın fuar ne zaman → {"intent":"days_to_event","entities":{}}
 Q: next expo date → {"intent":"days_to_event","entities":{}}
+Q: SIEMA 2026 hedefi nedir → {"intent":"target_progress","entities":{"expo_name":"SIEMA","year":2026}}
+Q: hedef durumu → {"intent":"target_progress","entities":{}}
+Q: Mega Clima hedefi ne kadar → {"intent":"target_progress","entities":{"expo_name":"Mega Clima"}}
+Q: 2026 target progress → {"intent":"target_progress","entities":{"year":2026}}
+Q: objectifs de vente → {"intent":"target_progress","entities":{}}
 
 IMPORTANT COUNT RULE: When the question asks "how many" / "kaç tane" / "combien" and expects a NUMBER answer (not a list), set metric to "count" in entities.
 Examples:
@@ -231,7 +236,7 @@ async function extractIntent(question) {
 
   // Normalize null/None/unknown intents to general_stats
   const validIntents = [
-    'expo_progress', 'agent_performance', 'agent_country_breakdown', 'agent_expo_breakdown',
+    'expo_progress', 'target_progress', 'agent_performance', 'agent_country_breakdown', 'agent_expo_breakdown',
     'expo_agent_breakdown', 'expo_company_list', 'monthly_trend', 'cluster_performance',
     'payment_status', 'rebooking_rate', 'price_per_m2', 'country_count',
     'exhibitors_by_country', 'top_agents', 'revenue_summary', 'expo_list',
@@ -371,7 +376,7 @@ Q: "Mega Clima 2026 how many contracts, m2, and revenue?"
 
 // Valid intents for backward compatibility
 const VALID_INTENTS = [
-  'expo_progress', 'agent_performance', 'agent_country_breakdown', 'agent_expo_breakdown',
+  'expo_progress', 'target_progress', 'agent_performance', 'agent_country_breakdown', 'agent_expo_breakdown',
   'expo_agent_breakdown', 'expo_company_list', 'monthly_trend', 'cluster_performance',
   'payment_status', 'rebooking_rate', 'price_per_m2', 'country_count',
   'exhibitors_by_country', 'top_agents', 'revenue_summary', 'expo_list',
@@ -512,6 +517,56 @@ function buildQuery(intent, entities) {
   const e = entities || {};
 
   switch (intent) {
+    case 'target_progress': {
+      const hasExpo = e.expo_name && e.expo_name.length > 0;
+      if (hasExpo) {
+        return {
+          sql: `SELECT e.name AS expo_name, e.start_date, e.city, e.country,
+            COALESCE(et.target_m2, 0) AS target_m2,
+            COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END), 0) AS actual_m2,
+            COALESCE(et.target_revenue, 0) AS target_revenue,
+            COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS actual_revenue,
+            COUNT(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.id END) AS contracts,
+            GREATEST(e.start_date::date - CURRENT_DATE, 0) AS days_left,
+            et.source AS target_source,
+            CASE WHEN COALESCE(et.target_m2, 0) > 0
+              THEN ROUND((COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END), 0) / et.target_m2 * 100)::numeric, 1)
+              ELSE NULL END AS m2_progress,
+            CASE WHEN COALESCE(et.target_revenue, 0) > 0
+              THEN ROUND((COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) / et.target_revenue * 100)::numeric, 1)
+              ELSE NULL END AS revenue_progress
+          FROM expos e
+          LEFT JOIN expo_targets et ON et.expo_id = e.id
+          LEFT JOIN edition_contracts c ON c.expo_id = e.id
+          WHERE e.name ILIKE $1
+            AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+          GROUP BY e.id, e.name, e.start_date, e.city, e.country, et.target_m2, et.target_revenue, et.source
+          ORDER BY e.start_date DESC LIMIT 5`,
+          params: [fuzzyExpoPattern(e.expo_name), e.year || null],
+        };
+      }
+      // General target overview — all expos with targets for given year
+      return {
+        sql: `SELECT e.name AS expo_name, e.start_date, e.city,
+          COALESCE(et.target_m2, 0) AS target_m2,
+          COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END), 0) AS actual_m2,
+          COALESCE(et.target_revenue, 0) AS target_revenue,
+          COALESCE(ROUND(SUM(c.revenue_eur)::numeric, 0), 0) AS actual_revenue,
+          COUNT(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.id END) AS contracts,
+          CASE WHEN COALESCE(et.target_m2, 0) > 0
+            THEN ROUND((COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END), 0) / et.target_m2 * 100)::numeric, 1)
+            ELSE NULL END AS m2_progress
+        FROM expos e
+        LEFT JOIN expo_targets et ON et.expo_id = e.id
+        LEFT JOIN edition_contracts c ON c.expo_id = e.id
+        WHERE ($1::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $1)
+          AND COALESCE(et.target_m2, 0) > 0
+        GROUP BY e.id, e.name, e.start_date, e.city, et.target_m2, et.target_revenue
+        ORDER BY e.start_date ASC LIMIT 20`,
+        params: [e.year || new Date().getFullYear()],
+      };
+    }
+
     case 'expo_progress':
       return {
         sql: `SELECT e.name, e.start_date, e.target_m2,
@@ -1209,7 +1264,7 @@ function buildQuery(intent, entities) {
 
 const NO_SCOPE_INTENTS = new Set(['days_to_event']);
 const NO_AGENT_FILTER_INTENTS = new Set([
-  'expo_progress', 'expo_list', 'expo_agent_breakdown', 'expo_company_list',
+  'expo_progress', 'target_progress', 'expo_list', 'expo_agent_breakdown', 'expo_company_list',
   'country_count', 'exhibitors_by_country', 'cluster_performance',
   'rebooking_rate', 'payment_status', 'company_search',
   'collection_summary', 'collection_no_payment', 'collection_expo',
@@ -1641,7 +1696,7 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
     // Expo-based intents without year → current year
     // "SIEMA'ya en çok kim satmış?" should mean SIEMA 2026, not all editions
     const EXPO_INTENTS_NEED_YEAR = [
-      'expo_progress', 'expo_agent_breakdown', 'expo_company_list',
+      'expo_progress', 'target_progress', 'expo_agent_breakdown', 'expo_company_list',
       'country_count', 'price_per_m2', 'payment_status',
     ];
     if (entities.expo_name && EXPO_INTENTS_NEED_YEAR.includes(intent)) {

@@ -293,6 +293,21 @@ const RULES = [
     ],
   },
 
+  // target_progress — "SIEMA hedefi?", "hedef durumu", "target progress"
+  {
+    intent: 'target_progress',
+    keywords: [
+      ['hedef'],
+      ['hedefi'],
+      ['target'],
+      ['targets'],
+      ['hedef', 'durum'],
+      ['hedefe', 'kaldi'],
+      ['objectif'],
+      ['objectifs'],
+    ],
+  },
+
   // 5. expo_progress — "SIEMA nasıl gidiyor?", "SIEMA 2026 kaç m² satılmış?"
   // Also matches multi-metric expo questions: "kaç sözleşme, kaç m2, geliri ne kadar?"
   {
