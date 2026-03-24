@@ -1177,6 +1177,9 @@ ISSUE-028: Edition vs Fiscal inconsistency — revenue_summary + expo_name → e
 ISSUE-029: Sticky header + WhatsApp collection intents (collection_summary, collection_no_payment, collection_expo)
 ISSUE-030: SIEMA filter + summary numbers mismatch + alacag normalization
 ISSUE-031: company_collection VALID_INTENTS missing (Haiku→general_stats), company_name year cleanup, FR month parse, bu hafta sozlesme, sticky header split table
+ISSUE-032: price_per_m2 agent_name entity ignored — SQL had no agent WHERE filter → returned full 20-agent list instead of single agent result
+ISSUE-033: Multi-year queries ("2025 ve 2026") returned only first year — extractEntities() used non-global regex, dropped second year
+ISSUE-034: Router keyword gaps — agent_performance/expo_progress/price_per_m2/expo_agent_breakdown patterns missing; expo_company_list + company_search rules added; EXPO_BRANDS 11→24, AGENT_NAMES 10→14
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

@@ -58,12 +58,22 @@ const EXPO_BRANDS = [
   'siema', 'mega clima', 'megaclima', 'foodexpo', 'food expo',
   'buildexpo', 'build expo', 'plastexpo', 'plast expo',
   'madesign', 'hvac', 'elect expo', 'electexpo',
+  'mega horeca', 'megahoreca', 'horeca',
+  'mega ceramica', 'megaceramica', 'ceramica',
+  'mega water', 'megawater',
+  'halal expo', 'halal',
+  'mega construct', 'construct',
+  'coren',
+  'best5', 'best 5',
+  'electricity algeria', 'electricity',
 ];
 
 // Known agent names for entity extraction
 const AGENT_NAMES = [
-  'elif', 'meriem', 'emircan', 'bengu', 'bengu', 'joanna',
+  'elif', 'meriem', 'emircan', 'bengu', 'joanna',
   'amaka', 'damilola', 'sinerji', 'anka',
+  'jude', 'yaprak', 'gokhan', 'sinan',
+  'mars fuarcilik', 'mars',
 ];
 
 // Country keywords (normalized form → canonical)
@@ -277,6 +287,9 @@ const RULES = [
       ['fiyat ortalama'],
       ['average price'],
       ['prix moyen'],
+      ['fiyat', 'ortalama'],
+      ['m2', 'ortalama'],
+      ['ortalama', 'fiyat'],
     ],
   },
 
@@ -298,6 +311,10 @@ const RULES = [
       ['kac kontrat', 'gelir'],
       ['contracts', 'm2', 'revenue'],
       ['contrats', 'm2', 'revenu'],
+      ['nasil gidiyor'],
+      ['ilerleme'],
+      ['progress'],
+      ['durum', 'fuar'],
     ],
   },
 
@@ -310,6 +327,12 @@ const RULES = [
       ['kac m2 satmis'],
       ['how much', 'sold'],
       ['combien', 'vendu'],
+      ['toplam kac sozlesme'],
+      ['toplam kac kontrat'],
+      ['kac sozlesme yapmis'],
+      ['kac kontrat yapmis'],
+      ['performans'],
+      ['performance'],
     ],
   },
 
@@ -321,6 +344,8 @@ const RULES = [
       ['en cok kim'],
       ['who sold'],
       ['qui a vendu'],
+      ['en cok satan'],
+      ['top seller'],
     ],
   },
 
@@ -450,6 +475,31 @@ const RULES = [
     ],
   },
 
+  // expo_company_list — "SIEMA firma listesi", "katılımcı listesi"
+  {
+    intent: 'expo_company_list',
+    keywords: [
+      ['firma listesi'],
+      ['firmalar'],
+      ['company list'],
+      ['companies in'],
+      ['exhibitor list'],
+      ['katilimci listesi'],
+      ['katilimcilar'],
+      ['les entreprises'],
+    ],
+  },
+
+  // company_search — "pygar firması hakkında", "XYZ şirketi"
+  {
+    intent: 'company_search',
+    keywords: [
+      ['firma hakkinda'],
+      ['about company'],
+      ['sirket'],
+    ],
+  },
+
   // 12. expo_list (general — should be near last)
   {
     intent: 'expo_list',
@@ -500,10 +550,16 @@ function route(question) {
 function extractEntities(norm, original) {
   const entities = {};
 
-  // Year extraction
-  const yearMatch = norm.match(/\b(20[12]\d)\b/);
-  if (yearMatch) {
-    entities.year = parseInt(yearMatch[1]);
+  // Year extraction — support multiple years ("2025 ve 2026")
+  const yearMatches = norm.match(/\b(20[12]\d)\b/g);
+  if (yearMatches) {
+    const years = [...new Set(yearMatches.map(y => parseInt(y)))];
+    if (years.length === 1) {
+      entities.year = years[0];
+    } else {
+      // Multi-year: set years array, leave entities.year unset → SQL returns all years
+      entities.years = years.sort((a, b) => a - b);
+    }
   } else if (norm.includes('bu yil') || norm.includes('this year') || norm.includes('cette annee')) {
     entities.year = new Date().getFullYear();
   }

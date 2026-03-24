@@ -373,6 +373,41 @@ Rules:
 
 ---
 
+## [ISSUE-034] Router keyword gaps — expo_company_list, company_search, agent_performance patterns missing
+**Status:** FIXED (2026-03-24)
+**First seen:** 2026-03-24
+**Description:** Several frequently-asked queries bypassed the router and fell through to Haiku, causing unnecessary API cost and latency:
+1. "Emircan toplam kaç sözleşme yapmış" → router miss (no "toplam kaç sözleşme" pattern in agent_performance)
+2. "SIEMA 2026 nasıl gidiyor" → router miss (no standalone "nasıl gidiyor" — only "nasıl gidiyor + fuar/expo")
+3. "Emircanın m2 fiyat ortalaması" → router miss (only "fiyat ortalama" not "fiyat + ortalama" separate)
+4. "SIEMA'ya en çok satan kim" → router miss (no "en çok satan" in expo_agent_breakdown)
+5. "SIEMA firma listesi" → matched expo_list instead of expo_company_list (rule missing)
+**Root cause:** RULES array lacked keywords for common phrasings; expo_company_list and company_search rules were missing entirely.
+**Fix:** Added keywords to agent_performance, expo_progress, price_per_m2, expo_agent_breakdown rules. Added new expo_company_list and company_search rules before expo_list. Expanded EXPO_BRANDS (11→24 brands) and AGENT_NAMES (10→14 agents).
+**Files:** packages/ai/router.js
+
+---
+
+## [ISSUE-033] Multi-year queries return only first year
+**Status:** FIXED (2026-03-24)
+**First seen:** 2026-03-24
+**Description:** "2025 ve 2026 yıllarında Emircan kaç sözleşme yapmış?" → only 2025 data returned. Second year silently dropped.
+**Root cause:** extractEntities() used `/\b(20[12]\d)\b/` (no global flag) → only first year match captured. "2026" was ignored.
+**Fix:** Changed to global match `/\b(20[12]\d)\b/g` → collect all years → if multiple: set `entities.years = [2025, 2026]`, do NOT set `entities.year`. With year=undefined, SQL `($N::int IS NULL OR ...)` returns all years — Sonnet sees full data and answers for both years.
+**Files:** packages/ai/router.js
+
+---
+
+## [ISSUE-032] price_per_m2 ignores agent_name entity — returns all agents
+**Status:** FIXED (2026-03-24)
+**First seen:** 2026-03-24
+**Description:** "Emircanın m2 fiyat ortalaması ne kadar?" → "Emircan adında bir satış temsilcisi bulunamadı" + 20-agent full list. Root cause: router correctly extracts agent_name: 'Emircan' but buildQuery price_per_m2 case never used it in SQL.
+**Root cause:** Both branches of the price_per_m2 case (hasExpo and non-expo) built SQL without any agent_name WHERE filter. Sonnet received 20 agents and couldn't find "Emircan" (DB name is "Emircan Çakmak").
+**Fix:** Added `hasAgent` check in both branches. When agent_name present: `AND c.sales_agent ILIKE $N` with `%agent_name%` param. Parameter index adjusted accordingly ($2→$3 for expo branch, $1→$2 for non-expo branch).
+**Files:** packages/ai/queryEngine.js
+
+---
+
 ## [ISSUE-031] company_collection Haiku fallback, FR month parse, bu hafta sözleşme, sticky header
 **Status:** FIXED (2026-03-22)
 **First seen:** 2026-03-22

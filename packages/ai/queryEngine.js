@@ -1059,6 +1059,7 @@ function buildQuery(intent, entities) {
 
     case 'price_per_m2': {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
+      const hasAgent = e.agent_name && e.agent_name.length > 0;
       if (hasExpo) {
         return {
           sql: `SELECT
@@ -1072,8 +1073,11 @@ function buildQuery(intent, entities) {
             ${EXCL_AGENT}
             AND e.name ILIKE $1
             AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+            ${hasAgent ? 'AND c.sales_agent ILIKE $3' : ''}
           GROUP BY c.sales_agent ORDER BY avg_price_per_m2 DESC LIMIT 20`,
-          params: [fuzzyExpoPattern(e.expo_name), e.year || null],
+          params: hasAgent
+            ? [fuzzyExpoPattern(e.expo_name), e.year || null, `%${e.agent_name}%`]
+            : [fuzzyExpoPattern(e.expo_name), e.year || null],
         };
       }
       return {
@@ -1087,8 +1091,11 @@ function buildQuery(intent, entities) {
         WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
           ${EXCL_AGENT}
           AND ($1::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $1)
+          ${hasAgent ? 'AND c.sales_agent ILIKE $2' : ''}
         GROUP BY c.sales_agent ORDER BY avg_price_per_m2 DESC LIMIT 20`,
-        params: [e.year || null],
+        params: hasAgent
+          ? [e.year || null, `%${e.agent_name}%`]
+          : [e.year || null],
       };
     }
 
