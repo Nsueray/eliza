@@ -1178,7 +1178,7 @@ ISSUE-029: Sticky header + WhatsApp collection intents (collection_summary, coll
 ISSUE-030: SIEMA filter + summary numbers mismatch + alacag normalization
 ISSUE-031: company_collection VALID_INTENTS missing (Haiku→general_stats), company_name year cleanup, FR month parse, bu hafta sozlesme, sticky header split table
 ISSUE-032: price_per_m2 agent_name entity ignored — SQL had no agent WHERE filter → returned full 20-agent list instead of single agent result
-ISSUE-033: Multi-year queries ("2025 ve 2026") returned only first year — extractEntities() used non-global regex, dropped second year
+ISSUE-033: Multi-year queries ("2025 ve 2026") returned only first year — extractEntities() used non-global regex, dropped second year. Phase 2 fix: buildYearFilter() helper generates SQL IN clause for multi-year, all intent handlers updated, default year logic skips when entities.years present
 ISSUE-034: Router keyword gaps — agent_performance/expo_progress/price_per_m2/expo_agent_breakdown patterns missing; expo_company_list + company_search rules added; EXPO_BRANDS 11→24, AGENT_NAMES 10→14
 
 Completed (cont. 7):

@@ -389,12 +389,13 @@ Rules:
 ---
 
 ## [ISSUE-033] Multi-year queries return only first year
-**Status:** FIXED (2026-03-24)
+**Status:** FIXED (2026-03-25, phase 2)
 **First seen:** 2026-03-24
-**Description:** "2025 ve 2026 yıllarında Emircan kaç sözleşme yapmış?" → only 2025 data returned. Second year silently dropped.
-**Root cause:** extractEntities() used `/\b(20[12]\d)\b/` (no global flag) → only first year match captured. "2026" was ignored.
-**Fix:** Changed to global match `/\b(20[12]\d)\b/g` → collect all years → if multiple: set `entities.years = [2025, 2026]`, do NOT set `entities.year`. With year=undefined, SQL `($N::int IS NULL OR ...)` returns all years — Sonnet sees full data and answers for both years.
-**Files:** packages/ai/router.js
+**Description:** "2025 ve 2026 yıllarında Emircan kaç sözleşme yapmış?" → returned wrong total (all years or only current year instead of just 2025+2026).
+**Root cause (phase 1):** extractEntities() used non-global regex → only first year captured. Fixed with `/g` flag.
+**Root cause (phase 2):** Even with `entities.years = [2025, 2026]`, SQL used `($N::int IS NULL OR EXTRACT(YEAR FROM ...) = $N)` with `e.year || null` → NULL → returned ALL years. Also default year logic overrode multi-year to currentYear.
+**Fix (phase 2):** Added `buildYearFilter()` helper that generates `IN ($1, $2)` clause for multi-year arrays. Updated all 12+ intent handlers to use it. Default year logic now skips when `entities.years` array present. Multi-year context note passed to Sonnet for better answer formatting.
+**Files:** packages/ai/queryEngine.js, packages/ai/router.js
 
 ---
 

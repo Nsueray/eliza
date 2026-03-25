@@ -20,6 +20,32 @@ const EXCL_AGENT = `AND c.sales_agent != '${INTERNAL_AGENT}'`;
 const EXCL_AGENT_FC = `AND sales_agent != '${INTERNAL_AGENT}'`;
 
 /**
+ * Build year filter SQL clause from entities.
+ * Handles: multi-year array (IN), single year (=), or no year (NULL passthrough).
+ *
+ * @param {object} entities - { year, years }
+ * @param {string} dateCol - SQL date column (e.g. 'c.contract_date')
+ * @param {number} idx - starting $N index for parameters
+ * @returns {{ clause: string, params: array, nextIndex: number }}
+ */
+function buildYearFilter(entities, dateCol, idx) {
+  if (entities.years && entities.years.length > 1) {
+    const placeholders = entities.years.map((_, i) => `$${idx + i}`);
+    return {
+      clause: `AND EXTRACT(YEAR FROM ${dateCol}) IN (${placeholders.join(', ')})`,
+      params: [...entities.years],
+      nextIndex: idx + entities.years.length,
+    };
+  }
+  const yr = entities.year || null;
+  return {
+    clause: `AND ($${idx}::int IS NULL OR EXTRACT(YEAR FROM ${dateCol}) = $${idx})`,
+    params: [yr],
+    nextIndex: idx + 1,
+  };
+}
+
+/**
  * Build a fuzzy ILIKE pattern for expo names.
  * "Megaclima" → "%m%e%g%a%c%l%i%m%a%" won't work well.
  * Instead: try splitting known brand patterns and adding % between words.
@@ -520,6 +546,7 @@ function buildQuery(intent, entities) {
     case 'target_progress': {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
       if (hasExpo) {
+        const yf = buildYearFilter(e, 'e.start_date', 2);
         return {
           sql: `SELECT e.name AS expo_name, e.start_date, e.city, e.country,
             COALESCE(et.target_m2, 0) AS target_m2,
@@ -539,13 +566,15 @@ function buildQuery(intent, entities) {
           LEFT JOIN expo_targets et ON et.expo_id = e.id
           LEFT JOIN edition_contracts c ON c.expo_id = e.id
           WHERE e.name ILIKE $1
-            AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+            ${yf.clause}
           GROUP BY e.id, e.name, e.start_date, e.city, e.country, et.target_m2, et.target_revenue, et.source
           ORDER BY e.start_date DESC LIMIT 5`,
-          params: [fuzzyExpoPattern(e.expo_name), e.year || null],
+          params: [fuzzyExpoPattern(e.expo_name), ...yf.params],
         };
       }
-      // General target overview — all expos with targets for given year
+      // General target overview — default to current year if no year specified
+      if (!e.year && !(e.years && e.years.length > 1)) e.year = new Date().getFullYear();
+      const yf = buildYearFilter(e, 'e.start_date', 1);
       return {
         sql: `SELECT e.name AS expo_name, e.start_date, e.city,
           COALESCE(et.target_m2, 0) AS target_m2,
@@ -559,15 +588,16 @@ function buildQuery(intent, entities) {
         FROM expos e
         LEFT JOIN expo_targets et ON et.expo_id = e.id
         LEFT JOIN edition_contracts c ON c.expo_id = e.id
-        WHERE ($1::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $1)
-          AND COALESCE(et.target_m2, 0) > 0
+        WHERE COALESCE(et.target_m2, 0) > 0
+          ${yf.clause}
         GROUP BY e.id, e.name, e.start_date, e.city, et.target_m2, et.target_revenue
         ORDER BY e.start_date ASC LIMIT 20`,
-        params: [e.year || new Date().getFullYear()],
+        params: [...yf.params],
       };
     }
 
-    case 'expo_progress':
+    case 'expo_progress': {
+      const yf = buildYearFilter(e, 'e.start_date', 2);
       return {
         sql: `SELECT e.name, e.start_date, e.target_m2,
           COALESCE(SUM(CASE WHEN c.sales_agent != '${INTERNAL_AGENT}' THEN c.m2 ELSE 0 END),0) AS sold_m2,
@@ -577,14 +607,17 @@ function buildQuery(intent, entities) {
         FROM expos e
         LEFT JOIN edition_contracts c ON c.expo_id = e.id
         WHERE e.name ILIKE $1
-          AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+          ${yf.clause}
         GROUP BY e.id ORDER BY e.start_date DESC LIMIT 5`,
-        params: [fuzzyExpoPattern(e.expo_name || ''), e.year || null],
+        params: [fuzzyExpoPattern(e.expo_name || ''), ...yf.params],
       };
+    }
 
     case 'agent_performance': {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
       if (hasExpo) {
+        const yf = buildYearFilter(e, 'c.contract_date', 3);
+        const mp = yf.nextIndex;
         return {
           sql: `SELECT c.sales_agent, COUNT(*) AS contracts,
             COALESCE(SUM(c.m2),0) AS total_m2,
@@ -594,12 +627,14 @@ function buildQuery(intent, entities) {
           WHERE c.sales_agent ILIKE $1
             ${EXCL_AGENT}
             AND e.name ILIKE $2
-            AND ($3::int IS NULL OR EXTRACT(YEAR FROM c.contract_date) = $3)
-            AND ($4::int IS NULL OR EXTRACT(MONTH FROM c.contract_date) = $4)
+            ${yf.clause}
+            AND ($${mp}::int IS NULL OR EXTRACT(MONTH FROM c.contract_date) = $${mp})
           GROUP BY c.sales_agent`,
-          params: [`%${e.agent_name || ''}%`, fuzzyExpoPattern(e.expo_name), e.year || null, e.month || null],
+          params: [`%${e.agent_name || ''}%`, fuzzyExpoPattern(e.expo_name), ...yf.params, e.month || null],
         };
       }
+      const yf = buildYearFilter(e, 'contract_date', 2);
+      const mp = yf.nextIndex;
       return {
         sql: `SELECT sales_agent, COUNT(*) AS contracts,
           COALESCE(SUM(m2),0) AS total_m2,
@@ -607,28 +642,31 @@ function buildQuery(intent, entities) {
         FROM fiscal_contracts
         WHERE sales_agent ILIKE $1
           ${EXCL_AGENT_FC}
-          AND ($2::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $2)
-          AND ($3::int IS NULL OR EXTRACT(MONTH FROM contract_date) = $3)
+          ${yf.clause}
+          AND ($${mp}::int IS NULL OR EXTRACT(MONTH FROM contract_date) = $${mp})
         GROUP BY sales_agent`,
-        params: [`%${e.agent_name || ''}%`, e.year || null, e.month || null],
+        params: [`%${e.agent_name || ''}%`, ...yf.params, e.month || null],
       };
     }
 
-    case 'agent_country_breakdown':
+    case 'agent_country_breakdown': {
+      const yf = buildYearFilter(e, 'c.contract_date', 2);
       return {
         sql: `SELECT c.country, COUNT(*) AS contracts,
           COALESCE(SUM(c.m2),0) AS total_m2
         FROM fiscal_contracts c
         WHERE c.sales_agent ILIKE $1
-          AND ($2::int IS NULL OR EXTRACT(YEAR FROM c.contract_date) = $2)
+          ${yf.clause}
           AND c.country IS NOT NULL
         GROUP BY c.country
         ORDER BY contracts DESC
         LIMIT 20`,
-        params: [`%${e.agent_name || ''}%`, e.year || null],
+        params: [`%${e.agent_name || ''}%`, ...yf.params],
       };
+    }
 
-    case 'agent_expo_breakdown':
+    case 'agent_expo_breakdown': {
+      const yf = buildYearFilter(e, 'c.contract_date', 2);
       return {
         sql: `SELECT e.name AS expo, e.start_date,
           COUNT(c.id) AS contracts,
@@ -637,25 +675,28 @@ function buildQuery(intent, entities) {
         FROM fiscal_contracts c
         JOIN expos e ON c.expo_id = e.id
         WHERE c.sales_agent ILIKE $1
-          AND ($2::int IS NULL OR EXTRACT(YEAR FROM c.contract_date) = $2)
+          ${yf.clause}
         GROUP BY e.id
         ORDER BY revenue_eur DESC
         LIMIT 20`,
-        params: [`%${e.agent_name || ''}%`, e.year || null],
+        params: [`%${e.agent_name || ''}%`, ...yf.params],
       };
+    }
 
-    case 'country_count':
+    case 'country_count': {
+      const yf = buildYearFilter(e, 'e.start_date', 2);
       return {
         sql: `SELECT c.country, COUNT(*) AS exhibitors
         FROM edition_contracts c
         JOIN expos e ON c.expo_id = e.id
         WHERE e.name ILIKE $1
-          AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+          ${yf.clause}
           AND c.country IS NOT NULL
           ${EXCL_AGENT}
         GROUP BY c.country ORDER BY exhibitors DESC LIMIT 50`,
-        params: [fuzzyExpoPattern(e.expo_name || ''), e.year || null],
+        params: [fuzzyExpoPattern(e.expo_name || ''), ...yf.params],
       };
+    }
 
     case 'exhibitors_by_country': {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
@@ -716,17 +757,19 @@ function buildQuery(intent, entities) {
           params: [e.relative_days],
         };
       }
+      const yf = buildYearFilter(e, 'contract_date', 1);
+      const mp = yf.nextIndex;
       return {
         sql: `SELECT sales_agent, COUNT(*) AS contracts,
           COALESCE(SUM(m2),0) AS total_m2,
           COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
         FROM fiscal_contracts
-        WHERE ($1::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $1)
-          AND ($2::int IS NULL OR EXTRACT(MONTH FROM contract_date) = $2)
-          AND sales_agent IS NOT NULL
+        WHERE sales_agent IS NOT NULL
           ${EXCL_AGENT_FC}
+          ${yf.clause}
+          AND ($${mp}::int IS NULL OR EXTRACT(MONTH FROM contract_date) = $${mp})
         GROUP BY sales_agent ORDER BY revenue_eur DESC LIMIT 10`,
-        params: [e.year || null, e.month || null],
+        params: [...yf.params, e.month || null],
       };
     }
 
@@ -795,6 +838,7 @@ function buildQuery(intent, entities) {
           params: [e.relative_years],
         };
       }
+      const yf = buildYearFilter(e, 'contract_date', 1);
       return {
         sql: `SELECT
           EXTRACT(YEAR FROM contract_date)::integer AS year,
@@ -802,9 +846,9 @@ function buildQuery(intent, entities) {
           COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
         FROM edition_contracts
         WHERE contract_date IS NOT NULL
-          AND ($1::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $1)
+          ${yf.clause}
         GROUP BY year ORDER BY year`,
-        params: [e.year || null],
+        params: [...yf.params],
       };
     }
 
@@ -845,7 +889,8 @@ function buildQuery(intent, entities) {
         params: [],
       };
 
-    case 'expo_agent_breakdown':
+    case 'expo_agent_breakdown': {
+      const yf = buildYearFilter(e, 'e.start_date', 2);
       return {
         sql: `SELECT c.sales_agent, COUNT(*) AS contracts,
           COALESCE(SUM(c.m2),0) AS total_m2,
@@ -853,14 +898,16 @@ function buildQuery(intent, entities) {
         FROM edition_contracts c
         JOIN expos e ON c.expo_id = e.id
         WHERE e.name ILIKE $1
-          AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+          ${yf.clause}
           AND c.sales_agent IS NOT NULL
           ${EXCL_AGENT}
         GROUP BY c.sales_agent ORDER BY revenue_eur DESC LIMIT 20`,
-        params: [fuzzyExpoPattern(e.expo_name || ''), e.year || null],
+        params: [fuzzyExpoPattern(e.expo_name || ''), ...yf.params],
       };
+    }
 
-    case 'expo_company_list':
+    case 'expo_company_list': {
+      const yf = buildYearFilter(e, 'e.start_date', 2);
       return {
         sql: `SELECT c.company_name, c.country,
           COUNT(*) AS contracts,
@@ -869,16 +916,18 @@ function buildQuery(intent, entities) {
         FROM edition_contracts c
         JOIN expos e ON c.expo_id = e.id
         WHERE e.name ILIKE $1
-          AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+          ${yf.clause}
           ${EXCL_AGENT}
         GROUP BY c.company_name, c.country
         ORDER BY revenue_eur DESC LIMIT 100`,
-        params: [fuzzyExpoPattern(e.expo_name || ''), e.year || null],
+        params: [fuzzyExpoPattern(e.expo_name || ''), ...yf.params],
       };
+    }
 
     case 'monthly_trend': {
       const hasAgent = e.agent_name && e.agent_name.length > 0;
       if (hasAgent) {
+        const yf = buildYearFilter(e, 'contract_date', 1);
         return {
           sql: `SELECT EXTRACT(MONTH FROM contract_date)::int AS month,
             TO_CHAR(contract_date, 'Month') AS month_name,
@@ -886,12 +935,13 @@ function buildQuery(intent, entities) {
             COALESCE(SUM(m2),0) AS total_m2,
             COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
           FROM fiscal_contracts
-          WHERE ($1::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $1)
-            AND sales_agent ILIKE $2
+          WHERE sales_agent ILIKE $${yf.nextIndex}
+            ${yf.clause}
           GROUP BY month, month_name ORDER BY month`,
-          params: [e.year || null, `%${e.agent_name}%`],
+          params: [...yf.params, `%${e.agent_name}%`],
         };
       }
+      const yf = buildYearFilter(e, 'contract_date', 1);
       return {
         sql: `SELECT EXTRACT(MONTH FROM contract_date)::int AS month,
           TO_CHAR(contract_date, 'Month') AS month_name,
@@ -899,9 +949,10 @@ function buildQuery(intent, entities) {
           COALESCE(SUM(m2),0) AS total_m2,
           COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
         FROM fiscal_contracts
-        WHERE ($1::int IS NULL OR EXTRACT(YEAR FROM contract_date) = $1)
+        WHERE 1=1
+          ${yf.clause}
         GROUP BY month, month_name ORDER BY month`,
-        params: [e.year || null],
+        params: [...yf.params],
       };
     }
 
@@ -1035,6 +1086,7 @@ function buildQuery(intent, entities) {
     case 'payment_status': {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
       if (hasExpo) {
+        const yf = buildYearFilter(e, 'e.start_date', 2);
         return {
           sql: `SELECT c.company_name, e.name AS expo,
             ROUND(c.revenue_eur::numeric,2) AS total,
@@ -1043,11 +1095,12 @@ function buildQuery(intent, entities) {
           JOIN expos e ON c.expo_id = e.id
           WHERE c.revenue_eur > 0
             AND e.name ILIKE $1
-            AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
+            ${yf.clause}
           ORDER BY c.revenue_eur DESC LIMIT 50`,
-          params: [fuzzyExpoPattern(e.expo_name), e.year || null],
+          params: [fuzzyExpoPattern(e.expo_name), ...yf.params],
         };
       }
+      const yf = buildYearFilter(e, 'e.start_date', 1);
       return {
         sql: `SELECT c.company_name, e.name AS expo,
           ROUND(c.revenue_eur::numeric,2) AS total,
@@ -1056,9 +1109,9 @@ function buildQuery(intent, entities) {
         JOIN expos e ON c.expo_id = e.id
         WHERE c.revenue_eur > 0
           AND e.start_date >= CURRENT_DATE
-          AND ($1::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $1)
+          ${yf.clause}
         ORDER BY c.revenue_eur DESC LIMIT 50`,
-        params: [e.year || null],
+        params: [...yf.params],
       };
     }
 
@@ -1116,6 +1169,8 @@ function buildQuery(intent, entities) {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
       const hasAgent = e.agent_name && e.agent_name.length > 0;
       if (hasExpo) {
+        const yf = buildYearFilter(e, 'e.start_date', 2);
+        const agentClause = hasAgent ? `AND c.sales_agent ILIKE $${yf.nextIndex}` : '';
         return {
           sql: `SELECT
             c.sales_agent,
@@ -1127,14 +1182,16 @@ function buildQuery(intent, entities) {
           WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
             ${EXCL_AGENT}
             AND e.name ILIKE $1
-            AND ($2::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $2)
-            ${hasAgent ? 'AND c.sales_agent ILIKE $3' : ''}
+            ${yf.clause}
+            ${agentClause}
           GROUP BY c.sales_agent ORDER BY avg_price_per_m2 DESC LIMIT 20`,
           params: hasAgent
-            ? [fuzzyExpoPattern(e.expo_name), e.year || null, `%${e.agent_name}%`]
-            : [fuzzyExpoPattern(e.expo_name), e.year || null],
+            ? [fuzzyExpoPattern(e.expo_name), ...yf.params, `%${e.agent_name}%`]
+            : [fuzzyExpoPattern(e.expo_name), ...yf.params],
         };
       }
+      const yf = buildYearFilter(e, 'e.start_date', 1);
+      const agentClause = hasAgent ? `AND c.sales_agent ILIKE $${yf.nextIndex}` : '';
       return {
         sql: `SELECT
           c.sales_agent,
@@ -1145,12 +1202,12 @@ function buildQuery(intent, entities) {
         JOIN expos e ON c.expo_id = e.id
         WHERE c.m2 > 0 AND c.revenue_eur > 0 AND c.sales_agent IS NOT NULL
           ${EXCL_AGENT}
-          AND ($1::int IS NULL OR EXTRACT(YEAR FROM e.start_date) = $1)
-          ${hasAgent ? 'AND c.sales_agent ILIKE $2' : ''}
+          ${yf.clause}
+          ${agentClause}
         GROUP BY c.sales_agent ORDER BY avg_price_per_m2 DESC LIMIT 20`,
         params: hasAgent
-          ? [e.year || null, `%${e.agent_name}%`]
-          : [e.year || null],
+          ? [...yf.params, `%${e.agent_name}%`]
+          : [...yf.params],
       };
     }
 
@@ -1688,7 +1745,8 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
 
   // Default year to current when not specified
   // Prevents queries from aggregating across all years/editions
-  if (entities && !entities.year) {
+  // Skip if multi-year was explicitly requested (entities.years array)
+  if (entities && !entities.year && !(entities.years && entities.years.length > 1)) {
     // Month without year → current year (ISSUE-014)
     if (entities.month) {
       entities.year = currentYear;
@@ -1788,7 +1846,10 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   }
 
   const isCountQuery = entities?.metric === 'count';
-  answerResult = await generateAnswer(question, data, lang);
+  const multiYearNote = entities?.years && entities.years.length > 1
+    ? `\n[Multi-year query: ${entities.years.join(' + ')}. Show breakdown by year if data allows.]`
+    : '';
+  answerResult = await generateAnswer(question + multiYearNote, data, lang);
   const answerUsage = answerResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
 
   // Track attention — mark entities as reviewed by CEO
