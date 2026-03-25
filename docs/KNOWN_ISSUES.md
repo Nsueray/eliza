@@ -399,6 +399,21 @@ Rules:
 
 ---
 
+## [ISSUE-035] Agent performance query triggers expo clarification
+**Status:** FIXED (2026-03-25)
+**First seen:** 2026-03-25
+**Description:** "2025 ve 2026 yıllarında Emircan kaç sözleşme yapmış?" → shows expo clarification (20 expo list) instead of direct answer. Router correctly returns agent_performance but clarification still triggers.
+**Root cause:** Conversation memory rewrite could inject expo context from previous conversation, causing Haiku to fire instead of router and set missing_expo flag. Also, no guard prevented agent/revenue intents from entering clarification path if Haiku set ambiguity flags.
+**Fix:**
+1. Added NO_EXPO_CLARIFICATION_INTENTS guard in queryEngine.js — deletes all missing_* flags for agent_performance, revenue_summary, top_agents, monthly_trend, collection_summary, collection_no_payment, target_progress, general_stats
+2. Multi-year guard: entities.years array present → delete missing_year
+3. Agent+year guard: agent_name + year/years → delete missing_expo
+4. Conversation memory: added agent+year(s) pattern to ALWAYS_INDEPENDENT pre-check (skips LLM rewrite entirely)
+5. Rewrite prompt: added explicit rule "Question has its own agent name AND year(s) → ALWAYS INDEPENDENT"
+**Files:** packages/ai/queryEngine.js, packages/ai/conversationMemory.js
+
+---
+
 ## [ISSUE-032] price_per_m2 ignores agent_name entity — returns all agents
 **Status:** FIXED (2026-03-24)
 **First seen:** 2026-03-24

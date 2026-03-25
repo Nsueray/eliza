@@ -1597,6 +1597,29 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
     }
   }
 
+  // === CLARIFICATION SKIP GUARD ===
+  // Agent/revenue/general intents NEVER need expo clarification — they are not expo-specific
+  const NO_EXPO_CLARIFICATION_INTENTS = [
+    'agent_performance', 'revenue_summary', 'top_agents',
+    'monthly_trend', 'collection_summary', 'collection_no_payment',
+    'target_progress', 'general_stats',
+  ];
+  if (entities && NO_EXPO_CLARIFICATION_INTENTS.includes(intent)) {
+    delete entities.missing_expo;
+    delete entities.missing_year;
+    delete entities.missing_metric;
+  }
+
+  // Multi-year explicit request: years array → never ask for year clarification
+  if (entities?.years && entities.years.length > 1) {
+    delete entities.missing_year;
+  }
+
+  // Agent name + year/years present → expo clarification unnecessary
+  if (entities?.agent_name && (entities.year || entities.years)) {
+    delete entities.missing_expo;
+  }
+
   // Detect missing expo for expo-agent intents (router doesn't set this flag)
   // Skip if question already contains "genel"/"general" (resolved as general in previous turn)
   // Skip if resolvedEntities already has expo_name or expo_general

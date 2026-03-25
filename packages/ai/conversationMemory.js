@@ -34,6 +34,7 @@ ALWAYS INDEPENDENT patterns (NEVER rewrite these, regardless of history):
 - "bu ay ne kadar satıldı?" / "how much sold this month?"
 - Any question starting with "en çok", "en iyi", "en az", "kaç tane", "toplam"
 - Any question containing "kim satmış", "best agent", "top agent", "top sales"
+- Question has its own agent name AND year(s) → ALWAYS INDEPENDENT (e.g., "2025 ve 2026 yıllarında Emircan kaç sözleşme yapmış?" is NEVER a follow-up)
 
 ENTITY TYPES:
 - Expo names: SIEMA, Mega Clima, Madesign, Foodexpo, Buildexpo, Plastexpo, etc.
@@ -155,6 +156,9 @@ async function rewriteQuestion(currentQuestion, history) {
     /\bkac fuar\b/,
     /\bhow many expo/,
     /\bhangi fuar.*risk/,
+    // Agent name + year(s) = always independent
+    /\b(elif|meriem|emircan|joanna|amaka|damilola|sinerji|anka)\b.*\b(20\d{2})\b/,
+    /\b(20\d{2}).*\b(elif|meriem|emircan|joanna|amaka|damilola|sinerji|anka)\b/,
   ];
   const normQ = qLower.replace(/[çÇ]/g, 'c').replace(/[şŞ]/g, 's').replace(/[üÜ]/g, 'u').replace(/[ıİ]/g, 'i').replace(/[öÖ]/g, 'o').replace(/[ğĞ]/g, 'g');
   if (ALWAYS_INDEPENDENT.some(re => re.test(normQ))) return noRewrite;
