@@ -10,7 +10,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const cron = require('node-cron');
 const { query } = require('../db/index.js');
-const { syncSalesOrders } = require('./syncSalesOrders.js');
+const { syncSalesOrders, syncPaymentsPass } = require('./syncSalesOrders.js');
 const { syncExpos } = require('./syncExpos.js');
 
 async function logSyncStart(syncType, module) {
@@ -67,18 +67,40 @@ async function runSync(syncType) {
   console.log(`[${new Date().toISOString()}] Sync cycle finished\n`);
 }
 
+async function runPaymentSync() {
+  console.log(`[${new Date().toISOString()}] Starting payment sync...`);
+  let logId;
+  try {
+    logId = await logSyncStart('payments', 'received_payments');
+    await syncPaymentsPass();
+    await logSyncEnd(logId, 0, 0, 'success', null);
+    console.log(`[${new Date().toISOString()}] Payment sync complete`);
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] Payment sync error:`, err.message);
+    if (logId) await logSyncEnd(logId, 0, 0, 'error', err.message).catch(() => {});
+  }
+}
+
 function startSyncScheduler() {
   // Run initial sync (non-blocking — don't await)
   runSync('full').then(() => {
-    console.log('Initial full sync complete. Scheduling incremental every 15 minutes.');
+    console.log('Initial full sync complete. Scheduling list sync hourly + payment sync twice daily.');
   }).catch((err) => {
     console.error('Initial sync failed:', err.message);
   });
 
-  // Schedule: every 15 minutes
-  cron.schedule('*/15 * * * *', () => {
+  // List sync (expos + contracts): every hour — 24×19 = ~456 API credits/day
+  cron.schedule('0 * * * *', () => {
     runSync('incremental').catch((err) => {
       console.error('Scheduled sync failed:', err.message);
+    });
+  });
+
+  // Payment sync (Received_Payment subform): twice daily at 06:00 and 18:00
+  // 2×~980 = ~1,960 API credits/day (vs previous 96×962 = 92,352/day)
+  cron.schedule('0 6,18 * * *', () => {
+    runPaymentSync().catch((err) => {
+      console.error('Payment sync failed:', err.message);
     });
   });
 }
