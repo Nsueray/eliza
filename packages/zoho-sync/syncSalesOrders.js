@@ -320,22 +320,31 @@ async function syncSalesOrders() {
   console.log(`Sync complete: ${inserted} inserted/updated, ${skipped} skipped`);
   console.log(`Expo matching: ${matched} matched, ${unmatched} no match`);
   console.log(`Schedules processed: ${scheduleSync} contracts`);
+}
 
-  // ═══ SECOND PASS: Fetch Received_Payment subform for contracts with payments ═══
-  // Zoho list API does not return subform data — individual record fetch required
-  console.log('\n--- Second pass: syncing Received_Payment subform ---');
-  const paidContracts = await query(
-    `SELECT id, af_number FROM contracts WHERE paid_eur > 0`
-  );
-  console.log(`Contracts with payments: ${paidContracts.rows.length}`);
+/**
+ * Sync Received_Payment subform for all contracts with paid_eur > 0.
+ * Runs independently from the main list sync — called twice daily.
+ */
+async function syncPaymentsPass() {
+  const token = await getAccessToken();
 
-  // Build AF_Number → Zoho record ID map from the fetched records
+  // Need Zoho record IDs to fetch individual records.
+  // Fetch full list (list API doesn't charge extra vs no-op) to build AF_Number → zohoId map.
+  console.log('Building Zoho ID map for payment sync...');
+  const records = await fetchAllSalesOrders(token);
   const zohoIdMap = {};
   for (const record of records) {
     if (record.AF_Number && record.id) {
       zohoIdMap[record.AF_Number] = record.id;
     }
   }
+
+  // Fetch all contracts that have received any payment
+  const paidContracts = await query(
+    `SELECT id, af_number FROM contracts WHERE paid_eur > 0`
+  );
+  console.log(`Contracts with payments: ${paidContracts.rows.length}`);
 
   let paymentsFetched = 0;
   let paymentsErrors = 0;
@@ -370,11 +379,10 @@ async function syncSalesOrders() {
   }
 
   console.log(`Received payments synced: ${paymentsFetched} records (${paymentsErrors} errors)`);
-  paymentsSync = paymentsFetched;
-  console.log(`\nFull sync summary: ${inserted} contracts, ${paymentsFetched} payments, ${scheduleSync} schedules`);
+}
 }
 
-module.exports = { syncSalesOrders };
+module.exports = { syncSalesOrders, syncPaymentsPass };
 
 // Run directly if called as script
 if (require.main === module) {
