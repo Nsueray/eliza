@@ -148,7 +148,7 @@ function getDashboardLink(intent, entities) {
   const SALES_INTENTS = [
     'top_agents', 'agent_performance', 'agent_country_breakdown',
     'agent_expo_breakdown', 'monthly_trend', 'revenue_summary',
-    'general_stats',
+    'contract_list', 'general_stats',
   ];
   if (SALES_INTENTS.includes(intent)) {
     return `${DASHBOARD_BASE}/sales`;

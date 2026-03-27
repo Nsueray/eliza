@@ -443,6 +443,23 @@ const RULES = [
     ],
   },
 
+  // 11a. contract_list — "bu hafta gelen sözleşmeleri listele"
+  {
+    intent: 'contract_list',
+    keywords: [
+      ['listele', 'sozlesme'],
+      ['listele', 'kontrat'],
+      ['listele', 'contract'],
+      ['liste', 'sozlesme'],
+      ['liste', 'kontrat'],
+      ['list', 'contract'],
+      ['sozlesmeleri listele'],
+      ['kontratlari listele'],
+      ['contracts list'],
+      ['lister', 'contrat'],
+    ],
+  },
+
   // 11. revenue_summary
   {
     intent: 'revenue_summary',
