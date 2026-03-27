@@ -399,6 +399,23 @@ Rules:
 
 ---
 
+## [ISSUE-036] Zoho sync broken — module syntax error + scheduler logging 0 records
+**Status:** FIXED (2026-03-27, commit 069ee07)
+**First seen:** 2026-03-27
+**Description:** Bengü reported 4 contracts this week but ELIZA showed 1. Investigation revealed:
+1. Local DB 16 days behind — last sync March 11 (local scheduler stopped manually)
+2. Commit `3130215` (March 26) introduced extra `}` in `syncSalesOrders.js` line 383 when extracting `syncPaymentsPass()` from inline code — entire module fails to load, scheduler crashes silently
+3. `scheduler.js` logged `records_synced: 0` hardcoded for every sync (misleading logs)
+**Root cause:** When the second-pass payment code was extracted into standalone `syncPaymentsPass()`, the closing brace of the original `syncSalesOrders()` was left AND the new function added its own, creating a double `}` that broke the module.
+**Fix:**
+1. Removed extra `}` from `syncSalesOrders.js`
+2. `syncSalesOrders()` now returns `{ inserted, skipped, matched, unmatched }` stats
+3. `scheduler.js` logs actual `records_synced` from return value
+**Additional note:** Render free tier auto-sleeps services after inactivity, killing cron jobs. Scheduler only restarts on next API request. Consider external keep-alive (UptimeRobot) or Render paid plan.
+**Files:** packages/zoho-sync/syncSalesOrders.js, packages/zoho-sync/scheduler.js
+
+---
+
 ## [ISSUE-035] Agent performance query triggers expo clarification
 **Status:** FIXED (2026-03-25)
 **First seen:** 2026-03-25

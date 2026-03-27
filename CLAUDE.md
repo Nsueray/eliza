@@ -1181,6 +1181,7 @@ ISSUE-032: price_per_m2 agent_name entity ignored — SQL had no agent WHERE fil
 ISSUE-033: Multi-year queries ("2025 ve 2026") returned only first year — extractEntities() used non-global regex, dropped second year. Phase 2 fix: buildYearFilter() helper generates SQL IN clause for multi-year, all intent handlers updated, default year logic skips when entities.years present
 ISSUE-034: Router keyword gaps — agent_performance/expo_progress/price_per_m2/expo_agent_breakdown patterns missing; expo_company_list + company_search rules added; EXPO_BRANDS 11→24, AGENT_NAMES 10→14
 ISSUE-035: Agent performance query triggers expo clarification — NO_EXPO_CLARIFICATION_INTENTS guard, multi-year guard, agent+year guard, conversation memory ALWAYS_INDEPENDENT agent+year pattern
+ISSUE-036: Zoho sync broken — extra `}` in syncSalesOrders.js (commit 3130215) broke module loading, scheduler crashed silently. Also scheduler logged records_synced: 0 hardcoded. Fix: removed extra brace, syncSalesOrders returns stats, scheduler logs actual count. Render free tier auto-sleep risk noted.
 
 Completed (cont. 7):
 - Push Target Integration + target_progress WhatsApp Intent
