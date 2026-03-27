@@ -320,6 +320,7 @@ async function syncSalesOrders() {
   console.log(`Sync complete: ${inserted} inserted/updated, ${skipped} skipped`);
   console.log(`Expo matching: ${matched} matched, ${unmatched} no match`);
   console.log(`Schedules processed: ${scheduleSync} contracts`);
+  return { inserted, skipped, matched, unmatched, paymentsSync, scheduleSync };
 }
 
 /**
@@ -379,7 +380,6 @@ async function syncPaymentsPass() {
   }
 
   console.log(`Received payments synced: ${paymentsFetched} records (${paymentsErrors} errors)`);
-}
 }
 
 module.exports = { syncSalesOrders, syncPaymentsPass };

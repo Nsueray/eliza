@@ -54,9 +54,10 @@ async function runSync(syncType) {
   let contractLogId;
   try {
     contractLogId = await logSyncStart(syncType, 'contracts');
-    await syncSalesOrders();
-    await logSyncEnd(contractLogId, 0, 0, 'success', null);
-    console.log(`[${new Date().toISOString()}] Contracts sync complete`);
+    const stats = await syncSalesOrders();
+    const synced = stats ? stats.inserted : 0;
+    await logSyncEnd(contractLogId, synced, 0, 'success', null);
+    console.log(`[${new Date().toISOString()}] Contracts sync complete (${synced} records)`);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] Contracts sync error:`, err.message);
     if (contractLogId) {
