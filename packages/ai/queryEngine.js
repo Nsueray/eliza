@@ -138,7 +138,7 @@ Database schema:
 
 Extract intent and entities from the question. Return ONLY valid JSON:
 {
-  "intent": "one of [expo_progress, target_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown, expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance, payment_status, rebooking_rate, price_per_m2, country_count, exhibitors_by_country, top_agents, revenue_summary, expo_list, company_search, company_collection, collection_summary, collection_expo, collection_no_payment, days_to_event, general_stats]",
+  "intent": "one of [expo_progress, target_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown, expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance, payment_status, rebooking_rate, price_per_m2, country_count, exhibitors_by_country, top_agents, revenue_summary, contract_list, expo_list, company_search, company_collection, collection_summary, collection_expo, collection_no_payment, days_to_event, general_stats]",
   "entities": {
     "expo_name": "string or null",
     "agent_name": "string or null",
@@ -175,6 +175,8 @@ Q: SIEMA ya tekrar katilan firmalar → {"intent":"rebooking_rate","entities":{"
 Q: SIEMA 2026 ortalama m2 fiyatı → {"intent":"price_per_m2","entities":{"expo_name":"SIEMA","year":2026}}
 Q: satış fiyatı ortalaması nedir → {"intent":"price_per_m2","entities":{}}
 Q: hangi agent en yüksek m² fiyatı satıyor → {"intent":"price_per_m2","entities":{}}
+Q: bu hafta gelen sözleşmeleri listele → {"intent":"contract_list","entities":{"period":"this_week"}}
+Q: list this week's contracts → {"intent":"contract_list","entities":{"period":"this_week"}}
 Q: m² fiyat ortalaması en yüksek agent kim → {"intent":"price_per_m2","entities":{}}
 Q: en pahalı stand hangi fuarda → {"intent":"price_per_m2","entities":{}}
 Q: hangi expo en ucuz m² fiyatına sahip → {"intent":"price_per_m2","entities":{}}
@@ -265,7 +267,7 @@ async function extractIntent(question) {
     'expo_progress', 'target_progress', 'agent_performance', 'agent_country_breakdown', 'agent_expo_breakdown',
     'expo_agent_breakdown', 'expo_company_list', 'monthly_trend', 'cluster_performance',
     'payment_status', 'rebooking_rate', 'price_per_m2', 'country_count',
-    'exhibitors_by_country', 'top_agents', 'revenue_summary', 'expo_list',
+    'exhibitors_by_country', 'top_agents', 'revenue_summary', 'contract_list', 'expo_list',
     'company_search', 'days_to_event', 'general_stats', 'compound',
     'collection_summary', 'collection_no_payment', 'collection_expo', 'company_collection',
   ];
@@ -314,7 +316,7 @@ INTENT MAPPING — use these exact intent names in maps_to_intent:
 expo_progress, agent_performance, agent_country_breakdown, agent_expo_breakdown,
 expo_agent_breakdown, expo_company_list, monthly_trend, cluster_performance,
 payment_status, rebooking_rate, price_per_m2, country_count,
-exhibitors_by_country, top_agents, revenue_summary, expo_list,
+exhibitors_by_country, top_agents, revenue_summary, contract_list, expo_list,
 company_search, company_collection, collection_summary, collection_expo,
 collection_no_payment, days_to_event, general_stats, compound
 
@@ -405,7 +407,7 @@ const VALID_INTENTS = [
   'expo_progress', 'target_progress', 'agent_performance', 'agent_country_breakdown', 'agent_expo_breakdown',
   'expo_agent_breakdown', 'expo_company_list', 'monthly_trend', 'cluster_performance',
   'payment_status', 'rebooking_rate', 'price_per_m2', 'country_count',
-  'exhibitors_by_country', 'top_agents', 'revenue_summary', 'expo_list',
+  'exhibitors_by_country', 'top_agents', 'revenue_summary', 'contract_list', 'expo_list',
   'company_search', 'days_to_event', 'general_stats', 'compound',
   'collection_summary', 'collection_no_payment', 'collection_expo', 'company_collection',
 ];
@@ -615,6 +617,34 @@ function buildQuery(intent, entities) {
 
     case 'agent_performance': {
       const hasExpo = e.expo_name && e.expo_name.length > 0;
+      // Support period-based queries (this_week, last_week, today, yesterday)
+      if (e.period && !hasExpo) {
+        let dateFilter;
+        if (e.period === 'this_week') {
+          dateFilter = `contract_date >= DATE_TRUNC('week', CURRENT_DATE) AND contract_date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '7 days'`;
+        } else if (e.period === 'last_week') {
+          dateFilter = `contract_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days' AND contract_date < DATE_TRUNC('week', CURRENT_DATE)`;
+        } else if (e.period === 'today') {
+          dateFilter = `DATE(contract_date) = CURRENT_DATE`;
+        } else if (e.period === 'yesterday') {
+          dateFilter = `DATE(contract_date) = CURRENT_DATE - 1`;
+        } else if (e.period === 'this_month') {
+          dateFilter = `contract_date >= DATE_TRUNC('month', CURRENT_DATE) AND contract_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`;
+        }
+        if (dateFilter) {
+          return {
+            sql: `SELECT sales_agent, COUNT(*) AS contracts,
+              COALESCE(SUM(m2),0) AS total_m2,
+              COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
+            FROM fiscal_contracts
+            WHERE sales_agent ILIKE $1
+              ${EXCL_AGENT_FC}
+              AND ${dateFilter}
+            GROUP BY sales_agent`,
+            params: [`%${e.agent_name || ''}%`],
+          };
+        }
+      }
       if (hasExpo) {
         const yf = buildYearFilter(e, 'c.contract_date', 3);
         const mp = yf.nextIndex;
@@ -849,6 +879,55 @@ function buildQuery(intent, entities) {
           ${yf.clause}
         GROUP BY year ORDER BY year`,
         params: [...yf.params],
+      };
+    }
+
+    case 'contract_list': {
+      // Individual contract rows for "listele" / "list" queries
+      let listDateFilter = '';
+      const listParams = [];
+      let paramIdx = 1;
+      if (e.agent_name) {
+        listDateFilter += ` AND c.sales_agent ILIKE $${paramIdx}`;
+        listParams.push(`%${e.agent_name}%`);
+        paramIdx++;
+      }
+      if (e.period === 'this_week') {
+        listDateFilter += ` AND c.contract_date >= DATE_TRUNC('week', CURRENT_DATE) AND c.contract_date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '7 days'`;
+      } else if (e.period === 'last_week') {
+        listDateFilter += ` AND c.contract_date >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '7 days' AND c.contract_date < DATE_TRUNC('week', CURRENT_DATE)`;
+      } else if (e.period === 'today') {
+        listDateFilter += ` AND DATE(c.contract_date) = CURRENT_DATE`;
+      } else if (e.period === 'yesterday') {
+        listDateFilter += ` AND DATE(c.contract_date) = CURRENT_DATE - 1`;
+      } else if (e.period === 'this_month') {
+        listDateFilter += ` AND c.contract_date >= DATE_TRUNC('month', CURRENT_DATE) AND c.contract_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`;
+      } else if (e.relative_days) {
+        listDateFilter += ` AND c.contract_date >= CURRENT_DATE - ($${paramIdx} || ' days')::interval`;
+        listParams.push(e.relative_days);
+        paramIdx++;
+      } else {
+        // Default: current year
+        const yr = e.year || currentYear;
+        listDateFilter += ` AND EXTRACT(YEAR FROM c.contract_date) = $${paramIdx}`;
+        listParams.push(yr);
+        paramIdx++;
+      }
+      if (e.expo_name) {
+        listDateFilter += ` AND e.name ILIKE $${paramIdx}`;
+        listParams.push(fuzzyExpoPattern(e.expo_name));
+        paramIdx++;
+      }
+      return {
+        sql: `SELECT c.company_name, e.name AS expo, c.sales_agent,
+          c.m2, ROUND(c.revenue_eur::numeric,2) AS revenue_eur,
+          c.contract_date, c.af_number
+        FROM edition_contracts c
+        JOIN expos e ON c.expo_id = e.id
+        WHERE 1=1 ${listDateFilter}
+        ORDER BY c.contract_date DESC
+        LIMIT 50`,
+        params: listParams,
       };
     }
 
@@ -1549,6 +1628,12 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   // "SIEMA 2026 toplam gelir?" should query edition_contracts (expo view), not fiscal_contracts
   if (intent === 'revenue_summary' && entities && entities.expo_name) {
     intent = 'expo_progress';
+  }
+
+  // Agent fix: revenue_summary + agent_name → agent_performance
+  // "bu hafta Bengü'nün sözleşmeleri" should filter by agent, not show all contracts
+  if (intent === 'revenue_summary' && entities && entities.agent_name) {
+    intent = 'agent_performance';
   }
 
   // Collection fix: collection_summary + expo_name → collection_expo
