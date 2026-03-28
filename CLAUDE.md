@@ -795,7 +795,7 @@ Architecture:
 4. SQL Validator → SELECT only, whitelist tables, LIMIT 200
 5. Answer Generator (Claude) → 1-3 sentence insight, no markdown
 
-Supported intents (23):
+Supported intents (25):
 - expo_progress: expo ilerleme durumu
 - agent_performance: agent toplam satış
 - agent_country_breakdown: agent ülke dağılımı
@@ -811,7 +811,8 @@ Supported intents (23):
 - payment_status: ödeme durumu (balance_eur, paid_eur aktif)
 - rebooking_rate: tekrar katılım oranı
 - price_per_m2: ortalama m2 fiyatı
-- revenue_summary: yıllık gelir özeti
+- revenue_summary: yıllık gelir özeti (+ month_end filtresi: "ilk 3 ay", Q1/Q2)
+- contract_list: sözleşme listesi (bireysel satırlar, "listele" komutu)
 - days_to_event: etkinliğe kaç gün kaldı
 - general_stats: genel istatistik
 - compound: birden fazla soru (max 2)
@@ -937,7 +938,7 @@ Veri Formatlama:
 - Year dinamik: entities.year || currentYear (hardcoded 2026 kaldırıldı)
 - Deep linking: expo_name → &expo=X, country → &country=X query params
 - Expo intents (11): expo_progress, expo_list, expo_agent_breakdown, expo_company_list, cluster_performance, country_count, exhibitors_by_country, days_to_event, rebooking_rate, price_per_m2, payment_status
-- Sales intents (7): top_agents, agent_performance, agent_country_breakdown, agent_expo_breakdown, monthly_trend, revenue_summary, general_stats
+- Sales intents (8): top_agents, agent_performance, agent_country_breakdown, agent_expo_breakdown, monthly_trend, revenue_summary, contract_list, general_stats
 
 Expo Directory (/expos) Features:
 - Query params: ?year=2026&expo=SIEMA&country=Morocco&agent=Elif → auto pre-fill search filter
@@ -1032,16 +1033,18 @@ Intent Engine Notlari:
 - Env: AI_INTENT_MODEL, AI_ANSWER_MODEL
 
 ## Router Architecture
-- 16 rules total (was 15, added: borcu/borcunu single keyword for company_collection)
+- 18 rules total (was 16, added: contract_list, revenue_summary kiyasla/compare/ilk ay keywords)
 - Accent normalization: è→e, ç→c, ü→u, ı→i, ş→s, ğ→g, ö→o
-- Priority order: days_to_event → collection_summary → collection_no_payment → company_collection → collection_expo → payment_status → rebooking_rate → price_per_m2 → expo_progress → agent_performance → expo_agent_breakdown → monthly_trend → top_agents → agent_country_breakdown → agent_expo_breakdown → exhibitors_by_country → country_count → revenue_summary → expo_list
+- Priority order: days_to_event → collection_summary → collection_no_payment → company_collection → collection_expo → payment_status → rebooking_rate → price_per_m2 → expo_progress → agent_performance → expo_agent_breakdown → monthly_trend → top_agents → agent_country_breakdown → agent_expo_breakdown → exhibitors_by_country → country_count → contract_list → revenue_summary → expo_list
 - Returns: { intent, entities, confidence: 1.0 }
-- Entities: year, month, relative_days, expo_name, agent_name, country, metric, company_name
+- Entities: year, month, month_end, relative_days, expo_name, agent_name, country, metric, company_name
 - Named month extraction: MONTH_NAMES map (FR: janvier..décembre, EN: january..december, TR: ocak..aralık)
 - Company name extraction: Turkish suffix patterns (firması, borcu, şirketi) + year digit cleanup
 - Ambiguity flags: missing_year, missing_metric, missing_expo (for clarification system)
 - Relative time: "son 30 gün" → relative_days: 30, "bu hafta" → this_week
+- Month range: "ilk 3 ay" → month_end: 3, "Q1"→month:1+month_end:3, "Q2"→month:4+month_end:6
 - Time+sözleşme: "bu hafta kaç sözleşme" → revenue_summary with period=this_week
+- Comparison: "kiyasla"/"karsilastir"/"compare" → revenue_summary
 
 ## Sonnet System Prompt
 "You are ELIZA, the CEO's personal business assistant for Elan Expo."
@@ -1097,7 +1100,7 @@ Scope rules:
 Intent categories:
 - NO_SCOPE: days_to_event (pure expo dates)
 - NO_AGENT_FILTER: expo_progress, expo_list, expo_agent_breakdown, expo_company_list, country_count, exhibitors_by_country, cluster_performance, rebooking_rate, payment_status, company_search (year filter only)
-- FULL_FILTER: agent_performance, agent_country_breakdown, agent_expo_breakdown, top_agents, monthly_trend, revenue_summary, general_stats, price_per_m2
+- FULL_FILTER: agent_performance, agent_country_breakdown, agent_expo_breakdown, top_agents, monthly_trend, revenue_summary, contract_list, general_stats, price_per_m2
 - expo_metrics queries: no filter (no sales_agent column)
 
 SQL injection:
@@ -1181,6 +1184,8 @@ ISSUE-032: price_per_m2 agent_name entity ignored — SQL had no agent WHERE fil
 ISSUE-033: Multi-year queries ("2025 ve 2026") returned only first year — extractEntities() used non-global regex, dropped second year. Phase 2 fix: buildYearFilter() helper generates SQL IN clause for multi-year, all intent handlers updated, default year logic skips when entities.years present
 ISSUE-034: Router keyword gaps — agent_performance/expo_progress/price_per_m2/expo_agent_breakdown patterns missing; expo_company_list + company_search rules added; EXPO_BRANDS 11→24, AGENT_NAMES 10→14
 ISSUE-035: Agent performance query triggers expo clarification — NO_EXPO_CLARIFICATION_INTENTS guard, multi-year guard, agent+year guard, conversation memory ALWAYS_INDEPENDENT agent+year pattern
+ISSUE-036: Weekly contract mismatch — revenue_summary ignored agent_name entity (no WHERE filter), agent_performance had no period support (this_week/today/etc.), "listele" returned aggregates not list. Fix: revenue_summary+agent_name→agent_performance redirect, agent_performance period handlers, new contract_list intent with router rules
+ISSUE-037: Quarter comparison queries — "2025 ilk 3 ay ve 2026 ilk 3 ay kiyasla" failed: no month range extraction, no "kiyasla" keyword, compound handler lost month context. Fix: "ilk X ay"→month_end entity, Q1-Q4 shorthand, kiyasla/compare router keywords, revenue_summary month_end BETWEEN filter, compound inherits month/month_end/years
 
 Completed (cont. 7):
 - Push Target Integration + target_progress WhatsApp Intent
@@ -1194,6 +1199,21 @@ Completed (cont. 7):
     - VALID_INTENTS + validIntents + EXPO_INTENTS_NEED_YEAR + NO_AGENT_FILTER_INTENTS'e eklendi
     - INTENT_PROMPT: intent listesi + 5 örnek
   - apps/whatsapp-bot/src/handler.js: getDashboardLink target_progress → /targets
+- Weekly Contract Mismatch Fix (ISSUE-036)
+  - revenue_summary + agent_name → agent_performance redirect (agent filtresi için)
+  - agent_performance: period desteği eklendi (this_week, last_week, today, yesterday, this_month)
+  - Yeni intent: contract_list — bireysel sözleşme satırları döndürür ("listele"/"list" komutu)
+  - Router: contract_list kuralları (listele+sozlesme, list+contract, vb.)
+  - handler.js: getDashboardLink contract_list → /sales
+  - VALID_INTENTS, validIntents, INTENT_PROMPT, FRAME_PROMPT güncellendi
+- Quarter Comparison Queries (ISSUE-037)
+  - Router: "ilk X ay" → month_end entity extraction (month range)
+  - Router: Q1/Q2/Q3/Q4 shorthand → month + month_end entities
+  - Router: kiyasla/karsilastir/compare keywords → revenue_summary
+  - Router: "ilk ay + satis/gelir/sozlesme/kontrat" → revenue_summary
+  - queryEngine: revenue_summary default handler month_end filtresi (BETWEEN 1 AND month_end)
+  - queryEngine: revenue_summary default handler artık total_m2 de döndürüyor
+  - queryEngine: compound handler month/month_end/years parent entity inheritance
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

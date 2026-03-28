@@ -23,14 +23,17 @@
 - Navigation (shared header: War Room | Expo Directory | Sales | Logs | Intelligence | System | Users)
 
 ### AI Engine
-- Phase 3: AI Query Engine (19 intents, POST /api/ai/query, natural language to SQL)
+- Phase 3: AI Query Engine (25 intents, POST /api/ai/query, natural language to SQL)
 - Phase 3b: Risk Engine (velocity model, risk scoring, expo_metrics table)
 - Phase 14: Hybrid Text-to-SQL (Sonnet SQL fallback, CEO-only, validateSQL safety)
 - Semantic Frame Extraction (extractSemanticFrame — router fast path + Haiku structured JSON fallback)
 - Ambiguity Gate (unanswerable refuse, critical clarification, warning defaults)
 - Router: 18+ keyword rules, accent normalization, priority-ordered, 30+ country aliases, demonym suffix stripping
 - Fuzzy expo name matching (fuzzyExpoPattern — space-insensitive ILIKE)
-- Edition vs Fiscal intent redirection (revenue_summary + expo_name → expo_progress)
+- Edition vs Fiscal intent redirection (revenue_summary + expo_name → expo_progress, revenue_summary + agent_name → agent_performance)
+- Agent performance period support (this_week, last_week, today, yesterday, this_month)
+- Contract list intent (individual contract rows for "listele" queries)
+- Month range extraction (ilk X ay → month_end, Q1-Q4 shorthand, kiyasla/compare keywords)
 - Unavailability registry (payment_balance, currency, salary, general_knowledge → honest refusal)
 - Sonnet answer prompt (15 rules, terminology per language, assumption transparency)
 

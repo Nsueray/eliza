@@ -443,3 +443,47 @@ Rules:
 3. Added "sozlesme" variant to all time period keywords (today, yesterday, this week, last week) in revenue_summary.
 4. Split table approach: separate header table + scrollable body table with matching colgroup.
 **Files:** packages/ai/queryEngine.js, packages/ai/router.js, apps/dashboard/pages/finance.js, apps/whatsapp-bot/src/handler.js
+
+---
+
+## ISSUE-036: Weekly Contract Mismatch — Agent Filter + Period + Listing Bug
+**Status:** FIXED
+**Date:** 2026-03-28
+**Severity:** High
+**Description:**
+1. "Bu hafta Bengü'nün sözleşmeleri" → 5 contracts (should be Bengü's only) — revenue_summary ignores agent_name entity.
+2. Dashboard "This Week" → 3 contracts, WhatsApp → 5 contracts — different views (fiscal vs edition) + no ELAN EXPO exclusion.
+3. agent_performance has no period support (this_week, last_week, today, etc.) — only year/month filters.
+4. "Bu hafta gelen sözleşmeleri listele" → returns aggregates (COUNT/SUM) instead of individual contract list.
+**Root cause:**
+1. Router maps "bu hafta + sozlesme" to revenue_summary. revenue_summary handler for this_week uses edition_contracts with no agent_name WHERE filter — entity extracted but never used in SQL.
+2. Dashboard fiscal.js uses fiscal_contracts with ELAN EXPO exclusion; queryEngine this_week uses edition_contracts without exclusion.
+3. agent_performance case in buildQuery only supports year/month via buildYearFilter, no period (this_week/today/etc.) handling exists.
+4. "listele" matches revenue_summary keywords (['this week', 'sozlesme']), which returns only aggregates (COUNT, SUM), not individual rows.
+**Fix:**
+1. Added redirect: `revenue_summary + agent_name → agent_performance` in queryEngine.run() (mirrors existing expo_name→expo_progress redirect).
+2. Added period support to agent_performance: this_week, last_week, today, yesterday, this_month — uses fiscal_contracts with EXCL_AGENT_FC for consistency.
+3. New `contract_list` intent: returns individual contract rows (company_name, expo, sales_agent, m2, revenue_eur, contract_date, af_number). Supports period, agent, expo filters.
+4. Router: added contract_list rules before revenue_summary (listele+sozlesme, list+contract, etc.).
+5. Updated: VALID_INTENTS, validIntents, INTENT_PROMPT, FRAME_PROMPT, getDashboardLink (contract_list→/sales).
+**Files:** packages/ai/queryEngine.js, packages/ai/router.js, apps/whatsapp-bot/src/handler.js
+
+---
+
+## ISSUE-037: Quarter Comparison Queries — Month Range + Compare Keywords
+**Status:** FIXED
+**Date:** 2026-03-28
+**Severity:** Medium
+**Description:**
+"2025 ilk 3 ay ve 2026 ilk 3 ay satislarini kiyaslarmisin?" → ELIZA returns only 2026 full-year data, says 2025 data not available. No Q1 comparison.
+**Root cause:**
+1. "ilk 3 ay" (first 3 months) not parsed — router only extracts single months (MONTH_NAMES), no month range support.
+2. "kiyasla"/"compare"/"karsilastir" keywords not in any router rule — falls to Haiku, which splits as compound and loses month context.
+3. revenue_summary handler only supports single month filter (`EXTRACT(MONTH) = $N`), no month range.
+4. Compound handler inherits expo_name, year, agent_name, country — but NOT month, month_end, or years (multi-year array).
+**Fix:**
+1. Router extractEntities: "ilk X ay" → `month_end: X` entity. Q1/Q2/Q3/Q4 shorthand → `month: start, month_end: end`.
+2. Router: added kiyasla/karsilastir/compare keywords + "ilk+ay+satis/gelir/sozlesme/kontrat" patterns to revenue_summary.
+3. QueryEngine: revenue_summary default handler adds `EXTRACT(MONTH) BETWEEN $start AND $end` when month_end present. Also added total_m2 to SELECT.
+4. Compound handler: now inherits month, month_end, years into parentEntities for sub-queries.
+**Files:** packages/ai/queryEngine.js, packages/ai/router.js

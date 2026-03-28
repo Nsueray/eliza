@@ -75,7 +75,7 @@ Add 'hybrid_sql' to the appropriate scope category. In `applyScope`:
 ---
 
 ## ✅ 0b. Add Missing Router Rules — COMPLETED (2026-03-12 through 2026-03-16)
-**Implementation:** Router expanded from 12 to 18+ rules. Added: expo_progress (with multi-metric patterns), agent_performance, expo_agent_breakdown. Remaining 4 (expo_company_list, cluster_performance, company_search, compound) still Haiku-only. 30+ country aliases with demonym suffix stripping. Fuzzy expo name matching.
+**Implementation:** Router expanded from 12 to 20+ rules. Added: expo_progress (with multi-metric patterns), agent_performance, expo_agent_breakdown, contract_list, collection intents, target_progress. Remaining (compound) still Haiku-only. 30+ country aliases with demonym suffix stripping. Fuzzy expo name matching. Month range extraction (ilk X ay → month_end), Q1-Q4 shorthand, kiyasla/compare keywords. Agent performance period support (this_week, today, etc.).
 
 ### Problem
 The most common CEO questions always require Haiku API call because router doesn't have rules for them.
@@ -1412,7 +1412,7 @@ Kural: Mevcut sistemi bozmadan, minimum risk, maximum etki.
 | # | Ne | Nasıl | Status |
 |---|-----|-------|--------|
 | 1 | Hybrid SQL scope fix | CEO-only kısıtlama — ISSUE-019 | ✅ DONE |
-| 2 | 3 yeni router rule | expo_progress, agent_performance, expo_agent_breakdown (router: 12→15 rules) | ✅ DONE |
+| 2 | Router rules expansion | 12→15→16→18→20+ rules (expo_progress, agent_performance, expo_agent_breakdown, contract_list, collection intents, target_progress, kiyasla/compare, ilk X ay) | ✅ DONE |
 | 3 | "Bilmiyorum" özelliği | METRIC_AVAILABILITY code object + keyword check (payment_balance, currency, salary, general_knowledge) | ✅ DONE |
 | 4 | Varsayımı açıkla | Sonnet prompt rules 13-14: "mention your assumption" | ✅ DONE |
 | 5 | Log zenginleştirme | rewritten_question kolonu (migration 008) | ✅ DONE |

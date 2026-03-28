@@ -316,12 +316,13 @@ Endpoint: POST /api/ai/query
 Token tracking: extractIntent() and generateAnswer() return _usage objects.
 All messages logged to message_logs table via handler.js logMessage().
 
-## Supported Intents (19 + compound)
+## Supported Intents (25 + compound)
 
 | Intent | Description |
 |--------|-------------|
 | expo_progress | Expo target progress |
-| agent_performance | Agent sales totals |
+| target_progress | Expo target vs actual |
+| agent_performance | Agent sales totals (+ period support: this_week, today, etc.) |
 | agent_country_breakdown | Agent's country distribution |
 | agent_expo_breakdown | Agent's expo distribution |
 | expo_agent_breakdown | Agents within an expo |
@@ -335,9 +336,14 @@ All messages logged to message_logs table via handler.js logMessage().
 | payment_status | Contract payment info |
 | rebooking_rate | Repeat exhibitor rate |
 | price_per_m2 | Average price per m² |
-| revenue_summary | Revenue by year |
+| revenue_summary | Revenue by year (+ month_end: "ilk 3 ay", Q1/Q2, kiyasla) |
+| contract_list | Individual contract rows ("listele"/"list") |
 | days_to_event | Days until expo start |
 | general_stats | Overall statistics |
+| collection_summary | Total outstanding/collection overview |
+| collection_no_payment | Companies with no payment |
+| collection_expo | Expo-level collection status |
+| company_collection | Company-level debt/balance query |
 | compound | Multiple questions (max 2) |
 
 ## Security

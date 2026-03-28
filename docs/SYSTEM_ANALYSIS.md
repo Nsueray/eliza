@@ -37,7 +37,7 @@ Based on code analysis:
 
 ## 2. INTENT COVERAGE ANALYSIS
 
-### Router Keyword Rules (18+ intents)
+### Router Keyword Rules (20+ intents)
 | # | Intent | Coverage Quality |
 |---|--------|-----------------|
 | 1 | days_to_event | Good — TR/EN/FR |
@@ -46,28 +46,30 @@ Based on code analysis:
 | 4 | price_per_m2 | Good — multi-scenario |
 | 5 | monthly_trend | Moderate — covers key patterns |
 | 6 | expo_progress | Good — includes multi-metric patterns (m2+gelir, kontrat+gelir) |
-| 7 | agent_performance | Good — TR/EN/FR performance patterns |
+| 7 | agent_performance | Good — TR/EN/FR performance patterns + period support |
 | 8 | expo_agent_breakdown | Good — "kim satmis" + expo patterns |
 | 9 | top_agents | Good — includes "satis yapmayan" |
 | 10 | agent_country_breakdown | Moderate — 4 patterns |
 | 11 | agent_expo_breakdown | Moderate — 3 patterns |
 | 12 | exhibitors_by_country | Moderate |
 | 13 | country_count | Good — TR/EN/FR |
-| 14 | revenue_summary | Excellent — many time-period variations |
-| 15 | expo_list | Good — risk + general |
+| 14 | revenue_summary | Excellent — time-period + month range + compare keywords |
+| 15 | contract_list | Good — listele/list keywords for individual rows |
+| 16 | expo_list | Good — risk + general |
 
-### buildQuery Intents (19 intents)
+### buildQuery Intents (25 intents)
 | Intent | In Router? | SQL Quality |
 |--------|-----------|-------------|
 | expo_progress | Yes | Good — JOINs expos + edition_contracts, multi-metric |
-| agent_performance | Yes | Good — expo variant + plain variant |
+| agent_performance | Yes | Good — expo variant + plain variant + period support |
 | agent_country_breakdown | Yes | Good |
 | agent_expo_breakdown | Yes | Good |
 | expo_agent_breakdown | Yes | Good |
 | country_count | Yes | Good |
 | exhibitors_by_country | Yes | Good — expo-specific + general |
 | top_agents | Yes | Good — period/relative_days variants |
-| revenue_summary | Yes | Excellent — 6 time period variants |
+| revenue_summary | Yes | Excellent — 6 time period + month range + compare variants |
+| contract_list | Yes | Good — period/agent/expo filters, individual rows |
 | expo_list | Yes | Good — risk + year + upcoming |
 | expo_company_list | No | Good — GROUP BY prevents duplicates |
 | monthly_trend | Yes | Good — agent variant |
@@ -102,9 +104,9 @@ These intents can ONLY be reached via Haiku Semantic Frame fallback:
 
 ### Intent Flow Summary
 ```
-Question → Router (18+ rules, 0 API)
+Question → Router (20+ rules, 0 API)
   -> match → buildQuery directly
-  -> no match → Haiku Semantic Frame (19 valid intents)
+  -> no match → Haiku Semantic Frame (25 valid intents)
     -> classified → Ambiguity Gate
       -> unanswerable → refuse
       -> critical → clarification (year > expo > metric)
@@ -113,7 +115,7 @@ Question → Router (18+ rules, 0 API)
       -> SQL generated → execute with timeout
       -> NO_QUERY → fallback to general_stats template
 
-Special redirect: revenue_summary + expo_name → expo_progress (edition view)
+Special redirects: revenue_summary + expo_name → expo_progress (edition view), revenue_summary + agent_name → agent_performance (agent filter)
 ```
 
 ---
@@ -143,7 +145,7 @@ Quality rules in `generateAnswer()`:
 - Currency: TR "EUR76.715", EN "EUR76,715", FR "76 715 EUR"
 - Max 5 rows + "... ve X sonuc daha" + dashboard link
 - Data rows are NOT sent to WhatsApp (only Sonnet answer)
-- Dashboard deep links: 11 expo intents → /expos?year=YYYY, 7 sales intents → / (War Room)
+- Dashboard deep links: 11 expo intents → /expos?year=YYYY, 8 sales intents → /sales
 
 ---
 
@@ -200,9 +202,9 @@ Quality rules in `generateAnswer()`:
 
 | Component | Status | Score |
 |-----------|--------|-------|
-| Intent Router | 18+ rules, covers most patterns | 85% |
+| Intent Router | 20+ rules, covers most patterns | 88% |
 | Semantic Frame | Haiku structured extraction + ambiguity gate | 90% |
-| SQL Templates | 19 intents, well-structured | 90% |
+| SQL Templates | 25 intents, well-structured | 90% |
 | Scope Enforcement | Templates + hybrid (CEO-only) | 90% |
 | Conversation Memory | Conservative rewrite + always-independent bypass | 90% |
 | Language Detection | Accent-normalized, word-boundary, 3 languages | 90% |

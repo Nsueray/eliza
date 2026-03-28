@@ -87,7 +87,10 @@ Agent — own data (data_scope: own)
 - North star: Semantic Frame + Ambiguity Gate + DSL Compiler (future)
 - Completed: hybrid SQL CEO-only, 3 router rules, unavailability response, assumption transparency, log enrichment
 - Principle: "Assume transparently, clarify selectively, fail honestly"
-- Router: 15 rules (was 12), Haiku fallback for remaining intents
+- Router: 20+ rules (was 12→15→16→18→20+), Haiku fallback for remaining intents
+- Intent redirects: revenue_summary+expo→expo_progress, revenue_summary+agent→agent_performance
+- New intents: contract_list, target_progress, collection_summary, collection_no_payment, collection_expo, company_collection
+- Month range: "ilk X ay"→month_end, Q1-Q4 shorthand, kiyasla/compare keywords
 - Unavailability: payment_balance, currency, salary, general_knowledge → honest refusal
 - Benchmark: 96% PASS (48/50)
 
