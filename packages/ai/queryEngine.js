@@ -869,16 +869,28 @@ function buildQuery(intent, entities) {
         };
       }
       const yf = buildYearFilter(e, 'contract_date', 1);
+      // Month range filter: "ilk 3 ay" → BETWEEN 1 AND 3, Q1/Q2/Q3/Q4
+      let monthRangeClause = '';
+      const monthRangeParams = [];
+      if (e.month_end) {
+        const monthStart = e.month || 1;
+        monthRangeClause = ` AND EXTRACT(MONTH FROM contract_date) >= $${yf.nextIndex} AND EXTRACT(MONTH FROM contract_date) <= $${yf.nextIndex + 1}`;
+        monthRangeParams.push(monthStart, e.month_end);
+      } else if (e.month) {
+        monthRangeClause = ` AND EXTRACT(MONTH FROM contract_date) = $${yf.nextIndex}`;
+        monthRangeParams.push(e.month);
+      }
       return {
         sql: `SELECT
           EXTRACT(YEAR FROM contract_date)::integer AS year,
           COUNT(*) AS contracts,
+          COALESCE(SUM(m2),0) AS total_m2,
           COALESCE(ROUND(SUM(revenue_eur)::numeric,2),0) AS revenue_eur
         FROM edition_contracts
         WHERE contract_date IS NOT NULL
-          ${yf.clause}
+          ${yf.clause}${monthRangeClause}
         GROUP BY year ORDER BY year`,
-        params: [...yf.params],
+        params: [...yf.params, ...monthRangeParams],
       };
     }
 
@@ -1883,8 +1895,11 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
     const parentEntities = {};
     if (entities.expo_name) parentEntities.expo_name = entities.expo_name;
     if (entities.year) parentEntities.year = entities.year;
+    if (entities.years) parentEntities.years = entities.years;
     if (entities.agent_name) parentEntities.agent_name = entities.agent_name;
     if (entities.country) parentEntities.country = entities.country;
+    if (entities.month) parentEntities.month = entities.month;
+    if (entities.month_end) parentEntities.month_end = entities.month_end;
 
     const subItems = entities.questions.slice(0, 2);
     const results = await Promise.all(subItems.map(async (q) => {

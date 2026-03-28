@@ -504,6 +504,16 @@ const RULES = [
       ['son iki yil'],
       ['last 2 year'],
       ['last two year'],
+      ['kiyasla'],
+      ['karsilastir'],
+      ['compare', 'sales'],
+      ['compare', 'revenue'],
+      ['compare', 'contract'],
+      ['comparer'],
+      ['ilk', 'ay', 'satis'],
+      ['ilk', 'ay', 'gelir'],
+      ['ilk', 'ay', 'sozlesme'],
+      ['ilk', 'ay', 'kontrat'],
     ],
   },
 
@@ -609,6 +619,19 @@ function extractEntities(norm, original) {
         break;
       }
     }
+  }
+
+  // Month range: "ilk 3 ay" (first 3 months), "first 6 months", "premiers 3 mois"
+  const monthRangeMatch = norm.match(/ilk (\d+) ay|first (\d+) month|premiers? (\d+) mois/);
+  if (monthRangeMatch) {
+    entities.month_end = parseInt(monthRangeMatch[1] || monthRangeMatch[2] || monthRangeMatch[3]);
+  }
+  // Q1/Q2/Q3/Q4 shorthand
+  const quarterMatch = norm.match(/\bq([1-4])\b/);
+  if (quarterMatch) {
+    const q = parseInt(quarterMatch[1]);
+    entities.month = (q - 1) * 3 + 1;    // quarter start month
+    entities.month_end = q * 3;           // quarter end month
   }
 
   // Period: today / yesterday
