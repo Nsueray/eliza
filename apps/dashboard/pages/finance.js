@@ -1,5 +1,6 @@
 import Head from "next/head";
 import Nav from "@/components/Nav";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Chart as ChartJS,
@@ -407,6 +408,7 @@ export default function FinancePage() {
 
       <div className="page">
         <Nav subtitle="Collections Cockpit" />
+        <DataSourceBadge mode={mode} />
 
         {/* MODE TOGGLE */}
         <div className="mode-bar">

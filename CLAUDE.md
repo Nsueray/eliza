@@ -619,6 +619,17 @@ Design System:
 - Responsive: @media (max-width: 768px) and @media (max-width: 480px) in design-system.css
 - Page-specific styles: kept in <style jsx> blocks (not global)
 
+Data Source Badge:
+- Component: components/DataSourceBadge.js — shows which data view is active
+- Used on all data pages: War Room, Expo Directory, Expo Detail, Sales, Finance, Targets
+- Shows: view name (Fiscal/Edition), included statuses, ELAN EXPO exclusion
+- Collapsible: click to expand full detail (source table, includes/excludes, purpose, tip)
+- Dynamic: pages with mode toggle (War Room, Finance, Targets) pass `mode` prop
+- Fixed: Sales always fiscal, Expo Directory/Detail always edition
+- Responsive: detail text hidden on mobile (<480px)
+- Fiscal View: fiscal_contracts (Valid + Transferred Out), excl. ELAN EXPO
+- Edition View: edition_contracts (Valid + Transferred In)
+
 Auth System:
 - Login: /login → POST /api/auth/login → JWT token → localStorage
 - Session: Bearer token in Authorization header
@@ -1214,6 +1225,11 @@ Completed (cont. 7):
   - queryEngine: revenue_summary default handler month_end filtresi (BETWEEN 1 AND month_end)
   - queryEngine: revenue_summary default handler artık total_m2 de döndürüyor
   - queryEngine: compound handler month/month_end/years parent entity inheritance
+- Data Source Badge (Dashboard transparency)
+  - components/DataSourceBadge.js: collapsible badge showing active data view
+  - Added to 6 pages: War Room, Expo Directory, Expo Detail, Sales, Finance, Targets
+  - Dynamic mode on toggle pages (War Room, Finance, Targets), fixed on others
+  - Shows: view name, included statuses, exclusions, purpose, cross-reference tip
 
 # 29. Conversation Memory (Phase 12)
 Location: packages/ai/conversationMemory.js

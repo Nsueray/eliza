@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Nav from "@/components/Nav";
+import DataSourceBadge from "@/components/DataSourceBadge";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api";
 
@@ -316,6 +317,7 @@ export default function ExposPage() {
       <div className="page">
         {/* HEADER */}
         <Nav subtitle="Expo Directory" />
+        <DataSourceBadge mode="edition" />
 
         {/* TOOLBAR */}
         <div className="toolbar">

@@ -11,6 +11,7 @@ import {
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import Nav from "@/components/Nav";
+import DataSourceBadge from "@/components/DataSourceBadge";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -775,6 +776,7 @@ export default function WarRoom() {
 
       <div className="page">
         <Nav subtitle="War Room" />
+        <DataSourceBadge mode={mode} />
 
         {/* CLOCK */}
         <div className="wr-clock">

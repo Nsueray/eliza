@@ -1,5 +1,6 @@
 import Head from "next/head";
 import Nav from "@/components/Nav";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
@@ -517,6 +518,7 @@ export default function TargetsPage() {
 
       <div className="page">
         <Nav subtitle="Target Tracker" />
+        <DataSourceBadge mode={mode} />
 
         {/* Control bar */}
         <div className="target-control">

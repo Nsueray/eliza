@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Nav from "@/components/Nav";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -494,6 +495,7 @@ export default function ExpoDetailPage() {
       <div className="page">
         {/* HEADER */}
         <Nav subtitle="Expo Detail" />
+        <DataSourceBadge mode="edition" />
 
         <a href={`/expos?year=${year || "2026"}`} className="back-link">{"\u2190"} Back to Expo Directory</a>
 

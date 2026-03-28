@@ -1,5 +1,6 @@
 import Head from "next/head";
 import Nav from "@/components/Nav";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import {
@@ -474,6 +475,7 @@ export default function SalesPage() {
       <div className="page">
         {/* HEADER */}
         <Nav subtitle="Fiscal Sales Performance" />
+        <DataSourceBadge mode="fiscal" />
 
         {/* PERIOD FILTER BAR */}
         <div className="period-bar">

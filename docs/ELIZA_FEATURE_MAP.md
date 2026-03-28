@@ -111,6 +111,12 @@ Agent — own data (data_scope: own)
 - API: /api/intelligence/*, /api/system/status, enhanced /api/logs
 - UI: plain text labels (no emoji unicode escapes), DM Mono monospace throughout
 
+## Data Source Badge
+- DataSourceBadge component: shows which data view is active (Fiscal/Edition) on all data pages
+- Collapsible: click to see source table, includes/excludes, purpose, cross-reference tip
+- Pages: War Room, Expo Directory, Expo Detail, Sales, Finance, Targets
+- Dynamic mode on toggle pages, fixed on single-view pages
+
 ## Copy to Clipboard
 - /admin/logs: per-message Copy button copies MESSAGE, REWRITE, INTENT, MODEL, RESPONSE, TOKENS, DURATION, ERROR
 - Stateful CopyButton component: "Copy" → "Copied!" (green, 2s) → "Copy"
