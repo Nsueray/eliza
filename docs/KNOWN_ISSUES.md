@@ -460,3 +460,17 @@ Rules:
 3. Added "sozlesme" variant to all time period keywords (today, yesterday, this week, last week) in revenue_summary.
 4. Split table approach: separate header table + scrollable body table with matching colgroup.
 **Files:** packages/ai/queryEngine.js, packages/ai/router.js, apps/dashboard/pages/finance.js, apps/whatsapp-bot/src/handler.js
+
+---
+
+## [ISSUE-037] Zoho API credit exhaustion — 94,162 credits/day vs 58,000 limit
+**Status:** FIXED (2026-03-27, commit e2b9aba)
+**First seen:** 2026-03-27
+**Description:** Zoho API dashboard showed 94,162/58,000 credits consumed in 24 hours (162% of limit). Grace period activated.
+**Root cause:** syncSalesOrders.js Received_Payment second pass fetched each paid contract individually (GET /Sales_Orders/{id}) on every sync. ~962 paid contracts × 96 syncs/day = 92,352 credits/day. List sync added 1,824/day. Total ~94,176/day.
+**Fix:**
+1. Sync interval: `*/15 * * * *` → `0 * * * *` (hourly, 96→24 syncs/day)
+2. syncPaymentsPass() extracted as standalone function, removed from main sync loop
+3. New cron `0 6,18 * * *` — payment sync runs only at 06:00 and 18:00 UTC
+**Result:** ~2,380 credits/day (97.5% reduction). Payment data updates twice daily — acceptable for CEO decision support.
+**Files:** packages/zoho-sync/scheduler.js, packages/zoho-sync/syncSalesOrders.js

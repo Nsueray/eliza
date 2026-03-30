@@ -128,11 +128,38 @@
 - Bot: https://eliza-bot-r1vx.onrender.com
 - WhatsApp: +1 810-255-5377
 
+## Recently Completed
+
+### DataSourceBadge + Month Range / Quarter Comparison (2026-03-28, commit a2145f2)
+- DataSourceBadge component: her sayfada veri kaynağı göstergesi (Fiscal View: Valid + Transferred Out | edition vs fiscal açıklaması, tıklanınca detay açılır)
+- Sayfa bazlı mode tablosu: Sales (fiscal), Expo Directory (edition), Expo Detail (edition), War Room/Finance/Targets (toggle)
+- Month range support: "Ocak-Mart arası", "Q1", "ilk çeyrek" gibi sorgular
+- Quarter comparison: "Q1 vs Q2", "bu çeyrek geçen yıla göre" karşılaştırma sorguları
+
+### Zoho API Optimization (2026-03-27, commit e2b9aba + 069ee07)
+- Sync interval: 15 dakika → saatte bir
+- Payment second pass: her sync'te → günde 2 kez (06:00 + 18:00 UTC)
+- API kullanımı: 94,162 → ~2,380 kredi/gün (%97.5 düşüş)
+- Syntax error fix: syncSalesOrders.js'teki fazla } kaldırıldı, scheduler tekrar çalışıyor
+
+### Weekly Contract Query Fixes (2026-03-27, commit 51bf640)
+- Agent filter: revenue_summary + agent_name → agent_performance redirect
+- Period support: this_week/last_week/today/yesterday/this_month agent_performance'a eklendi
+- Yeni intent: contract_list — bireysel sözleşme satırları, period/agent/expo filtreleri
+
 ## In Progress
 
 (none currently)
 
 ## Next Phases
+
+### ELL Platform — Zoho Replacement Long-term Vision
+- ELL = ELIZA + LİFFY + LEENA — üç sistemin tek platformda birleşimi
+- LİFFY: CRM + satış zinciri (lead → contact → quote → contract → revenue) — Zoho Sales'ın yerini alacak
+- LEENA: Fuar operasyonları (kat planları, kataloglar, post-show raporlar, fuar websiteleri) — Zoho Events'in yerini alacak
+- ELIZA: CEO karar destek + intelligence layer — her iki sistemden okur, yazmaz
+- Geçiş stratejisi: Zoho sync → LİFFY/LEENA olgunlaştıkça Zoho modülleri tek tek devre dışı
+- Detaylar: docs/ELL_ROADMAP.md (oluşturulacak)
 
 ### Phase 12c: CEO Notes with Semantic Recall
 - .note command + entity matching

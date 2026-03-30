@@ -1311,4 +1311,4 @@ Excluded from year clarification: rebooking_rate (cross-edition by nature), days
 Ambiguity flags cleaned up (deleted from entities) before buildQuery to prevent interference.
 
 # currentDate
-Today's date is 2026-03-14.
+Today's date is dynamically the current date. Do not hardcode a date here.
