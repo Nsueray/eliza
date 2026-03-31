@@ -1618,6 +1618,82 @@ async function generateSQL(question, lang, user) {
   return { sql: sqlText, _usage: usage };
 }
 
+/**
+ * Speculative Disambiguation helper — run buildQuery + applyScope + query for a given intent/entities.
+ */
+async function buildAndRunQuery(intent, entities, user) {
+  try {
+    const built = buildQuery(intent, entities);
+    const scoped = applyScope(built.sql, built.params, intent, user);
+    const validatedSQL = validateSQL(scoped.sql);
+    await query('SET statement_timeout = 2000');
+    try {
+      const result = await query(validatedSQL, scoped.params);
+      return { data: result.rows };
+    } finally {
+      await query('SET statement_timeout = 0');
+    }
+  } catch {
+    return { data: [] };
+  }
+}
+
+/**
+ * Speculative Disambiguation
+ * Yıl belirtilmemişse son 2 edisyonu paralel sorgula.
+ * Sonuç aynıysa soru sormadan döndür.
+ * Farklıysa null döndür → normal clarification akışına devam et.
+ */
+async function speculativeDisambiguate(intent, entities, user) {
+  const SUPPORTED = ['expo_agent_breakdown', 'price_per_m2'];
+  if (!SUPPORTED.includes(intent)) return null;
+  if (entities.year || entities.years) return null;
+  if (!entities.expo_name) return null;
+
+  try {
+    const yearResult = await query(
+      `SELECT DISTINCT EXTRACT(YEAR FROM e.start_date)::int AS year
+       FROM expos e
+       WHERE e.name ILIKE $1 AND e.start_date IS NOT NULL
+       ORDER BY year DESC
+       LIMIT 2`,
+      [fuzzyExpoPattern(entities.expo_name)]
+    );
+
+    const years = yearResult.rows.map(r => r.year);
+    if (years.length < 2) return null;
+
+    const results = await Promise.all(
+      years.map(async (year) => {
+        try {
+          const entitiesWithYear = { ...entities, year };
+          delete entitiesWithYear.missing_year;
+          return { year, ...(await buildAndRunQuery(intent, entitiesWithYear, user)) };
+        } catch {
+          return { year, data: [] };
+        }
+      })
+    );
+
+    // Compare top result across editions
+    const tops = results.map(r => {
+      const row = r.data[0];
+      if (!row) return null;
+      return row.sales_agent || row.name || null;
+    });
+    const allSame = tops.every(t => t && t === tops[0]);
+
+    if (allSame && tops[0]) {
+      return { winner: tops[0], years, allSame: true, results };
+    }
+
+    return null;
+  } catch (err) {
+    console.error('speculativeDisambiguate error:', err.message);
+    return null;
+  }
+}
+
 // Main entry point
 async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   // Check unavailability BEFORE any API call
@@ -1742,6 +1818,17 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   // Priority: 1. year  2. expo  3. metric (multi-turn: each turn resolves one slot)
   const YEAR_CLARIFICATION_INTENTS = ['expo_progress', 'expo_agent_breakdown', 'expo_company_list', 'country_count', 'price_per_m2', 'payment_status'];
   const EXPO_CLARIFICATION_INTENTS = ['country_count', 'exhibitors_by_country', 'expo_company_list', 'expo_agent_breakdown'];
+
+  // Speculative Disambiguation — try parallel queries before asking year
+  if (entities && entities.missing_year && ['expo_agent_breakdown', 'price_per_m2'].includes(intent)) {
+    const specResult = await speculativeDisambiguate(intent, entities, user);
+    if (specResult?.allSame) {
+      entities.year = specResult.years[0];
+      delete entities.missing_year;
+      delete entities.missing_metric; // ranking question resolved — default metric is revenue
+      entities._speculative_note = `(${specResult.years.join(' ve ')} edisyonlarında da aynı sonuç)`;
+    }
+  }
 
   // 1. Year clarification (highest priority — year determines which expos are active)
   if (entities && entities.missing_year && YEAR_CLARIFICATION_INTENTS.includes(intent)) {
@@ -1972,7 +2059,10 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   const multiYearNote = entities?.years && entities.years.length > 1
     ? `\n[Multi-year query: ${entities.years.join(' + ')}. Show breakdown by year if data allows.]`
     : '';
-  answerResult = await generateAnswer(question + multiYearNote, data, lang);
+  const speculativeContext = entities?._speculative_note
+    ? `\n[Note: ${entities._speculative_note} — mention this briefly in your answer.]`
+    : '';
+  answerResult = await generateAnswer(question + multiYearNote + speculativeContext, data, lang);
   const answerUsage = answerResult._usage || { input_tokens: 0, output_tokens: 0, model: 'unknown' };
 
   // Track attention — mark entities as reviewed by CEO
