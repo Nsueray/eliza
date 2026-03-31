@@ -35,9 +35,23 @@ const PERIODS = [
   { key: "custom", label: "Custom" },
 ];
 
+// Map WhatsApp/bot period values to dashboard PERIODS keys
+const PERIOD_ALIAS = {
+  today: "today",
+  this_week: "week", week: "week",
+  this_month: "month", month: "month",
+  this_year: "year", year: "year",
+};
+
 export default function SalesPage() {
   const router = useRouter();
+  const {
+    agent: queryAgent,
+    period: queryPeriod,
+  } = router.query || {};
+
   const [period, setPeriod] = useState("year");
+  const [agentFilter, setAgentFilter] = useState("");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [summary, setSummary] = useState(null);
@@ -59,6 +73,16 @@ export default function SalesPage() {
     }
     return `period=${period}`;
   }
+
+  // Apply URL query params when router is ready
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (queryPeriod) {
+      const mapped = PERIOD_ALIAS[queryPeriod];
+      if (mapped) setPeriod(mapped);
+    }
+    if (queryAgent) setAgentFilter(queryAgent);
+  }, [router.isReady]);
 
   useEffect(() => {
     if (period === "custom" && (!customFrom || !customTo)) return;
@@ -493,6 +517,16 @@ export default function SalesPage() {
               <input type="date" className="date-input" value={customTo} onChange={e => setCustomTo(e.target.value)} />
             </>
           )}
+          {agentFilter && (
+            <span style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: 'var(--accent)', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+              AGENT: {agentFilter}
+              <button
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 14, padding: '0 2px' }}
+                onClick={() => setAgentFilter("")}
+                title="Clear agent filter"
+              >&times;</button>
+            </span>
+          )}
         </div>
 
         {summary?.period && (
@@ -558,9 +592,10 @@ export default function SalesPage() {
               <tbody>
                 {sortedAgents.map((a, i) => {
                   const share = totalAgentRevenue > 0 ? Number(a.revenue_eur || 0) / totalAgentRevenue * 100 : 0;
+                  const isHighlighted = agentFilter && (a.name || "").toLowerCase().includes(agentFilter.toLowerCase());
                   return (
-                    <tr key={i}>
-                      <td>{a.name}</td>
+                    <tr key={i} style={isHighlighted ? { background: 'rgba(200,169,122,0.12)', borderLeft: '3px solid var(--accent)' } : undefined}>
+                      <td style={isHighlighted ? { color: 'var(--accent)', fontWeight: 600 } : undefined}>{a.name}</td>
                       <td className="mono r">{fmt(a.contracts)}</td>
                       <td className="mono r">{fmt(a.m2)}</td>
                       <td className="mono r">{fmtEur(a.revenue_eur)}</td>
