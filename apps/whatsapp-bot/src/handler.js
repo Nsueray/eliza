@@ -127,48 +127,100 @@ function wrapWithPersonality(response, user, lang, isCommand, lastMessageTime) {
  * Uses entities for dynamic query params (year, expo, country, agent).
  */
 function getDashboardLink(intent, entities) {
-  const DASHBOARD_BASE = 'https://eliza.elanfairs.com';
+  const BASE = 'https://eliza.elanfairs.com';
   const year = entities?.year || new Date().getFullYear();
 
-  // Expo-related intents → Expo Directory with context filters
-  const EXPO_INTENTS = [
-    'expo_progress', 'expo_list', 'expo_agent_breakdown',
-    'expo_company_list', 'cluster_performance', 'country_count',
-    'exhibitors_by_country', 'days_to_event', 'rebooking_rate',
-    'price_per_m2', 'payment_status',
-  ];
-  if (EXPO_INTENTS.includes(intent)) {
-    let url = `${DASHBOARD_BASE}/expos?year=${year}`;
-    if (entities?.expo_name) url += `&expo=${encodeURIComponent(entities.expo_name)}`;
-    else if (entities?.country) url += `&country=${encodeURIComponent(entities.country)}`;
-    return url;
-  }
+  // Query param builder — filters out null/empty/all values
+  const qs = (params) => {
+    const p = Object.entries(params)
+      .filter(([, v]) => v != null && v !== '' && v !== 'all')
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join('&');
+    return p ? '?' + p : '';
+  };
 
-  // Agent/sales intents → War Room (has Sales Leaderboard)
-  const SALES_INTENTS = [
-    'top_agents', 'agent_performance', 'agent_country_breakdown',
-    'agent_expo_breakdown', 'monthly_trend', 'revenue_summary',
-    'contract_list', 'general_stats',
-  ];
-  if (SALES_INTENTS.includes(intent)) {
-    return `${DASHBOARD_BASE}/sales`;
-  }
+  switch (intent) {
 
-  // Target intents → Targets page
-  if (intent === 'target_progress') {
-    return `${DASHBOARD_BASE}/targets`;
-  }
+    // --- EXPO DETAIL (expo_name present → detail page) ---
+    case 'expo_progress':
+    case 'expo_agent_breakdown':
+    case 'expo_company_list':
+    case 'days_to_event':
+    case 'price_per_m2':
+    case 'rebooking_rate':
+    case 'payment_status': {
+      if (entities?.expo_name) {
+        // detail page reads ?name=X&year=Y
+        return BASE + '/expos/detail' + qs({ name: entities.expo_name, year });
+      }
+      return BASE + '/expos' + qs({ year });
+    }
 
-  // Collection/finance intents → Finance page
-  const COLLECTION_INTENTS = [
-    'collection_summary', 'collection_no_payment', 'collection_expo',
-    'company_collection',
-  ];
-  if (COLLECTION_INTENTS.includes(intent)) {
-    return `${DASHBOARD_BASE}/finance`;
-  }
+    case 'exhibitors_by_country':
+    case 'country_count': {
+      if (entities?.expo_name) {
+        return BASE + '/expos/detail' + qs({ name: entities.expo_name, year });
+      }
+      return BASE + '/expos' + qs({ year, country: entities?.country });
+    }
 
-  return null;
+    case 'cluster_performance':
+    case 'expo_list': {
+      return BASE + '/expos' + qs({ year });
+    }
+
+    // --- SALES ---
+    case 'agent_performance':
+    case 'agent_country_breakdown':
+    case 'agent_expo_breakdown': {
+      return BASE + '/sales' + qs({
+        agent: entities?.agent_name,
+        year,
+        period: entities?.period || undefined,
+      });
+    }
+
+    case 'top_agents': {
+      return BASE + '/sales' + qs({ year });
+    }
+
+    case 'revenue_summary':
+    case 'contract_list':
+    case 'general_stats': {
+      return BASE + '/sales' + qs({
+        year,
+        agent: entities?.agent_name || undefined,
+        expo: entities?.expo_name || undefined,
+        period: entities?.period || undefined,
+      });
+    }
+
+    case 'monthly_trend': {
+      return BASE + '/sales' + qs({ year });
+    }
+
+    // --- FINANCE ---
+    case 'collection_summary':
+    case 'collection_no_payment': {
+      return BASE + '/finance';
+    }
+
+    case 'collection_expo': {
+      return BASE + '/finance' + qs({ expo: entities?.expo_name });
+    }
+
+    case 'company_collection': {
+      return BASE + '/finance' + qs({ company: entities?.company_name });
+    }
+
+    // --- TARGETS ---
+    case 'target_progress': {
+      return BASE + '/targets' + qs({ year });
+    }
+
+    default:
+      return null;
+  }
 }
 
 /**
