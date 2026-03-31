@@ -1506,6 +1506,107 @@ function validateSQL(sql) {
   return sql;
 }
 
+/**
+ * Deterministic Answer Renderer — skip Sonnet for simple structured queries.
+ * Returns { rendered: true, text } or { rendered: false }.
+ */
+function tryDeterministicRender(intent, data, entities, lang) {
+  const l = lang || 'tr';
+
+  if (!data || data.length === 0) {
+    const noData = { tr: 'Bu sorgu için veri bulunamadı.', en: 'No data found for this query.', fr: 'Aucune donnée trouvée pour cette requête.' };
+    const SIMPLE = ['days_to_event', 'country_count', 'expo_list', 'expo_company_list', 'contract_list', 'top_agents'];
+    if (SIMPLE.includes(intent)) return { rendered: true, text: noData[l] || noData.tr };
+    return { rendered: false };
+  }
+
+  const fmtNum = (n) => n == null ? '—' : Number(n).toLocaleString('de-DE', { maximumFractionDigits: 0 });
+  const fmtEur = (n) => n == null ? '—' : '€' + fmtNum(n);
+  const fmtM2 = (n) => n == null ? '—' : fmtNum(n) + ' m²';
+
+  switch (intent) {
+
+    case 'days_to_event': {
+      const row = data[0];
+      const days = row.days_remaining ?? null;
+      const name = row.name || entities?.expo_name || '';
+      if (days == null) return { rendered: false };
+      const labels = {
+        tr: `${name} fuarına ${fmtNum(days)} gün kaldı.`,
+        en: `${fmtNum(days)} days until ${name}.`,
+        fr: `${fmtNum(days)} jours avant ${name}.`,
+      };
+      return { rendered: true, text: labels[l] || labels.tr };
+    }
+
+    case 'country_count': {
+      // data is rows of { country, exhibitors } — count is data.length
+      const countries = data.length;
+      const totalExhibitors = data.reduce((sum, r) => sum + (Number(r.exhibitors) || 0), 0);
+      const expoName = entities?.expo_name || '';
+      let text = expoName ? `${expoName}: ${fmtNum(countries)} ülke` : `${fmtNum(countries)} ülke`;
+      if (totalExhibitors) text += `, ${fmtNum(totalExhibitors)} firma`;
+      text += '.';
+      return { rendered: true, text };
+    }
+
+    case 'expo_list': {
+      const lines = data.slice(0, 8).map(row => {
+        const name = row.name || row.expo_name || '—';
+        const country = row.country ? ` (${row.country})` : '';
+        const date = row.start_date
+          ? ` — ${new Date(row.start_date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+          : '';
+        const contracts = row.contracts ? ` — ${fmtNum(row.contracts)} kontrat` : '';
+        return `${name}${country}${date}${contracts}`;
+      });
+      if (data.length > 8) lines.push(`... ve ${data.length - 8} fuar daha`);
+      return { rendered: true, text: lines.join('\n') };
+    }
+
+    case 'expo_company_list': {
+      const expoName = entities?.expo_name || '';
+      const header = expoName ? `${expoName} — ${data.length} firma:` : `${data.length} firma:`;
+      const lines = data.slice(0, 8).map(row => {
+        const name = row.company_name || '—';
+        const country = row.country ? ` (${row.country})` : '';
+        const m2 = row.total_m2 ? ` — ${fmtM2(row.total_m2)}` : '';
+        return `${name}${country}${m2}`;
+      });
+      if (data.length > 8) lines.push(`... ve ${data.length - 8} firma daha`);
+      return { rendered: true, text: header + '\n' + lines.join('\n') };
+    }
+
+    case 'top_agents': {
+      const lines = data.slice(0, 5).map((row, i) => {
+        const name = row.sales_agent || '—';
+        const rev = fmtEur(row.revenue_eur);
+        const contracts = row.contracts ? ` (${fmtNum(row.contracts)} kontrat)` : '';
+        const m2 = row.total_m2 ? ` ${fmtM2(row.total_m2)}` : '';
+        return `${i + 1}. ${name} — ${rev}${m2}${contracts}`;
+      });
+      if (data.length > 5) lines.push(`... ve ${data.length - 5} satışçı daha`);
+      return { rendered: true, text: lines.join('\n') };
+    }
+
+    case 'contract_list': {
+      const lines = data.slice(0, 5).map(row => {
+        const company = row.company_name || '—';
+        const expo = row.expo ? ` — ${row.expo}` : '';
+        const agent = row.sales_agent ? ` (${row.sales_agent})` : '';
+        const m2 = row.m2 ? ` ${fmtM2(row.m2)}` : '';
+        const rev = row.revenue_eur ? ` ${fmtEur(row.revenue_eur)}` : '';
+        return `${company}${expo}${agent}${m2}${rev}`;
+      });
+      if (data.length > 5) lines.push(`... ve ${data.length - 5} sözleşme daha`);
+      return { rendered: true, text: lines.join('\n') };
+    }
+
+    default:
+      return { rendered: false };
+  }
+}
+
 // STEP 4 — Answer Generator (Sonnet — quality)
 async function generateAnswer(question, data, lang) {
   const l = lang || 'tr';
@@ -2056,6 +2157,30 @@ async function run(question, _depth = 0, lang, user, resolvedEntities = null) {
   }
 
   const isCountQuery = entities?.metric === 'count';
+
+  // Deterministic render — skip Sonnet for simple structured queries
+  const deterministicResult = tryDeterministicRender(finalIntent === 'hybrid_sql' ? finalIntent : intent, data, entities, lang);
+  if (deterministicResult.rendered) {
+    trackAttention(intent, entities).catch(() => {});
+    return {
+      intent: finalIntent,
+      entities,
+      data: isCountQuery ? [] : data,
+      answer: deterministicResult.text,
+      _usage: {
+        intent_input: intentUsage.input_tokens + sqlGenUsage.input_tokens,
+        intent_output: intentUsage.output_tokens + sqlGenUsage.output_tokens,
+        intent_model: finalIntent === 'hybrid_sql' ? 'hybrid_sql' : intentUsage.model,
+        answer_input: 0,
+        answer_output: 0,
+        answer_model: 'deterministic',
+        total_input: intentUsage.input_tokens + sqlGenUsage.input_tokens,
+        total_output: intentUsage.output_tokens + sqlGenUsage.output_tokens,
+      },
+    };
+  }
+
+  // Sonnet answer generation — for complex/insight-requiring queries
   const multiYearNote = entities?.years && entities.years.length > 1
     ? `\n[Multi-year query: ${entities.years.join(' + ')}. Show breakdown by year if data allows.]`
     : '';
