@@ -174,7 +174,11 @@ router.post('/migrate', async (req, res) => {
     await query(`UPDATE users SET dashboard_permissions = dashboard_permissions || '{"targets":true}'::jsonb WHERE role = 'ceo'`);
     await query(`UPDATE users SET dashboard_permissions = dashboard_permissions || '{"targets":true}'::jsonb WHERE role = 'manager' AND dashboard_permissions IS NOT NULL AND dashboard_permissions != '{}'::jsonb`);
 
-    res.json({ success: true, message: 'Migrations 011-019 applied' });
+    // Migration 020: push Twilio tracking
+    await query(`ALTER TABLE push_log ADD COLUMN IF NOT EXISTS twilio_sid TEXT`);
+    await query(`ALTER TABLE push_log ADD COLUMN IF NOT EXISTS window_status TEXT DEFAULT 'open'`);
+
+    res.json({ success: true, message: 'Migrations 011-020 applied' });
   } catch (err) {
     console.error('Migration error:', err);
     res.status(500).json({ error: err.message });

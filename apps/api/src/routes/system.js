@@ -165,6 +165,7 @@ router.get('/push-status', async (req, res) => {
     // Recent push logs
     const logsResult = await query(`
       SELECT pl.id, pl.push_type, pl.sent_via, pl.status, pl.error_message, pl.created_at,
+             pl.twilio_sid, pl.window_status,
              u.name AS user_name
       FROM push_log pl
       JOIN users u ON u.id = pl.user_id

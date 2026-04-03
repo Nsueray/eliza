@@ -722,6 +722,30 @@ async function generatePushMessage(pushType, user) {
   }
 }
 
+/**
+ * Check if user has an active 24-hour WhatsApp session.
+ * WhatsApp Business API only allows freeform messages within 24h
+ * of the user's last inbound message.
+ */
+async function check24hWindow(user) {
+  try {
+    const phone = (user.whatsapp_phone || '').replace(/^whatsapp:/, '');
+    if (!phone) return { open: false, lastMessage: null };
+    const result = await query(`
+      SELECT created_at FROM message_logs
+      WHERE user_phone = $1
+        AND created_at > NOW() - INTERVAL '24 hours'
+      ORDER BY created_at DESC LIMIT 1
+    `, [phone]);
+    if (result.rows.length > 0) {
+      return { open: true, lastMessage: result.rows[0].created_at };
+    }
+    return { open: false, lastMessage: null };
+  } catch {
+    return { open: true, lastMessage: null }; // fail-open
+  }
+}
+
 async function sendPushMessage(user, pushType, messageText) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -733,25 +757,38 @@ async function sendPushMessage(user, pushType, messageText) {
   const to = rawTo.startsWith('whatsapp:') ? rawTo : `whatsapp:${rawTo}`;
 
   let sentVia = 'log';
+  let twilioSid = null;
+
+  // Check 24h window before sending
+  const window24h = await check24hWindow(user);
+  const windowStatus = window24h.open ? 'open' : 'expired';
+
+  if (!window24h.open) {
+    console.log(`[push] ⚠ 24h window EXPIRED for ${user.name} — message may not be delivered`);
+  }
 
   if (accountSid && authToken && rawFrom && rawTo) {
     try {
       const twilio = require('twilio')(accountSid, authToken);
-      await twilio.messages.create({
+      const msg = await twilio.messages.create({
         body: messageText,
         from,
         to,
       });
       sentVia = 'whatsapp';
+      twilioSid = msg.sid || null;
+      if (twilioSid) {
+        console.log(`[push] ${pushType} → ${user.name}: SID=${twilioSid} window=${windowStatus}`);
+      }
     } catch (err) {
       console.error(`[push] WhatsApp send failed for ${user.name}: ${err.message}`);
       sentVia = 'error';
       await query(
-        `INSERT INTO push_log (user_id, push_type, message_text, sent_via, status, error_message)
-         VALUES ($1, $2, $3, 'error', 'error', $4)`,
-        [user.id, pushType, messageText, err.message]
-      );
-      return { sent: false, via: sentVia, error: err.message };
+        `INSERT INTO push_log (user_id, push_type, message_text, sent_via, status, error_message, window_status)
+         VALUES ($1, $2, $3, 'error', 'error', $4, $5)`,
+        [user.id, pushType, messageText, err.message, windowStatus]
+      ).catch(() => {});
+      return { sent: false, via: sentVia, error: err.message, windowStatus };
     }
   } else {
     console.log(`[push] No Twilio credentials — logging only for ${user.name}`);
@@ -760,14 +797,14 @@ async function sendPushMessage(user, pushType, messageText) {
     console.log('---');
   }
 
-  // Log successful send
+  // Log with Twilio SID and window status
   await query(
-    `INSERT INTO push_log (user_id, push_type, message_text, sent_via, status)
-     VALUES ($1, $2, $3, $4, 'sent')`,
-    [user.id, pushType, messageText, sentVia]
-  );
+    `INSERT INTO push_log (user_id, push_type, message_text, sent_via, status, twilio_sid, window_status)
+     VALUES ($1, $2, $3, $4, 'sent', $5, $6)`,
+    [user.id, pushType, messageText, sentVia, twilioSid, windowStatus]
+  ).catch(() => {});
 
-  return { sent: true, via: sentVia };
+  return { sent: true, via: sentVia, twilioSid, windowStatus };
 }
 
 async function processPushType(pushType) {

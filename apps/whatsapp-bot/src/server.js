@@ -13,7 +13,7 @@ app.use(express.json());
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ELIZA WhatsApp Bot running', version: '72b0a35', timestamp: new Date() });
+  res.json({ status: 'ELIZA WhatsApp Bot running', version: 'c52684b', timestamp: new Date() });
 });
 
 // Twilio webhook — incoming WhatsApp messages
