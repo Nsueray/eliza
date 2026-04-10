@@ -31,25 +31,26 @@
 | 005 | [ELIZA writes authority data, not field data](ADR-005-eliza-write-policy.md) | DECIDED | 2026-04-10 | Architecture |
 | 006 | [Transient agents access LİFFY only](ADR-006-agent-firewall.md) | DECIDED | 2026-04-10 | Security |
 | 007 | [Floorplan owned by LEENA, consumed by LİFFY](ADR-007-floorplan-ownership.md) | DECIDED | 2026-04-10 | Architecture |
-| 008 | [Zoho exit timeline](ADR-008-zoho-exit-timeline.md) | OPEN | 2026-04-10 | Strategy |
-| 009 | [Sales team adoption strategy](ADR-009-sales-adoption.md) | OPEN | 2026-04-10 | Operations |
-| 010 | [Floorplan integration depth](ADR-010-floorplan-integration-depth.md) | OPEN | 2026-04-10 | Architecture |
-| 011 | [Payment authority scope](ADR-011-payment-authority.md) | OPEN | 2026-04-10 | Business Rule |
-| 012 | [Historical data migration scope](ADR-012-historical-migration-scope.md) | OPEN | 2026-04-10 | Migration |
-| 013 | [SaaS priority level](ADR-013-saas-priority.md) | OPEN | 2026-04-10 | Strategy |
+| 008 | [Zoho exit: parallel, target Jan 2027](ADR-008-zoho-exit-timeline.md) | DECIDED | 2026-04-10 | Strategy |
+| 009 | [Sales adoption: pilot Bengü first, value-first positioning](ADR-009-sales-adoption.md) | DECIDED | 2026-04-10 | Operations |
+| 010 | [Floorplan: not Phase 1, CRM first, dual-layer architecture](ADR-010-floorplan-integration-depth.md) | DECIDED | 2026-04-10 | Architecture |
+| 011 | [Payment authority: CEO+Yaprak full, local offices form-only](ADR-011-payment-authority.md) | DECIDED | 2026-04-10 | Business Rule |
+| 012 | [Historical migration: full 2014-2027, all data](ADR-012-historical-migration-scope.md) | DECIDED | 2026-04-10 | Migration |
+| 013 | [SaaS: long-term option, not priority, keep door open](ADR-013-saas-priority.md) | DECIDED | 2026-04-10 | Strategy |
 
 ---
 
-## Pending Questions
+## Key Insights Captured
 
-Questions from ELL Architecture v2.1 that need answers before or during execution:
+These business insights emerged during decision discussions and are critical for implementation:
 
-- [ ] **ADR-008:** Zoho exit — parallel operation vs hard cutover?
-- [ ] **ADR-009:** LİFFY quote submission — replace Zoho immediately or run parallel?
-- [ ] **ADR-010:** Floorplan in LİFFY — real-time availability or static list?
-- [ ] **ADR-011:** Payment recording — who beyond Yaprak gets this permission?
-- [ ] **ADR-012:** Zoho history — migrate all 10+ years or only 2024-2027?
-- [ ] **ADR-013:** SaaS for LİFFY/LEENA — near-term revenue goal or long-term option?
+1. **Floorplan is a sales weapon** (ADR-010) — Agents create hundreds of custom floorplans per prospect. They put competitors on the map (even unsigned ones) to create urgency. Two layers needed: master (LEENA, immutable) and sales copies (LİFFY, per-agent, per-prospect).
+
+2. **Adoption through value, not force** (ADR-009) — Position LİFFY as "makes your job easier" not "Zoho is going away." Start with what LİFFY does better (data mining, campaigns), then grow into CRM.
+
+3. **Local offices need restricted forms** (ADR-011) — Local accountants record payments via limited forms that push to ELIZA. They cannot edit, delete, or see other countries' data. Mirrors current Zoho model.
+
+4. **Campaign → CRM gap** (ADR-009, ADR-010) — LİFFY currently has no post-campaign data management. Agents send campaigns but can't manage responses in LİFFY. This is the #1 gap to close before quote features.
 
 ---
 
