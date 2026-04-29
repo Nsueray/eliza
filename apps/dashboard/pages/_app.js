@@ -15,6 +15,7 @@ const ROUTE_PERMISSIONS = {
   "/admin/logs": "logs",
   "/admin/intelligence": "intelligence",
   "/admin/system": "system",
+  "/admin/reference": "system",
   "/admin": "users",
   "/admin/users/new": "users",
   "/admin/users/[id]": "users",

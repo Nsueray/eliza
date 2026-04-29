@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/logs", label: "Logs", permission: "logs" },
   { href: "/admin/intelligence", label: "Intelligence", permission: "intelligence" },
   { href: "/admin/system", label: "System", permission: "system" },
+  { href: "/admin/reference", label: "Reference", permission: "system" },
   { href: "/admin", label: "Users", exact: true, permission: "users" },
   { href: "/settings", label: "Settings", permission: "settings" },
 ];

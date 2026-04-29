@@ -122,6 +122,14 @@ Key tables:
 - alerts
 - whatsapp_messages
 - message_logs (token tracking, intent, model split)
+ELL Reference Data (shared across ELIZA, LiFTY, LEENA):
+- core_countries (ISO 3166 — code CHAR(2) PK, code3, name_en/tr/fr, region)
+- core_sectors (hierarchical — id PK, parent_id self-ref, slug UNIQUE, level 1/2)
+- core_currencies (ISO 4217 — code CHAR(3) PK, name_en, symbol)
+- core_languages (ISO 639-1 — code CHAR(2) PK, name_en, name_native)
+Owner: ELIZA writes, LiFTY/LEENA read only (ELL_RULES.md R1, R9).
+Migrations: 021-024. API: /api/reference/{countries,sectors,currencies,languages}
+Admin UI: /admin/reference (system permission required)
 Full schema defined in:
 docs/architecture/ELIZA_SYSTEM_ARCHITECTURE.md
 All database access must go through:
