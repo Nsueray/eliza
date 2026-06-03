@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { query } = require('@eliza/db');
+const { query } = require('../../../../packages/db/index.js');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'eliza-dashboard-secret-key-change-in-production';
