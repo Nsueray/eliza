@@ -1,5 +1,6 @@
 import "@/styles/design-system.css";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { loginUrlWithReturnTo } from "@/lib/authRedirect";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
 
@@ -28,7 +29,7 @@ function AuthGuard({ children }) {
 
   useEffect(() => {
     if (!loading && !user && !PUBLIC_PATHS.includes(router.pathname)) {
-      router.replace("/login");
+      router.replace(loginUrlWithReturnTo(router.asPath));
     }
   }, [user, loading, router.pathname]);
 

@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/lib/auth";
+import { safeReturnTo } from "@/lib/authRedirect";
 
 export default function Login() {
   const [identifier, setIdentifier] = useState("");
@@ -18,7 +19,9 @@ export default function Login() {
     setLoading(true);
     try {
       await login(identifier, password, remember);
-      router.replace("/");
+      // returnTo varsa (ve güvenli iç path'se) oraya, yoksa varsayılan "/"
+      const dest = safeReturnTo(router.query.returnTo) || "/";
+      router.replace(dest);
     } catch (err) {
       setError(err.message || "Invalid credentials");
     } finally {
