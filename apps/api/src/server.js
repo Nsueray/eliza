@@ -1,6 +1,15 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
+
+// Faz 2a: JWT_SECRET is mandatory — refuse to boot with no/blank secret.
+// (No fallback default secret is allowed; a missing secret must fail loudly.)
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. ELIZA API refuses to start (no fallback secret).');
+  process.exit(1);
+}
+
 const express = require('express');
+const { authRequired } = require('./middleware/auth');
 
 const expoRoutes = require('./routes/expos');
 const salesRoutes = require('./routes/sales');
@@ -24,8 +33,19 @@ const PORT = process.env.PORT || 3001;
 
 app.use(express.json());
 
+// CORS — restricted to the dashboard origin(s) from env (comma-separated list).
+// Empty list => no cross-origin Allow-Origin header is emitted (secure default).
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
@@ -35,6 +55,11 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({ status: 'ELIZA API running', version: '35c3157', timestamp: new Date() });
 });
+
+// Faz 2a: global JWT auth on the whole /api tree (public exceptions live inside
+// the middleware — only POST /api/auth/login is open). This single mount point
+// replaces the LIFFY per-route pattern; no route can be accidentally left open.
+app.use('/api', authRequired);
 
 app.use('/api/expos', expoRoutes);
 app.use('/api/sales', salesRoutes);

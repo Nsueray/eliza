@@ -1,8 +1,12 @@
 import "@/styles/design-system.css";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { loginUrlWithReturnTo } from "@/lib/authRedirect";
+import { installAuthFetch } from "@/lib/api";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
+
+// Faz 2a: install the auth fetch interceptor once, before any page renders.
+installAuthFetch();
 
 const PUBLIC_PATHS = ["/login", "/unauthorized"];
 

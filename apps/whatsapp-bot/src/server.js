@@ -1,6 +1,7 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
 const express = require('express');
+const twilio = require('twilio');
 const { authenticate } = require('./auth.js');
 const { handleMessage } = require('./handler.js');
 
@@ -18,6 +19,22 @@ app.get('/health', (req, res) => {
 
 // Twilio webhook — incoming WhatsApp messages
 app.post('/webhook', async (req, res) => {
+  // Faz 2a: verify the request really came from Twilio (X-Twilio-Signature).
+  // Fail closed if the token or signature is missing/invalid. This is the first
+  // layer; the per-user authenticate(from) phone check below is the second.
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const signature = req.headers['x-twilio-signature'];
+  const proto = req.headers['x-forwarded-proto'] || req.protocol;
+  const url = `${proto}://${req.headers.host}${req.originalUrl}`;
+  const signatureValid =
+    Boolean(authToken) &&
+    Boolean(signature) &&
+    twilio.validateRequest(authToken, signature, url, req.body);
+  if (!signatureValid) {
+    console.warn(`[webhook] Rejected: invalid/missing Twilio signature (from header=${req.body.From || 'n/a'})`);
+    return res.status(403).send('Forbidden: invalid Twilio signature');
+  }
+
   const from = req.body.From || '';       // "whatsapp:+905..."
   const body = req.body.Body || '';       // message text
   const profileName = req.body.ProfileName || '';
