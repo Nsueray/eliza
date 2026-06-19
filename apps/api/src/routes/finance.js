@@ -351,10 +351,15 @@ router.get('/contract/:id/detail', async (req, res) => {
   try {
     const contractId = req.params.id;
 
+    // c.* surfaces the Convert Slice 1 columns automatically (sales_agent_id, sales_owner_user_id,
+    // company_id, source_quote_id, converted_by_user_id, converted_at). The sales_agents join
+    // resolves the new UUID agent FK to a name/type when set (NULL until Slice 3 links it).
     const contract = await query(`
-      SELECT c.*, e.name AS expo_name, e.country AS expo_country, e.start_date AS expo_start_date
+      SELECT c.*, e.name AS expo_name, e.country AS expo_country, e.start_date AS expo_start_date,
+             sa.name AS sales_agent_resolved_name, sa.agent_type AS sales_agent_type
       FROM contracts c
       LEFT JOIN expos e ON c.expo_id = e.id
+      LEFT JOIN sales_agents sa ON sa.id = c.sales_agent_id
       WHERE c.id = $1
     `, [contractId]);
 

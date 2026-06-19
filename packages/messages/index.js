@@ -105,9 +105,12 @@ const TEMPLATES = {
  * Returns { name, phone_number, preferred_language, office } or null.
  */
 async function resolveRecipient(name) {
+  // Reads sales_agents_legacy (the renamed table holding the 109 Zoho-string agents).
+  // The new `sales_agents` (migration 026) is the Convert target and stays empty until the
+  // Slice 3 backfill — so .msg recipient resolution must keep reading the legacy table.
   const result = await query(`
     SELECT name, phone_number, preferred_language, office
-    FROM sales_agents
+    FROM sales_agents_legacy
     WHERE name ILIKE $1
     ORDER BY name
     LIMIT 1
