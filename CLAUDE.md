@@ -65,7 +65,7 @@ Backend: Node.js + Express
 Database: PostgreSQL  
 Frontend: Next.js (future phase)  
 Messaging: WhatsApp via Twilio (sandbox kurulu, production henuz degil)
-AI: Claude or OpenAI
+AI: Anthropic (Claude)
 ---
 # 5. Data Ownership Rule
 Zoho CRM remains the **operational source of truth**.
@@ -376,7 +376,7 @@ Access control implemented:
 - Manager — team data, data_scope: team
 - Agent — own data, data_scope: own
 - Auth: users tablosundan WhatsApp phone lookup
-- Kullanıcılar: CEO (Nihat Suer AY), Elif AY (manager/team)
+- Kullanıcılar: CEO, <temsilci> (manager/team)
 
 Dashboard Permissions (granular module access):
 - Stored in: users.dashboard_permissions JSONB
@@ -407,10 +407,10 @@ These are the real Zoho CRM API names. Always use API Name in code, never displa
 | Display Name    | API Name        | ELIZA Table   |
 |-----------------|-----------------|---------------|
 | Sales Contracts | Sales_Orders    | contracts     |
-| Expenses        | Expensess       | expenses      |
+| Expenses        | Expensess       | expenses (çekilmiyor) |
 | Expos           | Vendors         | expos         |
-| Sales Agents    | Sales_Agents    | sales_agents  |
-| Companies       | Accounts        | exhibitors    |
+| Sales Agents    | Sales_Agents    | sales_agents (çekilmiyor) |
+| Companies       | Accounts        | exhibitors (çekilmiyor) |
 | Workqueue       | Workqueue__s    |               |
 | Analytics       | Analytics       |               |
 | Leads           | Leads           |               |
@@ -456,9 +456,12 @@ Vendors (Expos) key fields:
 
 Primary modules for ELIZA sync:
 - Sales Contracts → Sales_Orders → contracts table
-- Expenses → Expensess → expenses table
 - Expos → Vendors → expos table
+
+Çekilmiyor (packages/zoho-sync'te çağrı yok — envanter 2026-10-26 §2.3):
+- Expenses → Expensess → expenses table
 - Sales Agents → Sales_Agents → sales_agents table
+- Companies → Accounts → exhibitors table
 
 ## Sync Tracking
 - contracts tablosu: created_at, updated_at (TIMESTAMP DEFAULT NOW())
@@ -637,7 +640,6 @@ Auth System:
 - CEO can set passwords via POST /api/auth/set-password
 - Migration: packages/db/migrations/011_user_auth.sql (password_hash, last_login, dashboard_permissions)
 - dashboard_permissions JSONB: { war_room, expo_directory, expo_detail, sales, finance, targets, logs, intelligence, system, users, settings }
-- Initial CEO password: eliza2026 (change in production)
 
 Expo Directory → Detail:
 - Table rows clickable → navigates to /expos/detail?name=X&year=Y
@@ -877,7 +879,7 @@ Completed: Intelligence Roadmap v4 Immediate Plan, Mini Clarification System, Ad
 Benchmark: 96% PASS (48/50)
 
 # 24. Infrastructure & Environment
-Repository: https://github.com/Nsueray/eliza (public, main branch)
+Repository: https://github.com/Nsueray/eliza (private, main branch)
 Local: PostgreSQL localhost:5432/eliza, API port 3001
 Production (Render):
   Dashboard: https://eliza.elanfairs.com (custom domain, eliza-dashboard.onrender.com)
@@ -948,7 +950,7 @@ Veri Formatlama:
 - Sales intents (7): top_agents, agent_performance, agent_country_breakdown, agent_expo_breakdown, monthly_trend, revenue_summary, general_stats
 
 Expo Directory (/expos) Features:
-- Query params: ?year=2026&expo=SIEMA&country=Morocco&agent=Elif → auto pre-fill search filter
+- Query params: ?year=2026&expo=SIEMA&country=Morocco&agent=<temsilci> → auto pre-fill search filter
 - Export bar: Copy (clipboard tab-separated) | CSV | Excel | PDF
 - Excel/PDF via npm packages (xlsx, jspdf, jspdf-autotable) with dynamic import()
 - PDF: landscape, ELIZA branded header, date + filter info, dark header with gold text
@@ -979,7 +981,7 @@ Sablonlar (4 tip, 3 dil — TR/EN/FR):
 
 Dil kurali:
 - sales_agents.preferred_language alanından otomatik seçilir
-- Elif → TR, Meriem → FR, diğerleri → EN
+- Örnek: <temsilci> → TR, <temsilci> → FR, diğerleri → EN
 
 WhatsApp komutu:
 - .msg [kişi] [konu] → taslak üret, CEO'ya göster
@@ -1167,7 +1169,7 @@ Kurallar:
 Fixed: ISSUE-001..031
 ISSUE-016: applyScope team subquery sales_agents tablosunu kullanıyordu (sales_group yok) → users tablosuna düzeltildi
 ISSUE-017: Dashboard link localhost:3000 → production URL (eliza.elanfairs.com)
-ISSUE-018: Elif expo bazlı sorguları göremiyordu → NO_AGENT_FILTER intent listesi genişletildi
+ISSUE-018: <temsilci> (manager) expo bazlı sorguları göremiyordu → NO_AGENT_FILTER intent listesi genişletildi
 ISSUE-010: message_logs migration eksikti → 006_message_logs.sql oluşturuldu
 ISSUE-011: logMessage response_text wrapForCeo öncesi raw answer kaydediyordu → final response loglanıyor
 ISSUE-012: Dashboard admin sayfaları Türkçe idi → tüm UI İngilizce'ye çevrildi
@@ -1219,11 +1221,11 @@ Location: packages/ai/conversationMemory.js
 - Hata durumunda sessizce original question kullanılır
 - _usage bilgisi döndürülür (token tracking)
 - Response truncation: 300 char max per history entry (prompt boyutunu küçük tut)
-- Bilinen agent isimleri: Elif, Meriem, Emircan, Joanna, Amaka, Damilola, Sinerji, Anka
+- Bilinen agent isimleri: <temsilci> listesi (REWRITE_PROMPT içinde sabit)
 - History formatı: "User: soru\nAssistant: cevap" (hem soru hem cevap gider)
 - Conservative rewrite: bağımsız soruları DEĞİŞTİRMEZ
   - Follow-up ipuçları (rewrite yap): "peki", "onun", "bunun", "ya", "ayrıca", "o fuar", eksik özne ("geliri?", "riski ne?")
-  - Bağımsız ipuçları (rewrite YAPMA): kendi öznesi var ("Elif kaç satmış?"), genel soru ("en iyi satışçı kim?"), farklı entity
+  - Bağımsız ipuçları (rewrite YAPMA): kendi öznesi var ("<temsilci> kaç satmış?"), genel soru ("en iyi satışçı kim?"), farklı entity
   - Örnek: History=SIEMA → "en iyi satışçı kim?" → DEĞİŞMEZ (bağımsız)
   - Örnek: History=SIEMA → "peki geliri?" → "SIEMA 2026 geliri ne kadar?" (follow-up)
   - Ranking/general questions ALWAYS independent: "en çok kim satmış?", "en iyi satışçı?", "toplam gelir?" → UNCHANGED even with history context

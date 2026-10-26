@@ -919,11 +919,18 @@ function buildQuery(intent, entities) {
         listParams.push(e.relative_days);
         paramIdx++;
       } else {
-        // Default: current year
-        const yr = e.year || currentYear;
-        listDateFilter += ` AND EXTRACT(YEAR FROM c.contract_date) = $${paramIdx}`;
-        listParams.push(yr);
-        paramIdx++;
+        // No period: optional year / month filters, no default year
+        // ("en son hangi sözleşme" → newest contracts overall)
+        if (e.year) {
+          listDateFilter += ` AND EXTRACT(YEAR FROM c.contract_date) = $${paramIdx}`;
+          listParams.push(e.year);
+          paramIdx++;
+        }
+        if (e.month) {
+          listDateFilter += ` AND EXTRACT(MONTH FROM c.contract_date) = $${paramIdx}`;
+          listParams.push(e.month);
+          paramIdx++;
+        }
       }
       if (e.expo_name) {
         listDateFilter += ` AND e.name ILIKE $${paramIdx}`;
@@ -937,7 +944,7 @@ function buildQuery(intent, entities) {
         FROM edition_contracts c
         JOIN expos e ON c.expo_id = e.id
         WHERE 1=1 ${listDateFilter}
-        ORDER BY c.contract_date DESC
+        ORDER BY c.contract_date DESC NULLS LAST
         LIMIT 50`,
         params: listParams,
       };
@@ -1383,7 +1390,7 @@ function buildQuery(intent, entities) {
         WHERE company_name ILIKE $1
         GROUP BY company_name, country, sales_agent
         ORDER BY revenue_eur DESC LIMIT 20`,
-        params: [`%${e.expo_name || e.agent_name || ''}%`],
+        params: [`%${e.company_name || e.expo_name || e.agent_name || ''}%`],
       };
 
     case 'general_stats':
