@@ -41,6 +41,22 @@ const STAGE_LABELS = {
   ok: "OK",
 };
 
+// Recent Payments month selector (TEMPORARY, pre-LEENA merge): browser-local current month + last 24
+function monthKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function monthOptions(count = 24) {
+  const now = new Date();
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return { value: monthKey(d), label: d.toLocaleDateString("en-GB", { month: "short", year: "numeric" }) };
+  });
+}
+function fmtPayDate(s) {
+  // event_date is a plain YYYY-MM-DD string — parse as local date (no timezone shift)
+  return s ? new Date(`${s}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-";
+}
+
 function riskLevel(score) {
   const s = Number(score || 0);
   if (s >= 8) return { label: "CRITICAL", color: "#C0392B" };
@@ -57,7 +73,11 @@ export default function FinancePage() {
   const [upcoming, setUpcoming] = useState([]);
   const [byExpo, setByExpo] = useState([]);
   const [byAgent, setByAgent] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]);
+  const [payMonth, setPayMonth] = useState(() => monthKey(new Date()));
+  const [payAgent, setPayAgent] = useState("");
+  const [payments, setPayments] = useState({ rows: [], summary: { total_eur: 0, payment_count: 0 }, agents: [], last_payment_sync_at: null });
+  const [payLoading, setPayLoading] = useState(true);
+  const [payError, setPayError] = useState("");
   const [forecast, setForecast] = useState({ weeks: [], total_amount: 0, total_payments: 0 });
   const [loading, setLoading] = useState(true);
   const [isLight, setIsLight] = useState(false);
@@ -92,22 +112,43 @@ export default function FinancePage() {
       fetch(`${API}/finance/upcoming?days=${upcomingDays}&${params}`).then(r => r.json()),
       fetch(`${API}/finance/by-expo?${params}`).then(r => r.json()),
       fetch(`${API}/finance/by-agent?${params}`).then(r => r.json()),
-      fetch(`${API}/finance/recent-activity?limit=20`).then(r => r.json()),
       fetch(`${API}/finance/forecast?weeks=8&${params}`).then(r => r.json()),
-    ]).then(([sum, al, ag, up, be, ba, ra, fc]) => {
+    ]).then(([sum, al, ag, up, be, ba, fc]) => {
       setSummary(sum);
       setActionList(al || { data: [], total: 0 });
       setAging(Array.isArray(ag) ? ag : []);
       setUpcoming(Array.isArray(up) ? up : []);
       setByExpo(Array.isArray(be) ? be : []);
       setByAgent(Array.isArray(ba) ? ba : []);
-      setRecentActivity(Array.isArray(ra) ? ra : []);
       setForecast(fc || { weeks: [], total_amount: 0, total_payments: 0 });
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [mode, upcomingDays]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Recent Payments: month + agent filter, full month (no row cap), summary computed server-side
+  useEffect(() => {
+    let cancelled = false;
+    setPayLoading(true);
+    setPayError("");
+    const qs = new URLSearchParams({ month: payMonth });
+    if (payAgent) qs.set("agent", payAgent);
+    fetch(`${API}/finance/recent-activity?${qs}`)
+      .then(r => r.json().then(d => (r.ok ? d : Promise.reject(new Error(d?.error || `HTTP ${r.status}`)))))
+      .then(d => {
+        if (cancelled) return;
+        setPayments({
+          rows: Array.isArray(d.rows) ? d.rows : [],
+          summary: d.summary || { total_eur: 0, payment_count: 0 },
+          agents: Array.isArray(d.agents) ? d.agents : [],
+          last_payment_sync_at: d.last_payment_sync_at || null,
+        });
+      })
+      .catch(err => { if (!cancelled) { setPayments(p => ({ ...p, rows: [], summary: { total_eur: 0, payment_count: 0 } })); setPayError(err.message || "Failed to load payments"); } })
+      .finally(() => { if (!cancelled) setPayLoading(false); });
+    return () => { cancelled = true; };
+  }, [payMonth, payAgent]);
 
   // Theme detection for sticky header backgrounds
   useEffect(() => {
@@ -246,6 +287,25 @@ export default function FinancePage() {
       Action: r.suggested_action || "",
     }));
   }
+
+  // Recent Payments export: the full filtered list returned by the API (not capped)
+  function buildPaymentRows() {
+    const clean = s => (s || "").replace(/\s+/g, " ").replace(/"/g, "'").trim();
+    return payments.rows.map(r => ({
+      Date: r.event_date || "",
+      Agent: r.sales_agent || "",
+      Company: clean(r.company_name),
+      Expo: r.expo_name || "",
+      AF: r.af_number || "",
+      "Amount (EUR)": Number(r.amount || 0),
+      "Local Amount": r.amount_local != null ? Number(r.amount_local) : "",
+      Currency: r.currency || "",
+      Note: clean(r.note),
+      "Contract Total (EUR)": Number(r.contract_total_eur || 0),
+      "Contract Paid (EUR)": Number(r.contract_paid_eur || 0),
+    }));
+  }
+  const paymentExportName = `Payments_${payMonth}` + (payAgent ? `_${payAgent.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 14)}` : "");
 
   // Aging chart data
   const agingChartData = {
@@ -825,43 +885,78 @@ export default function FinancePage() {
             {/* RECENT ACTIVITY */}
             <div ref={recentRef} className="section-hdr">
               <div className="section-title">Recent Payments</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <select className="search-input" style={{ width: "auto" }} value={payMonth} onChange={e => setPayMonth(e.target.value)} aria-label="Payment month">
+                  {monthOptions().map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+                <select className="search-input" style={{ width: "auto", maxWidth: 200 }} value={payAgent} onChange={e => setPayAgent(e.target.value)} aria-label="Sales agent">
+                  <option value="">All agents</option>
+                  {payments.agents.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+                <button className="btn-sm" disabled={payLoading} onClick={() => handleCopyTable(buildPaymentRows(), "Payments")}>Copy</button>
+                <button className="btn-sm" disabled={payLoading} onClick={() => exportCSV(buildPaymentRows(), paymentExportName)}>CSV</button>
+                <button className="btn-sm" disabled={payLoading} onClick={() => exportExcel(buildPaymentRows(), paymentExportName)}>Excel</button>
+              </div>
             </div>
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Company</th>
-                  <th>Expo</th>
-                  <th>AF</th>
-                  <th className="r">Amount</th>
-                  <th>Note</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentActivity.map((r, i) => (
-                  <tr key={i}>
-                    <td className="mono" style={{ whiteSpace: "nowrap", fontSize: 11 }}>
-                      {r.event_date ? new Date(r.event_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
-                    </td>
-                    <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company_name}</td>
-                    <td className="muted">{r.expo_name}</td>
-                    <td className="mono" style={{ fontSize: 11 }}>{r.af_number}</td>
-                    <td className="mono r" style={{ color: "var(--success)" }}>
-                      {fmtEur(r.amount)}
-                      {r.currency && r.currency !== "EUR" && r.amount_local ? (
-                        <span style={{ fontSize: 10, color: "var(--text-secondary)", display: "block" }}>
-                          {r.currency} {fmt(r.amount_local)}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="muted" style={{ fontSize: 11, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.note || "-"}</td>
+            <div style={{ maxHeight: 540, overflow: "auto", border: "1px solid var(--border)", borderRadius: 4 }}>
+              <table className="tbl" style={{ margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Agent</th>
+                    <th>Company</th>
+                    <th>Expo</th>
+                    <th className="col-af">AF</th>
+                    <th className="r">Amount</th>
+                    <th className="r">Contract</th>
+                    <th className="r">Paid to Date</th>
+                    <th>Note</th>
                   </tr>
-                ))}
-                {recentActivity.length === 0 && (
-                  <tr><td colSpan={6} className="no-data">No recent payments</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {!payLoading && payments.rows.map((r, i) => (
+                    <tr key={i}>
+                      <td className="mono" style={{ whiteSpace: "nowrap", fontSize: 11 }}>{fmtPayDate(r.event_date)}</td>
+                      <td className="muted" style={{ whiteSpace: "nowrap" }}>{r.sales_agent || "-"}</td>
+                      <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company_name}</td>
+                      <td className="muted" style={{ whiteSpace: "nowrap" }}>{r.expo_name}</td>
+                      <td className="mono col-af" style={{ fontSize: 11, whiteSpace: "nowrap" }}>{r.af_number}</td>
+                      <td className="mono r" style={{ color: "var(--success)", whiteSpace: "nowrap" }}>
+                        {fmtEur(r.amount)}
+                        {r.currency && r.currency !== "EUR" && r.amount_local ? (
+                          <span style={{ fontSize: 10, color: "var(--text-secondary)", display: "block" }}>
+                            {r.currency} {fmt(r.amount_local)}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="mono r" style={{ whiteSpace: "nowrap" }}>{fmtEur(r.contract_total_eur)}</td>
+                      <td className="mono r" style={{ whiteSpace: "nowrap" }}>{fmtEur(r.contract_paid_eur)}</td>
+                      <td className="muted" style={{ fontSize: 11, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.note || "-"}</td>
+                    </tr>
+                  ))}
+                  {payLoading && (
+                    <tr><td colSpan={9} className="no-data">Loading...</td></tr>
+                  )}
+                  {!payLoading && payError && (
+                    <tr><td colSpan={9} className="no-data" style={{ color: "var(--danger)" }}>Error: {payError}</td></tr>
+                  )}
+                  {!payLoading && !payError && payments.rows.length === 0 && (
+                    <tr><td colSpan={9} className="no-data">No payments in this period</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="filter-summary">
+              <span className="fs-label">TOTAL</span>
+              <span className="fs-val" style={{ color: "var(--success)" }}>{payLoading ? "-" : fmtEur(payments.summary.total_eur)}</span>
+              <span className="fs-sep">&middot;</span>
+              <span><span className="fs-val">{payLoading ? "-" : payments.summary.payment_count}</span> payments</span>
+            </div>
+            <div style={{ fontFamily: '"DM Mono", monospace', fontSize: 10, color: "var(--text-secondary)", opacity: 0.7 }}>
+              Last payment sync: {payments.last_payment_sync_at
+                ? new Date(payments.last_payment_sync_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : "unknown"}
+            </div>
           </>
         )}
       </div>

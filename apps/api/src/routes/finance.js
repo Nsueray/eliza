@@ -437,8 +437,95 @@ router.get('/forecast', async (req, res) => {
 });
 
 // ── 9. GET /api/finance/recent-activity ──
+// Two modes:
+//  - Legacy (no month/agent): ?limit=N (max 50) → plain array, unchanged.
+//  - Filtered (month and/or agent given) → { month, agent, rows, summary, agents, last_payment_sync_at }.
+//    month = YYYY-MM by payment_date (default: current month), agent = exact contracts.sales_agent
+//    (default: all). No row cap — the whole month is returned; summary is computed in SQL over
+//    the full filter, not over displayed rows.
+// TEMPORARY (pre-LEENA merge): month + agent view for agent commission on received payments.
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+async function filteredPayments(req, res) {
+  const month = req.query.month ? String(req.query.month).trim() : '';
+  const agentRaw = req.query.agent ? String(req.query.agent).trim() : '';
+  const agent = agentRaw.toLowerCase() === 'all' ? '' : agentRaw;
+
+  if (month && !MONTH_RE.test(month)) {
+    return res.status(400).json({ error: 'Invalid month — expected YYYY-MM' });
+  }
+
+  // $1 = month start (NULL → current month), $2 = agent (NULL → all)
+  const params = [month ? `${month}-01` : null, agent || null];
+  const where = `
+    cp.payment_date >= COALESCE($1::date, DATE_TRUNC('month', CURRENT_DATE)::date)
+    AND cp.payment_date < COALESCE($1::date, DATE_TRUNC('month', CURRENT_DATE)::date) + INTERVAL '1 month'
+    AND ($2::text IS NULL OR c.sales_agent = $2::text)
+  `;
+
+  const [rows, summary, agents, lastSync] = await Promise.all([
+    query(`
+      SELECT
+        to_char(cp.payment_date, 'YYYY-MM-DD') AS event_date,
+        'payment_received' AS event_type,
+        c.sales_agent,
+        c.company_name,
+        e.name AS expo_name,
+        cp.af_number,
+        cp.amount_eur AS amount,
+        cp.amount_local,
+        cp.currency,
+        cp.note,
+        c.revenue_eur AS contract_total_eur,
+        c.paid_eur AS contract_paid_eur
+      FROM contract_payments cp
+      JOIN contracts c ON cp.contract_id = c.id
+      LEFT JOIN expos e ON c.expo_id = e.id
+      WHERE ${where}
+      ORDER BY cp.payment_date DESC, cp.id DESC
+    `, params),
+    query(`
+      SELECT
+        to_char(COALESCE($1::date, DATE_TRUNC('month', CURRENT_DATE)::date), 'YYYY-MM') AS month,
+        COALESCE(SUM(cp.amount_eur), 0) AS total_eur,
+        COUNT(*) AS payment_count
+      FROM contract_payments cp
+      JOIN contracts c ON cp.contract_id = c.id
+      WHERE ${where}
+    `, params),
+    query(`
+      SELECT DISTINCT sales_agent
+      FROM contracts
+      WHERE sales_agent IS NOT NULL AND TRIM(sales_agent) <> ''
+      ORDER BY sales_agent
+    `),
+    query(`
+      SELECT MAX(completed_at) AS last_sync_at
+      FROM sync_log
+      WHERE module = 'received_payments' AND status = 'success'
+    `),
+  ]);
+
+  const s = summary.rows[0];
+  res.json({
+    month: s.month,
+    agent: agent || null,
+    rows: rows.rows,
+    summary: {
+      total_eur: Number(s.total_eur),
+      payment_count: Number(s.payment_count),
+    },
+    agents: agents.rows.map(r => r.sales_agent),
+    last_payment_sync_at: lastSync.rows[0].last_sync_at,
+  });
+}
+
 router.get('/recent-activity', async (req, res) => {
   try {
+    if (req.query.month || req.query.agent) {
+      return await filteredPayments(req, res);
+    }
+
     const limit = Math.min(Number(req.query.limit) || 20, 50);
 
     const result = await query(`
